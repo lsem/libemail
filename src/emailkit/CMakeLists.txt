@@ -8,6 +8,8 @@ list(FILTER CPP_FILES EXCLUDE REGEX "_tests\\.cpp")
 add_library(emailkit ${HPP_FILES} ${CPP_FILES})
 add_library(emailkit::emailkit ALIAS emailkit)
 
+target_include_directories(emailkit PUBLIC include/)
+
 target_link_libraries(emailkit PUBLIC async_kit::async_kit)
 
 # set_target_properties(emailkit PROPERTIES CXX_STANDARD "17")
