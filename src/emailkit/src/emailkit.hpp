@@ -1,9 +1,11 @@
 #pragma once
-#include <async_kit/bounded_async_foreach.hpp>
+#include <async_kit/async_callback.hpp>
 
 namespace emailkit {
 class emailkit {
     public:
-        void async_method()
+        void async_method(async_callback<void> cb) {
+            cb(std::error_code());
+        }
 };
 } // namespace emailkit
