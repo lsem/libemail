@@ -1,3 +1,10 @@
 [submodule "vendor/async_kit"]
 	path = vendor/async_kit
 	url = git@github.com:lsem/async_kit.git
+
+[submodule "vendor/asio"]
+	path = vendor/asio
+	url = git@github.com:lsem/asio.git
+[submodule "vendor/googletest"]
+	path = vendor/googletest
+	url = git@github.com:lsem/googletest.git
