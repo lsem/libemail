@@ -1,0 +1,1 @@
+libemail is email library in C++.
