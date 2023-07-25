@@ -1,0 +1,3 @@
+[submodule "vendor/async_kit"]
+	path = vendor/async_kit
+	url = git@github.com:lsem/async_kit.git
