@@ -10,7 +10,7 @@ add_library(emailkit::emailkit ALIAS emailkit)
 
 target_include_directories(emailkit PUBLIC include/)
 
-target_link_libraries(emailkit PUBLIC async_kit::async_kit)
+target_link_libraries(emailkit PUBLIC async_kit::async_kit fmt::fmt)
 
 # set_target_properties(emailkit PROPERTIES CXX_STANDARD "17")
 

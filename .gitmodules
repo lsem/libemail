@@ -8,3 +8,6 @@
 [submodule "vendor/googletest"]
 	path = vendor/googletest
 	url = git@github.com:lsem/googletest.git
+[submodule "vendor/fmt"]
+	path = vendor/fmt
+	url = https://github.com/fmtlib/fmt.git
