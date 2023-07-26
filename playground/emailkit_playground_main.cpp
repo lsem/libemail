@@ -1,4 +1,5 @@
 #include <emailkit/emailkit.hpp>
+#include <emailkit/imap_client.hpp>
 #include <emailkit/log.hpp>
 #include <iostream>
 
@@ -18,6 +19,12 @@ int main() {
     } else {
       std::cout << "emailkit_t::async_method done\n";
     }
+  });
+
+  auto imap_client = emailkit::make_imap_client(ctx);
+  const std::string gmail_imap_uri = "imap.gmail.com";
+  imap_client->async_connect(gmail_imap_uri, 993, [](std::error_code ec) {
+    log_debug("imap connected: {}", ec.message());
   });
 
   ctx.run();

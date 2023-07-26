@@ -33,7 +33,7 @@ void log_impl(log_level_t level, fmt_and_location fmt, fmt::format_args args) {
     case log_level_t::warning:
       return fmt::bg(fmt::color::yellow);
     case log_level_t::error:
-      return fmt::bg(fmt::color::indian_red);
+      return fmt::bg(fmt::color::indian_red) | fmt::fg(fmt::color::white);
     }
     return fmt::text_style{};
   })();
