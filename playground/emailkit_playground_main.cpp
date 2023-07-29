@@ -3,6 +3,7 @@
 #include <emailkit/imap_client.hpp>
 #include <emailkit/imap_socket.hpp>
 #include <emailkit/log.hpp>
+#include <emailkit/http_srv.hpp>
 #include <iostream>
 
 #include <fmt/ranges.h>
@@ -90,21 +91,26 @@ int main() {
 
     // TODO: since we are going to recreate client for each new connection we should rather put our
     // settings into constructor.
-    auto imap_client = emailkit::make_imap_client(ctx);
-    imap_client->async_connect("imap.gmail.com", "993", [&](std::error_code ec) {
-        if (ec) {
-            log_error("connect failed: {}", ec);
-            return;
-        }
-        imap_client->async_obtain_capabilities(
-            [&](std::error_code ec, std::vector<std::string> caps) {
-                if (ec) {
-                    log_error("obtain capabilities failed: {}", ec);
-                    return;
-                }
+    // auto imap_client = emailkit::make_imap_client(ctx);
+    // imap_client->async_connect("imap.gmail.com", "993", [&](std::error_code ec) {
+    //     if (ec) {
+    //         log_error("connect failed: {}", ec);
+    //         return;
+    //     }
+    //     imap_client->async_obtain_capabilities(
+    //         [&](std::error_code ec, std::vector<std::string> caps) {
+    //             if (ec) {
+    //                 log_error("obtain capabilities failed: {}", ec);
+    //                 return;
+    //             }
 
-                log_info("caps: {}", caps);
-            });
-    });
+    //             log_info("caps: {}", caps);
+    //         });
+    // });
+
+
+    auto srv = emailkit::http_srv::make_http_srv(ctx, "localhost", "8087");    
+    srv->start();
+
     ctx.run();
 }
