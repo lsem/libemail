@@ -115,6 +115,18 @@ int main() {
             cb(std::error_code(),
                emailkit::http_srv::reply::stock_reply(emailkit::http_srv::reply::forbidden));
         });
+    srv->register_handler(
+        "get", "/auth",
+        [](const emailkit::http_srv::request& req, async_callback<emailkit::http_srv::reply> cb) {
+            cb(std::error_code(),
+               emailkit::http_srv::reply::stock_reply(emailkit::http_srv::reply::not_found));
+        });
+    srv->register_handler(
+        "get", "/auth_exchange",
+        [](const emailkit::http_srv::request& req, async_callback<emailkit::http_srv::reply> cb) {
+            cb(std::error_code(), emailkit::http_srv::reply::stock_reply(
+                                      emailkit::http_srv::reply::unauthorized));
+        });
     srv->start();
 
     ctx.run();
