@@ -1,9 +1,9 @@
 #include <emailkit/emailkit.hpp>
 #include <emailkit/global.hpp>
+#include <emailkit/http_srv.hpp>
 #include <emailkit/imap_client.hpp>
 #include <emailkit/imap_socket.hpp>
 #include <emailkit/log.hpp>
-#include <emailkit/http_srv.hpp>
 #include <iostream>
 
 #include <fmt/ranges.h>
@@ -108,9 +108,30 @@ int main() {
     //         });
     // });
 
-
-    auto srv = emailkit::http_srv::make_http_srv(ctx, "localhost", "8087");    
+    auto srv = emailkit::http_srv::make_http_srv(ctx, "localhost", "8087");
+    srv->register_handler(
+        "get", "/",
+        [](const emailkit::http_srv::request& req, async_callback<emailkit::http_srv::reply> cb) {
+            cb(std::error_code(),
+               emailkit::http_srv::reply::stock_reply(emailkit::http_srv::reply::forbidden));
+        });
     srv->start();
 
     ctx.run();
 }
+
+//
+// we would need to bring up to HTTPs endpoints:
+//      one for authorization UI:
+//              https://developers.home.google.com/cloud-to-cloud/project/authorization
+//  token echange endpoint:
+//      where token will be publised to.
+//
+// So at application level we are going to have somthing like:
+//      emailkit::auth_endpoints::auth_ui_t auth_ui;
+//      auth_ui->async_communicate([](comm_result_t) { /*...*/ })
+//
+//      internally it may bring up one more point
+//      emailkit::auth_endpoints::auth_exchange_t auth_exchange;
+//      auth_exchange->async_communicate()
+//
