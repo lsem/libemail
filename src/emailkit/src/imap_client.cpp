@@ -1,42 +1,114 @@
 #include "imap_client.hpp"
-
-#include <asio/ip/tcp.hpp>
+#include <map>
+#include "imap_socket.hpp"
 
 namespace emailkit {
 
 namespace {
-class imap_client_impl_t : public imap_client_t, std::enable_shared_from_this<imap_client_impl_t> {
- public:
-  explicit imap_client_impl_t(asio::io_context& ctx) : m_ctx(ctx) {}
+class imap_client_impl_t : public imap_client_t {
+   public:
+    explicit imap_client_impl_t(asio::io_context& ctx) : m_ctx(ctx) {}
 
-  virtual void async_connect(std::string host, int port, async_callback<void> cb) override {
-    log_debug("async_connect is working ..");
-
-    asio::ip::tcp::resolver resolver{m_ctx};
-    asio::ip::tcp::resolver::query query{host, std::to_string(port)};
-
-    std::error_code ec;
-    auto endpoints = resolver.resolve(query, ec);
-    if (ec) {
-      log_error("resolve failed: {}", ec.message());
-      cb(ec);
-      return;
-    }
-    for (auto x : endpoints) {
-      log_info("ip address: {}", x.endpoint().address().to_string());
+    bool initialize() {
+        m_imap_socket = make_imap_socket(m_ctx);
+        if (!m_imap_socket) {
+            log_info("make_imap_socket failed");
+            return false;
+        }
+        return true;
     }
 
-    cb(std::error_code());
-  }
+    virtual void start() override {
+        // what does start mean?
+        //  I think it should set proper state and then work according to given state and desired
+        //  state.
+        // so when started, client wants to be connected to the server.
+        // but only if it has new data.
 
- private:
-  asio::io_context& m_ctx;
+        // ideally client should not be that smart and we should have some upper level logic
+        // implementing smart things.
+    }
+
+    virtual void on_state_change(std::function<void(imap_client_state)> cb) override {
+        m_state_change_cb = std::move(cb);
+    }
+
+    virtual void async_connect(std::string host,
+                               std::string port,
+                               async_callback<void> cb) override {
+        assert(m_imap_socket);
+        m_imap_socket->async_connect(host, port,
+                                     [this, cb = std::move(cb)](std::error_code ec) mutable {
+                                         if (!ec) {
+                                             // just after connect we should start receiving data
+                                             // from the server, just in case it decides to
+                                             // disconnect us we should at least be able to write
+                                             // this fact into the log.
+                                             //  alterntive is to start on special command like
+                                             //  ready_to_receive()
+                                             recive_next_line();
+                                         }
+                                         cb(ec);
+                                     });
+    }
+
+    void recive_next_line() {
+        m_imap_socket->async_receive_line([this](std::error_code ec, std::string line) {
+            if (ec) {
+                if (ec == asio::error::eof) {
+                    // socket closed
+                    // TODO:
+                    log_warning("socket closed");
+                } else {
+                    log_error("error reading line: {}", ec);
+                }
+                return;
+            }
+            log_debug("received line: {}", line);
+            recive_next_line();
+        });
+    }
+
+    virtual void async_obtain_capabilities(async_callback<std::vector<std::string>> cb) override {
+        // IDEA: before sending command we register handler, or we can attach handler to
+        // send_command itself. through some helper. execute_command(new_command_id(), "CAPABILITY",
+        // [](std::string ) { response; }) we can add additional timeout (e.g. 5s). If command comes
+        // without ID then we have unregistered response/upstream command.
+        //
+        const auto id = new_command_id();
+        m_active_commands[id] = {.cb = [id](std::error_code ec) {
+            log_debug("command {} finished: {}", id, ec.message());
+            // ..
+        }};
+
+        m_imap_socket->async_send_command(fmt::format("{} CAPABILITY\r\n", id), [](std::error_code ec) {
+            // ..
+        });
+    }
+
+    std::string new_command_id() { return std::to_string(m_command_counter++); }
+
+   private:
+    asio::io_context& m_ctx;
+    std::shared_ptr<imap_socket_t> m_imap_socket;
+    std::function<void(imap_client_state)> m_state_change_cb = [](auto s) {};
+    int m_command_counter = 0;
+
+    // a registry of pending commands for which we are waiting response.
+    struct pending_command_ctx {
+        async_callback<void> cb;
+    };
+    std::map<std::string, pending_command_ctx> m_active_commands;
 };
 
 }  // namespace
 
 std::shared_ptr<imap_client_t> make_imap_client(asio::io_context& ctx) {
-  return std::make_shared<imap_client_impl_t>(ctx);
+    auto client = std::make_shared<imap_client_impl_t>(ctx);
+    if (!client->initialize()) {
+        return nullptr;
+    }
+    return client;
 }
 
 }  // namespace emailkit

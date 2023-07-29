@@ -1,4 +1,6 @@
 
+find_package(OpenSSL REQUIRED)
+
 # emailkit
 file(GLOB_RECURSE HPP_FILES  CONFIGURE_DEPENDS "*.hpp")
 file(GLOB_RECURSE CPP_FILES  CONFIGURE_DEPENDS "*.cpp")
@@ -10,7 +12,7 @@ add_library(emailkit::emailkit ALIAS emailkit)
 
 target_include_directories(emailkit PUBLIC include/)
 
-target_link_libraries(emailkit PUBLIC emailkit::global emailkit::log asio::asio)
+target_link_libraries(emailkit PUBLIC emailkit::global emailkit::log asio::asio OpenSSL::SSL)
 
 # set_target_properties(emailkit PROPERTIES CXX_STANDARD "17")
 

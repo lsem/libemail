@@ -4,6 +4,9 @@
 #include <fmt/color.h>
 #include <fmt/format.h>
 
+#include <string_view>
+
+
 struct fmt_and_location {
   std::string_view fmt;
   std::experimental::source_location location;
@@ -27,9 +30,9 @@ void log_impl(log_level_t level, fmt_and_location fmt, fmt::format_args args) {
   const auto style = ([level] {
     switch (level) {
     case log_level_t::debug:
-      return fmt::fg(fmt::color::gray);
-    case log_level_t::info:
       return fmt::fg(fmt::color::light_gray);
+    case log_level_t::info:
+      return fmt::fg(fmt::color::gray);
     case log_level_t::warning:
       return fmt::bg(fmt::color::yellow);
     case log_level_t::error:
