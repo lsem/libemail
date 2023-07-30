@@ -56,9 +56,9 @@ class http_srv_impl_t : public http_srv_t, public std::enable_shared_from_this<h
         // TODO: we should better have somehow not sorted them here but sort before matching.
         m_registered_handelrs.emplace_back(
             handler_tuple{.method = method, .pattern = pattern, .func = std::move(func)});
-        std::sort(m_registered_handelrs.begin(), m_registered_handelrs.end(), [](const auto& _1, const auto& _2) {
-            return _1.pattern.size() > _2.pattern.size();
-        });
+        std::sort(
+            m_registered_handelrs.begin(), m_registered_handelrs.end(),
+            [](const auto& _1, const auto& _2) { return _1.pattern.size() > _2.pattern.size(); });
     }
 
     void do_accept() {
@@ -111,7 +111,7 @@ class http_srv_impl_t : public http_srv_t, public std::enable_shared_from_this<h
                                  cb(ec, std::move(reply));
                              });
                      } else {
-                         log_debug("no handler for connection");
+                         log_warning("no handler for connection: {} {}", req.method, req.uri);
                          cb({}, reply::stock_reply(reply::not_implemented));
                      }
                  },
@@ -137,7 +137,6 @@ class http_srv_impl_t : public http_srv_t, public std::enable_shared_from_this<h
 
     const registered_handlers_t::iterator find_matching_handler(
         const emailkit::http_srv::request& r) {
-
         log_debug("have {} handlers", m_registered_handelrs.size());
         for (auto it = m_registered_handelrs.begin(); it != m_registered_handelrs.end(); ++it) {
             auto& h = *it;

@@ -2,6 +2,7 @@
 #include <fmt/format.h>
 #include <emailkit/http_srv.hpp>
 #include <emailkit/log.hpp>
+#include <folly/folly_uri.hpp>
 #include "uri_codec.hpp"
 
 namespace emailkit {
@@ -72,14 +73,61 @@ class google_auth_t_impl : public google_auth_t,
             });
         m_srv->register_handler(
             "get", "/done",
-            [html_page](const http_srv::request& req, async_callback<http_srv::reply> cb) {
+            [this, html_page, app_creds](const http_srv::request& req,
+                                         async_callback<http_srv::reply> cb) {
+                // TODO: don't use this!
+                const auto complete_uri = local_site_uri("/done") + req.uri;
+
                 log_warning("got something: {}", req);
-                // parse uri for code=
+                auto uri_or_err = folly::Uri::tryFromString(complete_uri);
+                if (!uri_or_err) {
+                    auto err = uri_or_err.takeError();
+                    std::stringstream ss;
+                    ss << err;
+                    log_error("failed parsing uri: {}", ss.str());
+                    log_debug("failed parsing uri: '{}'", complete_uri);
+                    cb({}, http_srv::reply::stock_reply(http_srv::reply::internal_server_error));
+                    return;
+                }
+                auto& uri = *uri_or_err;
+
+                // TODO: don't know if we need to check if returned scope is requested one.
+                std::string code;
+                for (auto& [p, v] : uri.getQueryParams()) {
+                    log_debug("param: {}: {}", p, v);
+                    if (p == "code") {
+                        code = v;
+                    }
+                }
+                if (code.empty()) {
+                    // something went wrong
+                    log_error("unexpected response, code not found in URL from google: {}",
+                              complete_uri);
+                    cb({}, http_srv::reply::stock_reply(http_srv::reply::internal_server_error));
+                    return;
+                }
+
+                // now when we have code we need to make post request.
+                std::vector<std::string> token_request_params;
+                token_request_params.emplace_back(fmt::format("code={}", code));
+                token_request_params.emplace_back(fmt::format("client_id={}", app_creds.client_id));
+                token_request_params.emplace_back(
+                    fmt::format("client_secret={}", app_creds.client_secret));
+                token_request_params.emplace_back(
+                    fmt::format("redirect_uri={}", encode_uri_component(local_site_uri("/done2"))));
+                token_request_params.emplace_back("grant_type=authorization_code");
+                const auto token_request = fmt::format("{}", fmt::join(token_request_params, "&"));
+                log_debug("token_request: {}", token_request);
+
+                // TODO: consider having async operation here. For now we have sync one with 1s
+                // timeout.
+
                 cb({}, http_srv::reply::stock_reply(http_srv::reply::ok));
             });
         m_srv->register_handler(
             "get", "/favicon.ico",
             [](const http_srv::request& req, async_callback<http_srv::reply> cb) {
+                // TODO:
                 cb({}, http_srv::reply::stock_reply(http_srv::reply::not_found));
             });
 

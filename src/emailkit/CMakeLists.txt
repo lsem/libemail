@@ -17,6 +17,7 @@ target_link_libraries(emailkit
         emailkit::global
         emailkit::log
         emailkit::http_srv
+        folly::uri
         asio::asio
         OpenSSL::SSL)
 

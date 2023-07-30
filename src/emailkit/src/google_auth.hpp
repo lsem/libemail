@@ -61,6 +61,7 @@ struct auth_data_t {
     int expires_in;
     std::string token_type;
     std::string id_token;
+    std::vector<std::string> scope;
 };
 
 class google_auth_t {
