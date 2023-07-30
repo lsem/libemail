@@ -51,9 +51,14 @@ class google_auth_t_impl : public google_auth_t,
             emailkit::encode_uri_component(fmt::format("{}", fmt::join(scopes, " ")));
         log_debug("scopes_encoded: {}", scopes_encoded);
 
-        const auto html_page = fmt::format(
-            auth_page_template, fmt::arg("client_id", app_creds.client_id),
-            fmt::arg("scope", scopes_encoded), fmt::arg("redirect_uri", local_site_uri("/done")));
+        // NOTE: redirect uri should be registred in google console in Credentials for the app.
+        // othetwise one will got: 400/redirect_uri_mismatch.
+        // TODO: make this possible to specify from parmater if we are building Kit here.
+        const auto redirect_uri = emailkit::encode_uri_component(local_site_uri("/done"));
+
+        const auto html_page =
+            fmt::format(auth_page_template, fmt::arg("client_id", app_creds.client_id),
+                        fmt::arg("scope", scopes_encoded), fmt::arg("redirect_uri", redirect_uri));
 
         log_debug("page: {}", html_page);
 
@@ -66,9 +71,16 @@ class google_auth_t_impl : public google_auth_t,
                 cb({}, reply);
             });
         m_srv->register_handler(
-            "post", "/done",
+            "get", "/done",
             [html_page](const http_srv::request& req, async_callback<http_srv::reply> cb) {
+                log_warning("got something: {}", req);
+                // parse uri for code=
                 cb({}, http_srv::reply::stock_reply(http_srv::reply::ok));
+            });
+        m_srv->register_handler(
+            "get", "/favicon.ico",
+            [](const http_srv::request& req, async_callback<http_srv::reply> cb) {
+                cb({}, http_srv::reply::stock_reply(http_srv::reply::not_found));
             });
 
         m_srv->start();

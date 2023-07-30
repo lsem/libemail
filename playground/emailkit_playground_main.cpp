@@ -148,8 +148,8 @@ int main() {
     // }
 
     const auto app_creds = emailkit::google_auth_app_creds_t{
-        .client_id = "303173870696-tpi64a42emnt758cjn3tqp2ukncggof9.apps.googleusercontent.com",
-        .client_secret = "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"};
+        .client_id = "303173870696-bsun94hmoseeumiat4iaa6dr752ta805.apps.googleusercontent.com",
+        .client_secret = "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"};
 
     const std::vector<std::string> scopes = {"https://www.googleapis.com/auth/userinfo.email",
                                              "https://www.googleapis.com/auth/userinfo.profile",

@@ -153,7 +153,7 @@ class http_srv_impl_t : public http_srv_t, public std::enable_shared_from_this<h
 
             log_debug("trying to match pattern '{}' to uri '{}'", h.pattern, r.uri);
             if (r.uri.find(h.pattern) != std::string::npos) {
-                log_debug("found prefix match '' and ''", h.pattern, r.uri);
+                log_debug("found prefix match '{}' and '{}'", h.pattern, r.uri);
                 return it;
             }
         }
