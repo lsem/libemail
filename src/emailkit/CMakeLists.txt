@@ -12,7 +12,13 @@ add_library(emailkit::emailkit ALIAS emailkit)
 
 target_include_directories(emailkit PUBLIC include/)
 
-target_link_libraries(emailkit PUBLIC emailkit::global emailkit::log asio::asio OpenSSL::SSL)
+target_link_libraries(emailkit 
+    PUBLIC
+        emailkit::global
+        emailkit::log
+        emailkit::http_srv
+        asio::asio
+        OpenSSL::SSL)
 
 # set_target_properties(emailkit PROPERTIES CXX_STANDARD "17")
 

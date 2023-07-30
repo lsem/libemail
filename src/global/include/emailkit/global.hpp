@@ -1,7 +1,11 @@
 #pragma once
 
+#include <asio/io_context.hpp>
 #include <async_kit/async_callback.hpp>
+#include <memory>
 #include <system_error>
+
+using std::shared_ptr;
 
 namespace asynckit = lsem::async_kit;
 using asynckit::async_callback;

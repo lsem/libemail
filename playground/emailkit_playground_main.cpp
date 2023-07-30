@@ -1,9 +1,12 @@
 #include <emailkit/emailkit.hpp>
 #include <emailkit/global.hpp>
+#include <emailkit/google_auth.hpp>
 #include <emailkit/http_srv.hpp>
 #include <emailkit/imap_client.hpp>
 #include <emailkit/imap_socket.hpp>
 #include <emailkit/log.hpp>
+#include <emailkit/uri_codec.hpp>
+#include <folly/folly_uri.hpp>
 #include <iostream>
 
 #include <fmt/ranges.h>
@@ -108,26 +111,63 @@ int main() {
     //         });
     // });
 
-    auto srv = emailkit::http_srv::make_http_srv(ctx, "localhost", "8087");
-    srv->register_handler(
-        "get", "/",
-        [](const emailkit::http_srv::request& req, async_callback<emailkit::http_srv::reply> cb) {
-            cb(std::error_code(),
-               emailkit::http_srv::reply::stock_reply(emailkit::http_srv::reply::forbidden));
-        });
-    srv->register_handler(
-        "get", "/auth",
-        [](const emailkit::http_srv::request& req, async_callback<emailkit::http_srv::reply> cb) {
-            cb(std::error_code(),
-               emailkit::http_srv::reply::stock_reply(emailkit::http_srv::reply::not_found));
-        });
-    srv->register_handler(
-        "get", "/auth_exchange",
-        [](const emailkit::http_srv::request& req, async_callback<emailkit::http_srv::reply> cb) {
-            cb(std::error_code(), emailkit::http_srv::reply::stock_reply(
-                                      emailkit::http_srv::reply::unauthorized));
-        });
-    srv->start();
+    using namespace emailkit;
+
+    // auto srv = http_srv::make_http_srv(ctx, "localhost", "8087");
+    // srv->register_handler("get", "/",
+    //                       [](const http_srv::request& req, async_callback<http_srv::reply> cb) {
+    //                           cb({}, http_srv::reply::stock_reply(http_srv::reply::forbidden));
+    //                       });
+    // srv->register_handler("get", "/auth",
+    //                       [](const http_srv::request& req, async_callback<http_srv::reply> cb) {
+    //                           cb({}, http_srv::reply::stock_reply(http_srv::reply::not_found));
+    //                       });
+    // srv->register_handler("get", "/auth_exchange",
+    //                       [](const http_srv::request& req, async_callback<http_srv::reply> cb) {
+    //                           cb({},
+    //                           http_srv::reply::stock_reply(http_srv::reply::unauthorized));
+    //                       });
+    // srv->start();
+
+    // in real application we run something like application::async_run()
+    //  which first needs to authenticate which would reflect this in its state so UI can be drawn
+    //  accordingly. it initiates authentication.
+
+    // {
+    //    "installed":{
+    //       "client_id":"303173870696-tpi64a42emnt758cjn3tqp2ukncggof9.apps.googleusercontent.com",
+    //       "project_id":"glowing-bolt-393519",
+    //       "auth_uri":"https://accounts.google.com/o/oauth2/auth",
+    //       "token_uri":"https://oauth2.googleapis.com/token",
+    //       "auth_provider_x509_cert_url":"https://www.googleapis.com/oauth2/v1/certs",
+    //       "client_secret":"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",
+    //       "redirect_uris":[
+    //          "http://localhost"
+    //       ]
+    //    }
+    // }
+
+    const std::vector<std::string> scopes = {"https://www.googleapis.com/auth/userinfo.email",
+                                             "https://www.googleapis.com/auth/userinfo.profile",
+                                             "https://mail.google.com/"};
+
+    const auto app_creds = emailkit::google_auth_app_creds_t{
+        .client_id = "303173870696-tpi64a42emnt758cjn3tqp2ukncggof9.apps.googleusercontent.com",
+        .client_secret = "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"};
+
+    // scopes:
+    // https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email%20https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile%20https%3A%2F%2Fmail.google.com%2F
+    // redirect_url: http://localhost:8087
+
+    auto google_auth = emailkit::make_google_auth(ctx);
+    google_auth->async_handle_auth(app_creds, scopes, [](std::error_code ec, auth_data_t auth_data) {
+        if (ec) {
+            log_error("async_handle_auth failed: {}", ec);
+            return;
+        }
+
+        log_info("received creds: {}", auth_data);
+    });
 
     ctx.run();
 }
