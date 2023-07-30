@@ -36,11 +36,11 @@ const std::string auth_page_template = R"(
 class google_auth_t_impl : public google_auth_t,
                            public std::enable_shared_from_this<google_auth_t_impl> {
    public:
-    google_auth_t_impl(asio::io_context& ctx) : m_ctx(ctx) {}
+    google_auth_t_impl(asio::io_context& ctx, std::string host, std::string port)
+        : m_ctx(ctx), m_host(host), m_port(port) {}
 
     bool initialize() {
-        m_srv = http_srv::make_http_srv(m_ctx, "localhost",
-                                        "8087");  // TODO: make host/port parameters.
+        m_srv = http_srv::make_http_srv(m_ctx, m_host, m_port);
         return m_srv != nullptr;
     }
 
@@ -53,7 +53,7 @@ class google_auth_t_impl : public google_auth_t,
 
         const auto html_page = fmt::format(
             auth_page_template, fmt::arg("client_id", app_creds.client_id),
-            fmt::arg("scope", scopes_encoded), fmt::arg("redirect_uri", "http://localhost:8087"));
+            fmt::arg("scope", scopes_encoded), fmt::arg("redirect_uri", local_site_uri("/done")));
 
         log_debug("page: {}", html_page);
 
@@ -65,21 +65,34 @@ class google_auth_t_impl : public google_auth_t,
                 reply.content = html_page;
                 cb({}, reply);
             });
+        m_srv->register_handler(
+            "post", "/done",
+            [html_page](const http_srv::request& req, async_callback<http_srv::reply> cb) {
+                cb({}, http_srv::reply::stock_reply(http_srv::reply::ok));
+            });
 
         m_srv->start();
         // TODO: make sure we can really connect to immidiately after start() returned.
 
-        launch_system_browser("http://localhost:8087/");
+        launch_system_browser(local_site_uri("/"));
+    }
+
+    std::string local_site_uri(std::string resource) {
+        return fmt::format("http://{}:{}{}", m_host, m_port, resource);
     }
 
    private:
     asio::io_context& m_ctx;
+    std::string m_host;
+    std::string m_port;
     shared_ptr<http_srv::http_srv_t> m_srv;
 };
 }  // namespace
 
-shared_ptr<google_auth_t> make_google_auth(asio::io_context& ctx) {
-    auto inst = std::make_shared<google_auth_t_impl>(ctx);
+shared_ptr<google_auth_t> make_google_auth(asio::io_context& ctx,
+                                           std::string host,
+                                           std::string port) {
+    auto inst = std::make_shared<google_auth_t_impl>(ctx, host, port);
     if (!inst->initialize()) {
         return nullptr;
     }

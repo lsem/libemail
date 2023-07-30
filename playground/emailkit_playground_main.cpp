@@ -147,27 +147,26 @@ int main() {
     //    }
     // }
 
-    const std::vector<std::string> scopes = {"https://www.googleapis.com/auth/userinfo.email",
-                                             "https://www.googleapis.com/auth/userinfo.profile",
-                                             "https://mail.google.com/"};
-
     const auto app_creds = emailkit::google_auth_app_creds_t{
         .client_id = "303173870696-tpi64a42emnt758cjn3tqp2ukncggof9.apps.googleusercontent.com",
         .client_secret = "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"};
 
-    // scopes:
-    // https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email%20https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile%20https%3A%2F%2Fmail.google.com%2F
-    // redirect_url: http://localhost:8087
+    const std::vector<std::string> scopes = {"https://www.googleapis.com/auth/userinfo.email",
+                                             "https://www.googleapis.com/auth/userinfo.profile",
+                                             "https://mail.google.com/"};
 
-    auto google_auth = emailkit::make_google_auth(ctx);
-    google_auth->async_handle_auth(app_creds, scopes, [](std::error_code ec, auth_data_t auth_data) {
-        if (ec) {
-            log_error("async_handle_auth failed: {}", ec);
-            return;
-        }
+    // We are requesting authentication for our app (represented by app_creds) for scoped needed for
+    // our application.
+    auto google_auth = emailkit::make_google_auth(ctx, "localhost", "8089");
+    google_auth->async_handle_auth(app_creds, scopes,
+                                   [](std::error_code ec, auth_data_t auth_data) {
+                                       if (ec) {
+                                           log_error("async_handle_auth failed: {}", ec);
+                                           return;
+                                       }
 
-        log_info("received creds: {}", auth_data);
-    });
+                                       log_info("received creds: {}", auth_data);
+                                   });
 
     ctx.run();
 }

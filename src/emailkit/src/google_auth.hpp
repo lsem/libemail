@@ -74,7 +74,11 @@ class google_auth_t {
                                    async_callback<auth_data_t> cb) = 0;
 };
 
-shared_ptr<google_auth_t> make_google_auth(asio::io_context& ctx);
+// host and port denote where local web server used for serving site and accepting auth data will be
+// brought up.
+shared_ptr<google_auth_t> make_google_auth(asio::io_context& ctx,
+                                           std::string host,
+                                           std::string port);
 
 }  // namespace emailkit
 
