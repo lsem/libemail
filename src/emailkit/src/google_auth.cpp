@@ -60,28 +60,80 @@ class https_client_t {
                                                        const asio::ip::tcp::endpoint& e) mutable {
                                 if (ec) {
                                     log_error("failed connecting: {}", ec);
+                                    cb(ec);
                                     return;
                                 }
                                 log_debug("connected to: {}", e.address().to_string());
-                                cb({});
+
+                                // TODO: don't use this.
+                                m_socket.async_handshake(
+                                    asio::ssl::stream_base::client,
+                                    [this, cb = std::move(cb)](std::error_code ec) mutable {
+                                        if (ec) {
+                                            log_error("handshake failed: {}", ec);
+                                            cb(ec);
+                                            return;
+                                        }
+
+                                        cb({});
+                                    });
                             });
     }
 
-    void aync_request(http_srv::request r, async_callback<http_srv::reply> cb) {
+    void aync_request(std::string host, http_srv::request r, async_callback<http_srv::reply> cb) {
         if (!m_socket.lowest_layer().is_open()) {
             log_error("not opened");
-            cb(make_error_code(std::errc::not_connected));
+            cb(make_error_code(std::errc::not_connected), {});
             return;
         }
 
-        
+        // TODO: assemble request using IO.
+        // https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/POST
+        // TODO: Content-Type, Content-Length?
+        std::stringstream request_s;
+        // TODO: why POST is hardcoded?
+        request_s << "POST " << r.uri << " HTTP/1.0\r\n";
+        request_s << "HOST " << host << "\r\n";
+        request_s << "Accept: /*/\r\n";            // shouldn't it be application/json?
+        request_s << "Connection: close\r\n\r\n";  // Close connection to simplify reading reply.
 
+        asio::async_write(m_socket, asio::buffer(request_s.str()),
+                          [this, cb = std::move(cb)](std::error_code ec, size_t) mutable {
+                              if (ec) {
+                                  log_error("async_write failed: {}", ec);
+                                  cb(ec, {});
+                                  return;
+                              }
+
+                              log_debug("request written, reading..");
+
+                              asio::async_read(
+                                  m_socket, m_recv_buff,
+                                  [this, cb = std::move(cb)](std::error_code ec,
+                                                             size_t bytes_transfered) mutable {
+                                      if (ec && ec != asio::error::eof) {
+                                          log_error("async read failed: {}", ec);
+                                      }
+                                      if (ec != asio::error::eof) {
+                                          log_warning("truncated result");
+                                      }
+
+                                      std::istream is{&m_recv_buff};
+                                      std::string line;
+                                      while (std::getline(is, line)) {
+                                          log_info("received line: {}", line);
+                                      }
+
+                                      cb({}, {});
+                                  });
+                          });
     }
 
    private:
     asio::io_context& m_ctx;
     asio::ssl::context m_ssl_ctx;
     asio::ssl::stream<asio::ip::tcp::socket> m_socket;
+    asio::streambuf m_recv_buff{16384};  // we don't expect to receive larger result.
 };
 
 void async_make_http_post_request(https_client_t& client,
@@ -98,6 +150,25 @@ void async_make_http_post_request(https_client_t& client,
     auto& uri = *uri_or_err;
 
     log_debug("uri.host(): {}", uri.host());
+
+    http_srv::request req;
+    req.method = "post";
+    req.http_version_minor = "0";
+    req.http_version_major = "1";
+    // req.uri = 
+
+
+    client.async_connect(uri.host(), "443", [&client, uri, cb=std::move(cb)](std::error_code ec) {
+        if (ec) {
+            log_error("post request failed: conected failed: {}", ec);
+            cb(ec);
+            return;
+        }
+        
+        //client.aync_request(uri.host(), )
+
+
+    })
 
     // using asio::ip::tcp;
     // asio::ip::tcp::iostream s;
