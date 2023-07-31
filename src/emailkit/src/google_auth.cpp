@@ -12,6 +12,13 @@
 #include <asio/streambuf.hpp>
 #include <asio/write.hpp>
 
+#include <optional>
+#include <regex>
+
+#include <rapidjson/document.h>
+#include <rapidjson/stringbuffer.h>
+#include <llvm_expected.hpp>
+
 namespace emailkit {
 
 namespace {
@@ -29,6 +36,21 @@ bool launch_system_browser(std::string uri) {
 #elif defined(__WIN32)
     return std::system(fmt::format("start {}", uri).c_str()) == 0;
 #endif
+}
+
+llvm::Expected<auth_data_t> parase_google_oauth20_json(std::string j) {
+    rapidjson::Document d;
+    d.Parse(j.c_str());
+    if (d.HasParseError()) {
+        return llvm::createStringError("JSON parse error");
+        // return llvm::createStringError("JSON parse error: {} ({})",
+        //                                rapidjson::GetParseError_En(ok.Code(), ok.Offset()));
+    }
+    // TODO: validate all fields.
+    return auth_data_t{.access_token = d["access_token"].GetString(),
+                       .expires_in = d["expires_in"].GetInt(),
+                       .token_type = d["token_type"].GetString(),
+                       .id_token = d["id_token"].GetString()};
 }
 
 // simplest possible https client without redirecations support for google authentication.
@@ -80,69 +102,141 @@ class https_client_t {
                             });
     }
 
-    void aync_request(std::string host, http_srv::request r, async_callback<http_srv::reply> cb) {
+    void async_make_request(http_srv::request r, async_callback<http_srv::reply> cb) {
         if (!m_socket.lowest_layer().is_open()) {
             log_error("not opened");
             cb(make_error_code(std::errc::not_connected), {});
             return;
         }
 
-        // TODO: assemble request using IO.
-        // https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/POST
-        // TODO: Content-Type, Content-Length?
         std::stringstream request_s;
-        // TODO: why POST is hardcoded?
 
-        request_s << fmt::format("{} {} HTTP/{}.{}\r\nHost: {}\r\n", r.method, r.uri,
-                                 r.http_version_major, r.http_version_minor, host);
+        request_s << fmt::format("{} {} HTTP/{}.{}\r\n", r.method, r.uri, r.http_version_major,
+                                 r.http_version_minor);
         for (auto& [k, v] : r.headers) {
             request_s << fmt::format("{}: {}\r\n", k, v);
         }
         request_s << "\r\n";
 
-        if (!r.form_urlencoded.empty()) {
-            request_s << r.form_urlencoded << "\r\n";
+        if (!r.body.empty()) {
+            request_s << r.body << "\r\n";
         }
 
         log_debug("request to be sent:\n{}", request_s.str());
 
-        // request_s << "POST " << r.uri << " HTTP/1.0\r\n";
-        // request_s << "HOST " << host << "\r\n";
-        // request_s << "Accept: /*/\r\n";            // shouldn't it be application/json?
-        // request_s << "Connection: close\r\n\r\n";  // Close connection to simplify reading reply.
+        asio::async_write(
+            m_socket, asio::buffer(request_s.str()),
+            [this, cb = std::move(cb)](std::error_code ec, size_t) mutable {
+                if (ec) {
+                    log_error("async_write failed: {}", ec);
+                    cb(ec, {});
+                    return;
+                }
 
-        asio::async_write(m_socket, asio::buffer(request_s.str()),
-                          [this, cb = std::move(cb)](std::error_code ec, size_t) mutable {
-                              if (ec) {
-                                  log_error("async_write failed: {}", ec);
-                                  cb(ec, {});
-                                  return;
-                              }
+                log_debug("request written, reading..");
 
-                              log_debug("request written, reading..");
+                asio::async_read(
+                    m_socket, m_recv_buff,
+                    [this, cb = std::move(cb)](std::error_code ec,
+                                               size_t bytes_transfered) mutable {
+                        if (ec && ec != asio::ssl::error::stream_truncated) {
+                            log_error("async read failed: {}", ec);
+                        }
+                        if (ec != asio::ssl::error::stream_truncated) {
+                            log_warning("truncated result");
+                        }
 
-                              asio::async_read(
-                                  m_socket, m_recv_buff,
-                                  [this, cb = std::move(cb)](std::error_code ec,
-                                                             size_t bytes_transfered) mutable {
-                                      if (ec && ec != asio::ssl::error::stream_truncated) {
-                                          log_error("async read failed: {}", ec);
-                                      }
-                                      if (ec != asio::ssl::error::stream_truncated) {
-                                          log_warning("truncated result");
-                                      }
+                        log_debug("read done, parsing output");
 
-                                      log_debug("read done");
+                        std::istream is{&m_recv_buff};
+                        std::string line;
 
-                                      std::istream is{&m_recv_buff};
-                                      std::string line;
-                                      while (std::getline(is, line)) {
-                                          log_info("received line: {}", line);
-                                      }
+                        http_srv::reply reply;
 
-                                      cb({}, {});
-                                  });
-                          });
+                        bool first = true;
+                        bool got_headers = false;
+                        std::optional<int> maybe_content_length;
+                        while (std::getline(is, line)) {
+                            // NOTE: our getline eats "\n"
+                            line += "\n";
+                            log_info("received line: '{}'", line);
+
+                            // https://developer.mozilla.org/en-US/docs/Web/HTTP/Messages
+                            if (first) {
+                                // this thing called status line!
+                                static const std::regex first_line_regex{
+                                    R"(HTTP\/(\d)\.(\d) (\d+) (.*))"};
+                                if (line.size() < 3) {
+                                    log_error("line.size() < 3");
+                                    cb(make_error_code(std::errc::illegal_byte_sequence), {});
+                                    return;
+                                }
+                                line.resize(line.size() - 2);
+
+                                std::smatch match;
+                                if (!std::regex_match(line, match, first_line_regex)) {
+                                    log_error("failed matching http header");
+                                    cb(make_error_code(std::errc::illegal_byte_sequence), {});
+                                    return;
+                                }
+                                reply.status =
+                                    static_cast<http_srv::reply::status_type>(std::stoi(match[2]));
+                                first = false;
+                            } else {
+                                // TODO: check endking specifically for \r\n
+                                if (line == "\r\n") {
+                                    log_debug("found brake after headers");
+                                    got_headers = true;
+                                } else {
+                                    if (!got_headers) {
+                                        // this must be header.
+                                        if (line.size() < 2 || line[line.size() - 2] != '\r' ||
+                                            line[line.size() - 1] != '\n') {
+                                            log_error("bad response, found a line without \r\n: {}",
+                                                      line);
+                                            cb(make_error_code(std::errc::illegal_byte_sequence),
+                                               {});
+                                            return;
+                                        }
+                                        line.resize(line.size() - 2);
+
+                                        const size_t pos = line.find_first_of(':');
+                                        if (pos != std::string::npos) {
+                                            // this must be header
+                                            std::string header = std::string(line, 0, pos);
+                                            std::string value =
+                                                std::string(line, pos + 1 + 1);  // skip whitespace
+                                            log_debug("parsed header: '{}': '{}'", header, value);
+                                            reply.headers.emplace_back(std::move(header),
+                                                                       std::move(value));
+                                        }
+                                    } else {
+                                        // body
+                                        // from body we don't expect to have \r\n but only \n
+                                        if (maybe_content_length.has_value()) {
+                                            log_debug("got body line: {}", line);
+                                            reply.content += line;
+                                            if (reply.content.size() > *maybe_content_length) {
+                                                reply.content.resize(*maybe_content_length);
+                                                log_warning("truncated to content length");
+                                            }
+                                        } else {
+                                            maybe_content_length = std::stoi(line, 0, 16);
+                                            log_debug("got content length: {}",
+                                                      *maybe_content_length);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        log_info("status: {}", static_cast<int>(reply.status));
+                        log_info("headers: [{}]", reply.headers);
+                        log_info("content: '{}'", reply.content);
+
+                        cb({}, std::move(reply));
+                    });
+            });
     }
 
    private:
@@ -152,36 +246,61 @@ class https_client_t {
     asio::streambuf m_recv_buff{16384};  // we don't expect to receive larger result.
 };
 
-void async_make_http_post_request(https_client_t& client,
-                                  std::string host,
-                                  std::string port,
-                                  http_srv::request req,
-                                  async_callback<void> cb) {
-    // auto uri_or_err = folly::Uri::tryFromString(uri_string);
-    // if (!uri_or_err) {
-    //     auto err = uri_or_err.takeError();
-    //     std::stringstream ss;
-    //     ss << err;
-    //     log_error("failed making POST requeset, uri is invalid: {}", ss.str());
-    //     return;
-    // }
-    // auto& uri = *uri_or_err;
+void async_request_token(https_client_t& client,
+                         google_auth_app_creds_t app_creds,
+                         std::string auth_code,
+                         std::string redirect_uri,
+                         async_callback<auth_data_t> cb) {
+    // now when we have code we need to make post request.
+    const std::string host = "accounts.google.com";
+    const std::string port = "443";
 
-    // log_debug("uri.host(): {}", uri.host());
+    log_debug("making params...");
+
+    std::vector<std::string> token_request_params;
+    token_request_params.emplace_back(fmt::format("client_id={}", app_creds.client_id));
+    token_request_params.emplace_back(fmt::format("client_secret={}", app_creds.client_secret));
+    token_request_params.emplace_back(
+        fmt::format("redirect_uri={}", encode_uri_component(redirect_uri)));
+    token_request_params.emplace_back("grant_type=authorization_code");
+    token_request_params.emplace_back(fmt::format("code={}", auth_code));
+
+    // url-encoded form
+    const auto body = fmt::format("{}", fmt::join(token_request_params, "&"));
+
+    log_debug("making request...");
+
+    http_srv::request r;
+    r.http_version_major = 1;
+    r.http_version_minor = 1;
+
+    r.method = "POST";
+    r.uri = "/o/oauth2/token";
+    r.body = body;
+
+    r.headers.emplace_back("Host", host);
+    r.headers.emplace_back("Connection", "close");
+    r.headers.emplace_back("Content-Type", "application/x-www-form-urlencoded");
+    r.headers.emplace_back("Content-Length", std::to_string(body.size()));
+    r.headers.emplace_back("Accept", "*/*");
+
+    log_debug("connecting...");
 
     client.async_connect(
-        host, "443", [&client, host, req, cb = std::move(cb)](std::error_code ec) mutable {
+        host, port, [&client, r = std::move(r), cb = std::move(cb)](std::error_code ec) mutable {
             if (ec) {
                 log_error("post request failed: conected failed: {}", ec);
-                cb(ec);
+                cb(ec, {});
                 return;
             }
 
-            client.aync_request(
-                host, req, [cb = std::move(cb)](std::error_code ec, http_srv::reply reply) mutable {
+            log_debug("connected, making request..");
+
+            client.async_make_request(
+                r, [cb = std::move(cb)](std::error_code ec, http_srv::reply reply) mutable {
                     if (ec) {
                         log_error("post request failed: aync_request failed: {}", ec);
-                        cb(ec);
+                        cb(ec, {});
                         return;
                     }
 
@@ -190,15 +309,31 @@ void async_make_http_post_request(https_client_t& client,
                     log_debug("headers: {}", reply.headers);
                     log_debug("content:\n'{}'", reply.content);
 
-                    cb({});
+                    const auto maybe_content_type = http_srv::header_value(reply, "Content-Type");
+                    if (!maybe_content_type) {
+                        log_error("no content type header");
+                        cb(make_error_code(std::errc::protocol_error), {});
+                        return;
+                    }
+                    if (*maybe_content_type != "application/json; charset=utf-8") {
+                        log_error("invalid content type: '{}'", *maybe_content_type);
+                        cb(make_error_code(std::errc::protocol_not_supported), {});
+                        return;
+                    }
+
+                    log_debug("parsing response: '{}'", reply.content);
+                    auto oauth20_data_or_err = parase_google_oauth20_json(reply.content);
+                    if (!oauth20_data_or_err) {
+                        log_error("failed parsing oauth20 google response");
+                        cb(make_error_code(std::errc::protocol_not_supported), {});
+                        return;
+                    }
+                    auto& oauth20_data = *oauth20_data_or_err;
+
+                    cb({}, std::move(oauth20_data));
                 });
         });
-
-    // using asio::ip::tcp;
-    // asio::ip::tcp::iostream s;
-    // s.expires_after(std::chrono::seconds(1));
-    // s.connect(argv[1], "http");
-}
+};
 
 const std::string auth_page_template = R"(
 <!doctype html>
@@ -250,11 +385,10 @@ class google_auth_t_impl : public google_auth_t,
         m_srv->register_handler(
             "get", "/done",
             [this, html_page, app_creds, redirect_uri](const http_srv::request& req,
-                                         async_callback<http_srv::reply> cb) {
+                                                       async_callback<http_srv::reply> cb) mutable {
                 // TODO: don't use this!
                 const auto complete_uri = local_site_uri("/done") + req.uri;
 
-                log_warning("got something: {}", req);
                 auto uri_or_err = folly::Uri::tryFromString(complete_uri);
                 if (!uri_or_err) {
                     auto err = uri_or_err.takeError();
@@ -283,44 +417,24 @@ class google_auth_t_impl : public google_auth_t,
                     return;
                 }
 
-                // now when we have code we need to make post request.
-                std::vector<std::string> token_request_params;
+                async_request_token(
+                    m_https_client, app_creds, code, local_site_uri("/done"),
+                    [cb = std::move(cb)](std::error_code ec, auth_data_t auth_data) mutable {
+                        if (ec) {
+                            log_error("async_request_token failed: {}", ec);
+                            cb(ec, http_srv::reply::stock_reply(
+                                       http_srv::reply::internal_server_error));
+                            return;
+                        }
 
-                token_request_params.emplace_back(fmt::format("client_id={}", app_creds.client_id));
-                token_request_params.emplace_back(
-                    fmt::format("client_secret={}", app_creds.client_secret));
-                token_request_params.emplace_back(
-                    fmt::format("redirect_uri={}", encode_uri_component(local_site_uri("/done"))));
-                token_request_params.emplace_back("grant_type=authorization_code");
-                token_request_params.emplace_back(fmt::format("code={}", code));
-
-                const std::string token_request_uri = "/o/oauth2/token";
-
-                const auto form_urlencoded =
-                    fmt::format("{}", fmt::join(token_request_params, "&"));
-
-                http_srv::request r;
-                r.http_version_major = 1;
-                r.http_version_minor = 1;
-
-                r.method = "POST";
-                r.uri = token_request_uri;
-                r.form_urlencoded = form_urlencoded;
-
-                r.headers.emplace_back("Connection", "close");
-                r.headers.emplace_back("Content-Type", "application/x-www-form-urlencoded");
-                r.headers.emplace_back("Content-Length", std::to_string(form_urlencoded.size()));
-                r.headers.emplace_back("Accept", "*/*");
-
-                async_make_http_post_request(m_https_client, "accounts.google.com", "443", r,
-                                             [](std::error_code ec) {
-                                                 // ..
-                                             });
+                        log_warning("we have a token: {}", auth_data.access_token);
+                        cb({}, http_srv::reply::stock_reply(http_srv::reply::ok));
+                    });
 
                 // TODO: consider having async operation here. For now we have sync one with 1s
                 // timeout.
 
-                cb({}, http_srv::reply::stock_reply(http_srv::reply::ok));
+                // ;
             });
         m_srv->register_handler(
             "get", "/favicon.ico",

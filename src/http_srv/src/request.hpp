@@ -12,7 +12,7 @@ namespace emailkit::http_srv {
 struct request {
     std::string method;
     std::string uri;
-    std::string form_urlencoded;
+    std::string body;
     int http_version_major;
     int http_version_minor;
     std::vector<header> headers;

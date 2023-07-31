@@ -217,4 +217,15 @@ reply reply::stock_reply(reply::status_type status) {
     return rep;
 }
 
+std::optional<std::string> header_value(const reply& r, std::string_view header) {
+    const auto it = std::find_if(r.headers.begin(), r.headers.end(),
+                                 [header](const auto& h_and_v) { return h_and_v.name == header; });
+    if (it != r.headers.end()) {
+        return it->value;
+
+    } else {
+        return std::nullopt;
+    }
+}
+
 }  // namespace emailkit::http_srv

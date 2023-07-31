@@ -19,7 +19,8 @@ target_link_libraries(emailkit
         emailkit::http_srv
         folly::uri
         asio::asio
-        OpenSSL::SSL)
+        OpenSSL::SSL
+        rapidjson::rapidjson)
 
 # set_target_properties(emailkit PROPERTIES CXX_STANDARD "17")
 

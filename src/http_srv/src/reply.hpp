@@ -10,6 +10,7 @@
 
 #pragma once
 #include <asio.hpp>
+#include <optional>
 #include <string>
 #include <vector>
 #include "header.hpp"
@@ -51,5 +52,7 @@ struct reply {
     /// Get a stock reply.
     static reply stock_reply(status_type status);
 };
+
+std::optional<std::string> header_value(const reply& r, std::string_view header);
 
 }  // namespace emailkit::http_srv
