@@ -92,10 +92,24 @@ class https_client_t {
         // TODO: Content-Type, Content-Length?
         std::stringstream request_s;
         // TODO: why POST is hardcoded?
-        request_s << "POST " << r.uri << " HTTP/1.0\r\n";
-        request_s << "HOST " << host << "\r\n";
-        request_s << "Accept: /*/\r\n";            // shouldn't it be application/json?
-        request_s << "Connection: close\r\n\r\n";  // Close connection to simplify reading reply.
+
+        request_s << fmt::format("{} {} HTTP/{}.{}\r\nHost: {}\r\n", r.method, r.uri,
+                                 r.http_version_major, r.http_version_minor, host);
+        for (auto& [k, v] : r.headers) {
+            request_s << fmt::format("{}: {}\r\n", k, v);
+        }
+        request_s << "\r\n";
+
+        if (!r.form_urlencoded.empty()) {
+            request_s << r.form_urlencoded << "\r\n";
+        }
+
+        log_debug("request to be sent:\n{}", request_s.str());
+
+        // request_s << "POST " << r.uri << " HTTP/1.0\r\n";
+        // request_s << "HOST " << host << "\r\n";
+        // request_s << "Accept: /*/\r\n";            // shouldn't it be application/json?
+        // request_s << "Connection: close\r\n\r\n";  // Close connection to simplify reading reply.
 
         asio::async_write(m_socket, asio::buffer(request_s.str()),
                           [this, cb = std::move(cb)](std::error_code ec, size_t) mutable {
@@ -111,12 +125,14 @@ class https_client_t {
                                   m_socket, m_recv_buff,
                                   [this, cb = std::move(cb)](std::error_code ec,
                                                              size_t bytes_transfered) mutable {
-                                      if (ec && ec != asio::error::eof) {
+                                      if (ec && ec != asio::ssl::error::stream_truncated) {
                                           log_error("async read failed: {}", ec);
                                       }
-                                      if (ec != asio::error::eof) {
+                                      if (ec != asio::ssl::error::stream_truncated) {
                                           log_warning("truncated result");
                                       }
+
+                                      log_debug("read done");
 
                                       std::istream is{&m_recv_buff};
                                       std::string line;
@@ -137,38 +153,46 @@ class https_client_t {
 };
 
 void async_make_http_post_request(https_client_t& client,
-                                  std::string uri_string,
+                                  std::string host,
+                                  std::string port,
+                                  http_srv::request req,
                                   async_callback<void> cb) {
-    auto uri_or_err = folly::Uri::tryFromString(uri_string);
-    if (!uri_or_err) {
-        auto err = uri_or_err.takeError();
-        std::stringstream ss;
-        ss << err;
-        log_error("failed making POST requeset, uri is invalid: {}", ss.str());
-        return;
-    }
-    auto& uri = *uri_or_err;
+    // auto uri_or_err = folly::Uri::tryFromString(uri_string);
+    // if (!uri_or_err) {
+    //     auto err = uri_or_err.takeError();
+    //     std::stringstream ss;
+    //     ss << err;
+    //     log_error("failed making POST requeset, uri is invalid: {}", ss.str());
+    //     return;
+    // }
+    // auto& uri = *uri_or_err;
 
-    log_debug("uri.host(): {}", uri.host());
+    // log_debug("uri.host(): {}", uri.host());
 
-    http_srv::request req;
-    req.method = "post";
-    req.http_version_minor = "0";
-    req.http_version_major = "1";
-    // req.uri = 
+    client.async_connect(
+        host, "443", [&client, host, req, cb = std::move(cb)](std::error_code ec) mutable {
+            if (ec) {
+                log_error("post request failed: conected failed: {}", ec);
+                cb(ec);
+                return;
+            }
 
+            client.aync_request(
+                host, req, [cb = std::move(cb)](std::error_code ec, http_srv::reply reply) mutable {
+                    if (ec) {
+                        log_error("post request failed: aync_request failed: {}", ec);
+                        cb(ec);
+                        return;
+                    }
 
-    client.async_connect(uri.host(), "443", [&client, uri, cb=std::move(cb)](std::error_code ec) {
-        if (ec) {
-            log_error("post request failed: conected failed: {}", ec);
-            cb(ec);
-            return;
-        }
-        
-        //client.aync_request(uri.host(), )
+                    log_debug("got a reply");
+                    log_debug("status: {}", static_cast<int>(reply.status));
+                    log_debug("headers: {}", reply.headers);
+                    log_debug("content:\n'{}'", reply.content);
 
-
-    })
+                    cb({});
+                });
+        });
 
     // using asio::ip::tcp;
     // asio::ip::tcp::iostream s;
@@ -225,7 +249,7 @@ class google_auth_t_impl : public google_auth_t,
             });
         m_srv->register_handler(
             "get", "/done",
-            [this, html_page, app_creds](const http_srv::request& req,
+            [this, html_page, app_creds, redirect_uri](const http_srv::request& req,
                                          async_callback<http_srv::reply> cb) {
                 // TODO: don't use this!
                 const auto complete_uri = local_site_uri("/done") + req.uri;
@@ -261,22 +285,37 @@ class google_auth_t_impl : public google_auth_t,
 
                 // now when we have code we need to make post request.
                 std::vector<std::string> token_request_params;
-                token_request_params.emplace_back(fmt::format("code={}", code));
+
                 token_request_params.emplace_back(fmt::format("client_id={}", app_creds.client_id));
                 token_request_params.emplace_back(
                     fmt::format("client_secret={}", app_creds.client_secret));
                 token_request_params.emplace_back(
-                    fmt::format("redirect_uri={}", encode_uri_component(local_site_uri("/done2"))));
+                    fmt::format("redirect_uri={}", encode_uri_component(local_site_uri("/done"))));
                 token_request_params.emplace_back("grant_type=authorization_code");
+                token_request_params.emplace_back(fmt::format("code={}", code));
 
-                const auto oauth2_token_endpoint = "https://accounts.google.com/o/oauth2/token";
-                const auto token_uri = fmt::format("{}?{}", oauth2_token_endpoint,
-                                                   fmt::join(token_request_params, "&"));
-                log_debug("token_uri: {}", token_uri);
-                // TODO: use async api here.
-                async_make_http_post_request(m_https_client, token_uri, [](std::error_code ec) {
-                    // ..
-                });
+                const std::string token_request_uri = "/o/oauth2/token";
+
+                const auto form_urlencoded =
+                    fmt::format("{}", fmt::join(token_request_params, "&"));
+
+                http_srv::request r;
+                r.http_version_major = 1;
+                r.http_version_minor = 1;
+
+                r.method = "POST";
+                r.uri = token_request_uri;
+                r.form_urlencoded = form_urlencoded;
+
+                r.headers.emplace_back("Connection", "close");
+                r.headers.emplace_back("Content-Type", "application/x-www-form-urlencoded");
+                r.headers.emplace_back("Content-Length", std::to_string(form_urlencoded.size()));
+                r.headers.emplace_back("Accept", "*/*");
+
+                async_make_http_post_request(m_https_client, "accounts.google.com", "443", r,
+                                             [](std::error_code ec) {
+                                                 // ..
+                                             });
 
                 // TODO: consider having async operation here. For now we have sync one with 1s
                 // timeout.

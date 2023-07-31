@@ -11,6 +11,7 @@ namespace asynckit = lsem::async_kit;
 using asynckit::async_callback;
 
 #include <fmt/core.h>
+#include <fmt/ranges.h>
 
 template <>
 struct fmt::formatter<std::error_code> {
@@ -22,3 +23,14 @@ struct fmt::formatter<std::error_code> {
         return fmt::format_to(ctx.out(), "{}:{}", ec.category().name(), ec.message());
     }
 };
+
+#define DEFINE_FMT_FORMATTER(Type, FmtString, ...)                                          \
+    template <>                                                                             \
+    struct fmt::formatter<Type> {                                                           \
+        constexpr auto parse(format_parse_context& ctx) -> format_parse_context::iterator { \
+            return ctx.end();                                                               \
+        }                                                                                   \
+        auto format(const Type& r, format_context& ctx) const -> format_context::iterator { \
+            return fmt::format_to(ctx.out(), FmtString, __VA_ARGS__);                       \
+        }                                                                                   \
+    };

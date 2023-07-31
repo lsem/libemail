@@ -1,5 +1,3 @@
-#pragma once
-
 #include "reply.hpp"
 #include <string>
 

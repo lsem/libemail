@@ -4,6 +4,8 @@
 
 namespace emailkit::http_srv {
 struct header {
+    header() = default;
+    header(std::string name, std::string value) : name(std::move(name)), value(std::move(value)) {}
     std::string name;
     std::string value;
 };
