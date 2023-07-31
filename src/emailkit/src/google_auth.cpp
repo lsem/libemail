@@ -345,6 +345,16 @@ const std::string auth_page_template = R"(
 </html>
 )";
 
+const std::string auth_success_page = R"(
+<!doctype html>
+<html lang="en"
+<head> <meta charset="UTF-8"> </head>
+<body>
+    <h1> Auth success! </h1>
+</body>
+</html>
+)";
+
 class google_auth_t_impl : public google_auth_t,
                            public std::enable_shared_from_this<google_auth_t_impl> {
    public:
@@ -359,6 +369,8 @@ class google_auth_t_impl : public google_auth_t,
     virtual void async_handle_auth(google_auth_app_creds_t app_creds,
                                    std::vector<std::string> scopes,
                                    async_callback<auth_data_t> cb) override {
+        m_callback = std::move(cb);
+
         const auto scopes_encoded =
             emailkit::encode_uri_component(fmt::format("{}", fmt::join(scopes, " ")));
         log_debug("scopes_encoded: {}", scopes_encoded);
@@ -384,8 +396,8 @@ class google_auth_t_impl : public google_auth_t,
             });
         m_srv->register_handler(
             "get", "/done",
-            [this, html_page, app_creds, redirect_uri](const http_srv::request& req,
-                                                       async_callback<http_srv::reply> cb) mutable {
+            [this, app_creds, redirect_uri](const http_srv::request& req,
+                                            async_callback<http_srv::reply> cb) mutable {
                 // TODO: don't use this!
                 const auto complete_uri = local_site_uri("/done") + req.uri;
 
@@ -419,7 +431,7 @@ class google_auth_t_impl : public google_auth_t,
 
                 async_request_token(
                     m_https_client, app_creds, code, local_site_uri("/done"),
-                    [cb = std::move(cb)](std::error_code ec, auth_data_t auth_data) mutable {
+                    [this, cb = std::move(cb)](std::error_code ec, auth_data_t auth_data) mutable {
                         if (ec) {
                             log_error("async_request_token failed: {}", ec);
                             cb(ec, http_srv::reply::stock_reply(
@@ -428,13 +440,18 @@ class google_auth_t_impl : public google_auth_t,
                         }
 
                         log_warning("we have a token: {}", auth_data.access_token);
-                        cb({}, http_srv::reply::stock_reply(http_srv::reply::ok));
+
+                        http_srv::reply reply;
+                        reply.status = http_srv::reply::ok;
+                        reply.headers.emplace_back(http_srv::header{"Connection", "Close"});
+                        reply.content = auth_success_page;
+                        cb({}, reply);
+
+                        m_callback({}, std::move(auth_data));
+
+                        // TODO: at this point we should also resolve main callback, probably via
+                        // post just for the sake of regularity.
                     });
-
-                // TODO: consider having async operation here. For now we have sync one with 1s
-                // timeout.
-
-                // ;
             });
         m_srv->register_handler(
             "get", "/favicon.ico",
@@ -459,6 +476,7 @@ class google_auth_t_impl : public google_auth_t,
     std::string m_port;
     shared_ptr<http_srv::http_srv_t> m_srv;
     https_client_t m_https_client;
+    async_callback<auth_data_t> m_callback;
 };
 }  // namespace
 
