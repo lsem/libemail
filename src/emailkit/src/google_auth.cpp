@@ -411,6 +411,22 @@ const std::string auth_success_page = R"(
 </html>
 )";
 
+// TODO:
+// Potentially missing part is to enable automatically imap in gmail client on behalf of user (with
+// corresponding token):
+//     const std::string url =
+//         "https://gmail.googleapis.com/gmail/v1/users/me/settings/imap";
+
+//     curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+//     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+//     curl_easy_setopt(curl, CURLOPT_PUT, 1L);
+
+//     std::stringstream ss;
+//     ss << R"({
+//   "enabled": true,
+//   "autoExpunge": true,
+//   "expungeBehavior": "expungeBehaviorUnspecified"
+// })";
 class google_auth_t_impl : public google_auth_t,
                            public std::enable_shared_from_this<google_auth_t_impl> {
    public:
