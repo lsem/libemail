@@ -67,7 +67,7 @@ std::string mask_http_control_characters(std::string s) {
 }
 
 // simplest possible https client without redirecations support for google authentication.
-class https_client_t {
+class https_client_t : public std::enable_shared_from_this<https_client_t> {
    public:
     explicit https_client_t(asio::io_context& ctx)
         : m_ctx(ctx), m_ssl_ctx(asio::ssl::context::sslv23), m_socket(m_ctx, m_ssl_ctx) {}
@@ -91,19 +91,25 @@ class https_client_t {
         }
 
         asio::async_connect(m_socket.lowest_layer(), std::move(endpoints),
-                            [cb = std::move(cb), this](std::error_code ec,
-                                                       const asio::ip::tcp::endpoint& e) mutable {
+                            [cb = std::move(cb), this_weak = weak_from_this()](
+                                std::error_code ec, const asio::ip::tcp::endpoint& e) mutable {
                                 if (ec) {
                                     log_error("failed connecting: {}", ec);
                                     cb(ec);
                                     return;
                                 }
+                                auto this_ptr = this_weak.lock();
+                                if (!this_ptr) {
+                                    cb(make_error_code(std::errc::owner_dead));
+                                    return;
+                                }
+                                auto& this_ = *this_ptr;
+
                                 log_debug("connected to: {}", e.address().to_string());
 
-                                // TODO: don't use this.
-                                m_socket.async_handshake(
+                                this_.m_socket.async_handshake(
                                     asio::ssl::stream_base::client,
-                                    [this, cb = std::move(cb)](std::error_code ec) mutable {
+                                    [cb = std::move(cb)](std::error_code ec) mutable {
                                         if (ec) {
                                             log_error("handshake failed: {}", ec);
                                             cb(ec);
@@ -221,29 +227,44 @@ class https_client_t {
 
         asio::async_write(
             m_socket, asio::buffer(request_s.str()),
-            [this, cb = std::move(cb)](std::error_code ec, size_t) mutable {
+            [this_weak = weak_from_this(), cb = std::move(cb)](std::error_code ec, size_t) mutable {
                 if (ec) {
                     log_error("async_write failed: {}", ec);
                     cb(ec, {});
                     return;
                 }
+                auto this_ptr = this_weak.lock();
+                if (!this_ptr) {
+                    cb(make_error_code(std::errc::owner_dead), {});
+                    return;
+                }
+                auto& this_ = *this_ptr;
 
                 log_debug("request written, reading..");
 
                 asio::async_read(
-                    m_socket, m_recv_buff,
-                    [this, cb = std::move(cb)](std::error_code ec,
-                                               size_t bytes_transfered) mutable {
+                    this_.m_socket, this_.m_recv_buff,
+                    [this_weak = this_.weak_from_this(), cb = std::move(cb)](
+                        std::error_code ec, size_t bytes_transfered) mutable {
                         if (ec && ec != asio::ssl::error::stream_truncated) {
                             log_error("async read failed: {}", ec);
+                            cb(ec, {});
+                            return;
                         }
                         if (ec != asio::ssl::error::stream_truncated) {
                             log_warning("truncated result");
                         }
 
+                        auto this_ptr = this_weak.lock();
+                        if (!this_ptr) {
+                            cb(make_error_code(std::errc::owner_dead), {});
+                            return;
+                        }
+                        auto& this_ = *this_ptr;
+
                         log_debug("read done, parsing output");
 
-                        std::istream is{&m_recv_buff};
+                        std::istream is{&this_.m_recv_buff};
                         std::string line;
 
                         http_response_parse_state_t state;
@@ -394,7 +415,10 @@ class google_auth_t_impl : public google_auth_t,
                            public std::enable_shared_from_this<google_auth_t_impl> {
    public:
     google_auth_t_impl(asio::io_context& ctx, std::string host, std::string port)
-        : m_ctx(ctx), m_host(host), m_port(port), m_https_client(m_ctx) {}
+        : m_ctx(ctx),
+          m_host(host),
+          m_port(port),
+          m_https_client(std::make_shared<https_client_t>(m_ctx)) {}
 
     bool initialize() {
         m_srv = http_srv::make_http_srv(m_ctx, m_host, m_port);
@@ -431,10 +455,16 @@ class google_auth_t_impl : public google_auth_t,
             });
         m_srv->register_handler(
             "get", "/done",
-            [this, app_creds, redirect_uri](const http_srv::request& req,
-                                            async_callback<http_srv::reply> cb) mutable {
-                // TODO: don't use this!
-                const auto complete_uri = local_site_uri("/done") + req.uri;
+            [this_weak = weak_from_this(), app_creds, redirect_uri](
+                const http_srv::request& req, async_callback<http_srv::reply> cb) mutable {
+                auto this_ptr = this_weak.lock();
+                if (!this_ptr) {
+                    cb(make_error_code(std::errc::owner_dead), {});
+                    return;
+                }
+                auto& this_ = *this_ptr;
+
+                const auto complete_uri = this_.local_site_uri("/done") + req.uri;
 
                 auto uri_or_err = folly::Uri::tryFromString(complete_uri);
                 if (!uri_or_err) {
@@ -465,8 +495,9 @@ class google_auth_t_impl : public google_auth_t,
                 }
 
                 async_request_token(
-                    m_https_client, app_creds, code, local_site_uri("/done"),
-                    [this, cb = std::move(cb)](std::error_code ec, auth_data_t auth_data) mutable {
+                    *this_.m_https_client, app_creds, code, this_.local_site_uri("/done"),
+                    [this_weak = this_.weak_from_this(), cb = std::move(cb)](
+                        std::error_code ec, auth_data_t auth_data) mutable {
                         if (ec) {
                             log_error("async_request_token failed: {}", ec);
                             cb(ec, http_srv::reply::stock_reply(
@@ -474,10 +505,20 @@ class google_auth_t_impl : public google_auth_t,
                             return;
                         }
 
+                        auto this_ptr = this_weak.lock();
+                        if (!this_ptr) {
+                            cb(make_error_code(std::errc::owner_dead), {});
+                            return;
+                        }
+                        auto& this_ = *this_ptr;
+
                         if (auth_data.access_token.empty()) {
                             log_error("didn't get token");
                             cb(ec, http_srv::reply::stock_reply(
                                        http_srv::reply::internal_server_error));
+                            // TODO: m_callback is not resolved. we should probably not have it as
+                            // member but have it locally in the scope ensuring that if this page
+                            // handling finished strong callback is called!
                             return;
                         }
 
@@ -487,8 +528,14 @@ class google_auth_t_impl : public google_auth_t,
                         reply.content = auth_success_page;
                         cb({}, reply);
 
-                        asio::post(m_ctx, [this, auth_data = std::move(auth_data)] {
-                            m_callback({}, std::move(auth_data));
+                        asio::post(this_.m_ctx, [this_weak = this_.weak_from_this(),
+                                                 auth_data = std::move(auth_data)] {
+                            auto this_ptr = this_weak.lock();
+                            if (!this_ptr) {
+                                return;
+                            }
+                            auto& this_ = *this_ptr;
+                            this_.m_callback({}, std::move(auth_data));
                         });
                     });
             });
@@ -517,7 +564,7 @@ class google_auth_t_impl : public google_auth_t,
     std::string m_host;
     std::string m_port;
     shared_ptr<http_srv::http_srv_t> m_srv;
-    https_client_t m_https_client;
+    std::shared_ptr<https_client_t> m_https_client;
     async_callback<auth_data_t> m_callback;
 };
 }  // namespace
