@@ -22,8 +22,6 @@ target_link_libraries(emailkit
         OpenSSL::SSL
         rapidjson::rapidjson)
 
-# set_target_properties(emailkit PROPERTIES CXX_STANDARD "17")
-
 # emailkit-tests
 file(GLOB_RECURSE TEST_HPP_FILES CONFIGURE_DEPENDS "*.h")
 file(GLOB_RECURSE TEST_CPP_FILES CONFIGURE_DEPENDS "*.cpp")

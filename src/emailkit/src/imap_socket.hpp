@@ -14,7 +14,7 @@ class imap_socket_t {
     // todo: context with deadline?
     virtual void async_connect(std::string host, std::string port, async_callback<void> cb) = 0;
     virtual void async_receive_line(async_callback<std::string> cb) = 0;
-    virtual void async_send_command(std::string command, async_callback<void> cb) = 0;    
+    virtual void async_send_command(std::string command, async_callback<void> cb) = 0;
 };
 
 std::shared_ptr<imap_socket_t> make_imap_socket(asio::io_context& ctx);

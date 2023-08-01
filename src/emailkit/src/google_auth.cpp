@@ -26,11 +26,10 @@ bool launch_system_browser(std::string uri) {
     // https://blog.kowalczyk.info/article/j/guide-to-predefined-macros-in-c-compilers-gcc-clang-msvc-etc..html
 
 #if defined(__linux__)
-    // for Linux:
+    // TODO: see more variants if this does not work
     // https://www.baeldung.com/linux/open-url-in-default-browser
-    log_error("launch_system_browser is not implemented");
-    abort();  // not implemented
-    return false;
+    return std::system(fmt::format("xdg-open {} > /dev/null 2>&1", uri).c_str()) == 0;
+
 #elif defined(__APPLE__)
     return std::system(fmt::format("open {}", uri).c_str()) == 0;
 #elif defined(__WIN32)
@@ -51,6 +50,20 @@ llvm::Expected<auth_data_t> parase_google_oauth20_json(std::string j) {
                        .expires_in = d["expires_in"].GetInt(),
                        .token_type = d["token_type"].GetString(),
                        .id_token = d["id_token"].GetString()};
+}
+
+std::string mask_http_control_characters(std::string s) {
+    std::string result;
+    for (auto c : s) {
+        if (c == '\r') {
+            result += "\\r";
+        } else if (c == '\n') {
+            result += "\\n";
+        } else {
+            result += c;
+        }
+    }
+    return result;
 }
 
 // simplest possible https client without redirecations support for google authentication.
@@ -102,6 +115,88 @@ class https_client_t {
                             });
     }
 
+    struct http_response_parse_state_t {
+        http_srv::reply reply;
+
+        bool first = true;
+        bool got_headers = false;
+        bool got_content = false;
+
+        std::optional<int> maybe_content_length;
+    };
+
+    static std::error_code http_parse_next_line(http_response_parse_state_t& state,
+                                                std::string line) {
+        if (state.got_content) {
+            // i can't find out why but there is '0'\r\n after content.
+            return {};
+        }
+
+        // https://developer.mozilla.org/en-US/docs/Web/HTTP/Messages
+        if (state.first) {
+            static const std::regex http_status_line_regex{R"(HTTP\/(\d)\.(\d) (\d+) (.*)\r\n)"};
+            std::smatch match;
+            if (!std::regex_match(line, match, http_status_line_regex)) {
+                log_error("failed matching http header");
+                return make_error_code(std::errc::illegal_byte_sequence);
+            }
+            state.reply.status = static_cast<http_srv::reply::status_type>(std::stoi(match[3]));
+            state.first = false;
+        } else {
+            if (line == "\r\n") {
+                log_debug("found brake after headers");
+                state.got_headers = true;
+            } else {
+                if (!state.got_headers) {
+                    // this must be header.
+                    if (line.size() < 2 || line[line.size() - 2] != '\r' ||
+                        line[line.size() - 1] != '\n') {
+                        log_error("bad response, found a line without \r\n: {}", line);
+                        return make_error_code(std::errc::illegal_byte_sequence);
+                    }
+                    line.resize(line.size() - 2);
+
+                    const size_t pos = line.find_first_of(':');
+                    if (pos != std::string::npos) {
+                        // this must be header
+                        std::string header = std::string(line, 0, pos);
+                        std::string value = std::string(line, pos + 1 + 1);  // skip whitespace
+                        log_debug("parsed header: '{}': '{}'", header, value);
+                        state.reply.headers.emplace_back(std::move(header), std::move(value));
+                    }
+                } else {
+                    // body/content
+                    //
+                    // from body we don't expect to have \r\n but only \n
+                    if (state.maybe_content_length.has_value()) {
+                        state.reply.content += line;
+                        if (state.reply.content.size() > *state.maybe_content_length) {
+                            const size_t extra_bytes =
+                                state.reply.content.size() - *state.maybe_content_length;
+
+                            // crlf if expected
+                            if (!(extra_bytes == 2 &&
+                                  state.reply.content[state.reply.content.size() - 2] == '\r' &&
+                                  state.reply.content[state.reply.content.size() - 1] == '\n')) {
+                                log_warning(
+                                    "skipping {} additional bytes on top of "
+                                    "content length",
+                                    extra_bytes);
+                            }
+                            state.reply.content.resize(*state.maybe_content_length);
+                            state.got_content = true;
+                        }
+                    } else {
+                        state.maybe_content_length = std::stoi(line, 0, 16);
+                        log_debug("got content length: {}", *state.maybe_content_length);
+                    }
+                }
+            }
+        }
+
+        return {};
+    }
+
     void async_make_request(http_srv::request r, async_callback<http_srv::reply> cb) {
         if (!m_socket.lowest_layer().is_open()) {
             log_error("not opened");
@@ -151,90 +246,23 @@ class https_client_t {
                         std::istream is{&m_recv_buff};
                         std::string line;
 
-                        http_srv::reply reply;
+                        http_response_parse_state_t state;
 
-                        bool first = true;
-                        bool got_headers = false;
-                        std::optional<int> maybe_content_length;
                         while (std::getline(is, line)) {
-                            // NOTE: our getline eats "\n"
+                            // our getline eats "\n" so we need to add it back
+
                             line += "\n";
-                            log_info("received line: '{}'", line);
+                            log_debug("received line: '{}'", mask_http_control_characters(line));
 
-                            // https://developer.mozilla.org/en-US/docs/Web/HTTP/Messages
-                            if (first) {
-                                // this thing called status line!
-                                static const std::regex first_line_regex{
-                                    R"(HTTP\/(\d)\.(\d) (\d+) (.*))"};
-                                if (line.size() < 3) {
-                                    log_error("line.size() < 3");
-                                    cb(make_error_code(std::errc::illegal_byte_sequence), {});
-                                    return;
-                                }
-                                line.resize(line.size() - 2);
-
-                                std::smatch match;
-                                if (!std::regex_match(line, match, first_line_regex)) {
-                                    log_error("failed matching http header");
-                                    cb(make_error_code(std::errc::illegal_byte_sequence), {});
-                                    return;
-                                }
-                                reply.status =
-                                    static_cast<http_srv::reply::status_type>(std::stoi(match[2]));
-                                first = false;
-                            } else {
-                                // TODO: check endking specifically for \r\n
-                                if (line == "\r\n") {
-                                    log_debug("found brake after headers");
-                                    got_headers = true;
-                                } else {
-                                    if (!got_headers) {
-                                        // this must be header.
-                                        if (line.size() < 2 || line[line.size() - 2] != '\r' ||
-                                            line[line.size() - 1] != '\n') {
-                                            log_error("bad response, found a line without \r\n: {}",
-                                                      line);
-                                            cb(make_error_code(std::errc::illegal_byte_sequence),
-                                               {});
-                                            return;
-                                        }
-                                        line.resize(line.size() - 2);
-
-                                        const size_t pos = line.find_first_of(':');
-                                        if (pos != std::string::npos) {
-                                            // this must be header
-                                            std::string header = std::string(line, 0, pos);
-                                            std::string value =
-                                                std::string(line, pos + 1 + 1);  // skip whitespace
-                                            log_debug("parsed header: '{}': '{}'", header, value);
-                                            reply.headers.emplace_back(std::move(header),
-                                                                       std::move(value));
-                                        }
-                                    } else {
-                                        // body
-                                        // from body we don't expect to have \r\n but only \n
-                                        if (maybe_content_length.has_value()) {
-                                            log_debug("got body line: {}", line);
-                                            reply.content += line;
-                                            if (reply.content.size() > *maybe_content_length) {
-                                                reply.content.resize(*maybe_content_length);
-                                                log_warning("truncated to content length");
-                                            }
-                                        } else {
-                                            maybe_content_length = std::stoi(line, 0, 16);
-                                            log_debug("got content length: {}",
-                                                      *maybe_content_length);
-                                        }
-                                    }
-                                }
+                            const auto parse_ec = http_parse_next_line(state, std::move(line));
+                            if (parse_ec) {
+                                log_error("failed parsing http response");
+                                cb(ec, {});
+                                return;
                             }
                         }
 
-                        log_info("status: {}", static_cast<int>(reply.status));
-                        log_info("headers: [{}]", reply.headers);
-                        log_info("content: '{}'", reply.content);
-
-                        cb({}, std::move(reply));
+                        cb({}, std::move(state.reply));
                     });
             });
     }
@@ -299,7 +327,7 @@ void async_request_token(https_client_t& client,
             client.async_make_request(
                 r, [cb = std::move(cb)](std::error_code ec, http_srv::reply reply) mutable {
                     if (ec) {
-                        log_error("post request failed: aync_request failed: {}", ec);
+                        log_error("post request failed: async_make_request failed: {}", ec);
                         cb(ec, {});
                         return;
                     }
@@ -308,6 +336,13 @@ void async_request_token(https_client_t& client,
                     log_debug("status: {}", static_cast<int>(reply.status));
                     log_debug("headers: {}", reply.headers);
                     log_debug("content:\n'{}'", reply.content);
+
+                    if (reply.status != http_srv::reply::ok) {
+                        log_error("google replies with non-ok status: {}",
+                                  static_cast<int>(reply.status));
+                        cb(make_error_code(std::errc::protocol_error), {});
+                        return;
+                    }
 
                     const auto maybe_content_type = http_srv::header_value(reply, "Content-Type");
                     if (!maybe_content_type) {
@@ -439,7 +474,12 @@ class google_auth_t_impl : public google_auth_t,
                             return;
                         }
 
-                        log_warning("we have a token: {}", auth_data.access_token);
+                        if (auth_data.access_token.empty()) {
+                            log_error("didn't get token");
+                            cb(ec, http_srv::reply::stock_reply(
+                                       http_srv::reply::internal_server_error));
+                            return;
+                        }
 
                         http_srv::reply reply;
                         reply.status = http_srv::reply::ok;
@@ -447,10 +487,9 @@ class google_auth_t_impl : public google_auth_t,
                         reply.content = auth_success_page;
                         cb({}, reply);
 
-                        m_callback({}, std::move(auth_data));
-
-                        // TODO: at this point we should also resolve main callback, probably via
-                        // post just for the sake of regularity.
+                        asio::post(m_ctx, [this, auth_data = std::move(auth_data)] {
+                            m_callback({}, std::move(auth_data));
+                        });
                     });
             });
         m_srv->register_handler(
@@ -463,7 +502,10 @@ class google_auth_t_impl : public google_auth_t,
         m_srv->start();
         // TODO: make sure we can really connect to immidiately after start() returned.
 
-        launch_system_browser(local_site_uri("/"));
+        if (!launch_system_browser(local_site_uri("/"))) {
+            log_error("failed launching system browser for google authentication");
+            m_callback(make_error_code(std::errc::io_error), {});
+        }
     }
 
     std::string local_site_uri(std::string resource) {

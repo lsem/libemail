@@ -1,2 +1,2 @@
-add_library(llvm_expected INTERFACE include/llvm_expected.hpp )
+add_library(llvm_expected INTERFACE)
 target_include_directories(llvm_expected INTERFACE include/)
