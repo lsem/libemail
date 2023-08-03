@@ -8,7 +8,15 @@
 using std::shared_ptr;
 
 namespace asynckit = lsem::async_kit;
-using asynckit::async_callback;
+
+struct emailkit_log_fns {
+    static void print_error_line(const char* msg);
+};
+
+template<class T>
+using async_callback = lsem::async_kit::async_callback_impl_t<T, emailkit_log_fns>;
+
+//using asynckit::async_callback; 
 
 #include <fmt/core.h>
 #include <fmt/ranges.h>

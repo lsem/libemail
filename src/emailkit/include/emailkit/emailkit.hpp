@@ -1,11 +1,10 @@
 #pragma once
+#include <emailkit/global.hpp>
 #include <asio/io_context.hpp>
 #include <async_kit/async_callback.hpp>
 #include <memory>
 
 #include <emailkit/log.hpp>
-
-using lsem::async_kit::async_callback;
 
 namespace emailkit {
 class emailkit_t {
