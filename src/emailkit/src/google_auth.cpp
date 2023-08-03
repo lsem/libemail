@@ -455,9 +455,9 @@ class google_auth_t_impl : public google_auth_t,
         // TODO: make this possible to specify from parmater if we are building Kit here.
         const auto redirect_uri = emailkit::encode_uri_component(local_site_uri("/done"));
 
-        const auto html_page =
-            fmt::format(auth_page_template, fmt::arg("client_id", app_creds.client_id),
-                        fmt::arg("scope", scopes_encoded), fmt::arg("redirect_uri", redirect_uri));
+        const auto html_page = fmt::format(
+            fmt::runtime(auth_page_template), fmt::arg("client_id", app_creds.client_id),
+            fmt::arg("scope", scopes_encoded), fmt::arg("redirect_uri", redirect_uri));
 
         log_debug("page: {}", html_page);
 

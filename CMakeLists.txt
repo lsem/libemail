@@ -4,6 +4,7 @@ cmake_minimum_required(VERSION 3.5)
 
 set (CMAKE_CXX_STANDARD 17)
 
+
 # add_compile_options("-fcolor-diagnostics")
 add_compile_options("-fdiagnostics-color=always")
 

@@ -2,6 +2,7 @@
 
 #include <asio/io_context.hpp>
 #include <async_kit/async_callback.hpp>
+#include <emailkit/log.hpp>
 #include <memory>
 #include <system_error>
 
@@ -10,13 +11,14 @@ using std::shared_ptr;
 namespace asynckit = lsem::async_kit;
 
 struct emailkit_log_fns {
-    static void print_error_line(const char* msg);
+    template <class... Args>
+    static void print_error_line(std::string_view fmt_str, Args&&... args) {
+        log_error("{}", fmt::vformat(fmt_str, fmt::make_format_args(args...)));
+    }
 };
 
-template<class T>
+template <class T>
 using async_callback = lsem::async_kit::async_callback_impl_t<T, emailkit_log_fns>;
-
-//using asynckit::async_callback; 
 
 #include <fmt/core.h>
 #include <fmt/ranges.h>
