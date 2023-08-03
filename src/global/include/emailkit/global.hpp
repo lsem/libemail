@@ -23,24 +23,15 @@ using async_callback = lsem::async_kit::async_callback_impl_t<T, emailkit_log_fn
 #include <fmt/core.h>
 #include <fmt/ranges.h>
 
-template <>
-struct fmt::formatter<std::error_code> {
-    constexpr auto parse(format_parse_context& ctx) -> format_parse_context::iterator {
-        return ctx.end();
+#define DEFINE_FMT_FORMATTER(Type, FmtString, ...)                                            \
+    template <>                                                                               \
+    struct fmt::formatter<Type> {                                                             \
+        constexpr auto parse(format_parse_context& ctx) -> format_parse_context::iterator {   \
+            return ctx.end();                                                                 \
+        }                                                                                     \
+        auto format(const Type& arg, format_context& ctx) const -> format_context::iterator { \
+            return fmt::format_to(ctx.out(), FmtString, __VA_ARGS__);                         \
+        }                                                                                     \
     };
 
-    auto format(const std::error_code& ec, format_context& ctx) const -> format_context::iterator {
-        return fmt::format_to(ctx.out(), "{}:{}", ec.category().name(), ec.message());
-    }
-};
-
-#define DEFINE_FMT_FORMATTER(Type, FmtString, ...)                                          \
-    template <>                                                                             \
-    struct fmt::formatter<Type> {                                                           \
-        constexpr auto parse(format_parse_context& ctx) -> format_parse_context::iterator { \
-            return ctx.end();                                                               \
-        }                                                                                   \
-        auto format(const Type& r, format_context& ctx) const -> format_context::iterator { \
-            return fmt::format_to(ctx.out(), FmtString, __VA_ARGS__);                       \
-        }                                                                                   \
-    };
+DEFINE_FMT_FORMATTER(std::error_code, "{}:{}", arg.category().name(), arg.message());
