@@ -14,6 +14,7 @@
 
 using namespace emailkit;
 
+// https://gist.github.com/karanth/8420579
 void gmail_auth_test() {
     // {
     //    "installed":{
@@ -34,11 +35,11 @@ void gmail_auth_test() {
         .client_id = "303173870696-bsun94hmoseeumiat4iaa6dr752ta805.apps.googleusercontent.com",
         .client_secret = "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"};
 
-    const std::vector<std::string> scopes = {"https://www.googleapis.com/auth/userinfo.email",
-                                             "https://www.googleapis.com/auth/userinfo.profile",
-                                             "https://mail.google.com/"};
+    const std::vector<std::string> scopes = {"https://mail.google.com/",
+                                             "https://www.googleapis.com/auth/userinfo.email",
+                                             "https://www.googleapis.com/auth/userinfo.profile"};
 
-    auto imap_socket = emailkit::make_imap_socket(ctx);
+    auto imap_client = emailkit::make_imap_client(ctx);
 
     // We are requesting authentication for our app (represented by app_creds) for scoped needed for
     // our application.
@@ -54,7 +55,7 @@ void gmail_auth_test() {
 
             log_debug("connecting to GMail IMAP endpoint..");
 
-            imap_socket->async_connect("imap.gmail.com", "993", [&](std::error_code ec) {
+            imap_client->async_connect("imap.gmail.com", "993", [&, auth_data](std::error_code ec) {
                 if (ec) {
                     log_error("failed connecting Gmail IMAP: {}", ec);
                     return;
@@ -62,7 +63,18 @@ void gmail_auth_test() {
 
                 log_info("connected GMail IMAP, authenticating via SASL");
 
-                // send SASL 
+                const std::string user = "liubomyr.semkiv.test@gmail.com";
+
+                imap_client->async_authenticate(
+                    {.user_email = user, .oauth_token = auth_data.access_token},
+                    [](std::error_code ec) {
+                        if (ec) {
+                            log_error("async_authenticate failed: {}", ec);
+                            return;
+                        }
+
+                        log_info("authenticated to gimap");
+                    });
             });
         });
 

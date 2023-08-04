@@ -76,13 +76,14 @@ class imap_client_impl_t : public imap_socket_t, std::enable_shared_from_this<im
         asio::async_read_until(
             m_socket, m_recv_buff, "\r\n",
             [this, cb = std::move(cb)](std::error_code ec, size_t bytes_transferred) mutable {
-                log_debug("ec: {}, bytes_transferred: {}, stream size: {}", ec.message(),
-                          bytes_transferred, m_recv_buff.size());
-
                 if (ec) {
+                    log_error("async_read_until failed: {}", ec);
                     cb(ec, {});
                     return;
                 }
+
+                log_debug("bytes_transferred: {}, stream size: {}", bytes_transferred,
+                          m_recv_buff.size());
 
                 std::istream is{&m_recv_buff};
                 std::string line;

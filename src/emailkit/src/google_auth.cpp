@@ -298,6 +298,7 @@ class https_client_t : public std::enable_shared_from_this<https_client_t> {
 void async_request_token(https_client_t& client,
                          google_auth_app_creds_t app_creds,
                          std::string auth_code,
+                         std::string scope,
                          std::string redirect_uri,
                          async_callback<auth_data_t> cb) {
     // now when we have code we need to make post request.
@@ -309,6 +310,8 @@ void async_request_token(https_client_t& client,
     std::vector<std::string> token_request_params;
     token_request_params.emplace_back(fmt::format("client_id={}", app_creds.client_id));
     token_request_params.emplace_back(fmt::format("client_secret={}", app_creds.client_secret));
+    token_request_params.emplace_back(fmt::format("scope={}", scope));
+https:  // mail.google.com
     token_request_params.emplace_back(
         fmt::format("redirect_uri={}", encode_uri_component(redirect_uri)));
     token_request_params.emplace_back("grant_type=authorization_code");
@@ -462,6 +465,9 @@ class google_auth_t_impl : public google_auth_t,
     virtual void async_handle_auth(google_auth_app_creds_t app_creds,
                                    std::vector<std::string> scopes,
                                    async_callback<auth_data_t> cb) override {
+        const auto scopes_encoded =
+            emailkit::encode_uri_component(fmt::format("{}", fmt::join(scopes, " ")));
+
         m_callback = std::move(cb);
 
         m_srv->register_handler(
@@ -476,8 +482,8 @@ class google_auth_t_impl : public google_auth_t,
             });
         m_srv->register_handler(
             "get", "/done",
-            [this_weak = weak_from_this(), app_creds](const http_srv::request& req,
-                                                      async_callback<http_srv::reply> cb) mutable {
+            [this_weak = weak_from_this(), app_creds, scopes_encoded](
+                const http_srv::request& req, async_callback<http_srv::reply> cb) mutable {
                 auto this_ptr = this_weak.lock();
                 if (!this_ptr) {
                     cb(make_error_code(std::errc::owner_dead), {});
@@ -516,7 +522,8 @@ class google_auth_t_impl : public google_auth_t,
                 }
 
                 async_request_token(
-                    *this_.m_https_client, app_creds, code, this_.local_site_uri("/done"),
+                    *this_.m_https_client, app_creds, code, scopes_encoded,
+                    this_.local_site_uri("/done"),
                     [this_weak = this_.weak_from_this(), cb = std::move(cb)](
                         std::error_code ec, auth_data_t auth_data) mutable {
                         if (ec) {

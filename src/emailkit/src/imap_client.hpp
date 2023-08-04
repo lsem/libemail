@@ -12,6 +12,11 @@ enum class imap_client_state {
     authorized,
 };
 
+struct xoauth2_creds_t {
+    std::string user_email;
+    std::string oauth_token;
+};
+
 class imap_client_t {
    public:
     virtual ~imap_client_t() = default;
@@ -20,6 +25,7 @@ class imap_client_t {
 
     virtual void async_connect(std::string host, std::string port, async_callback<void> cb) = 0;
     virtual void async_obtain_capabilities(async_callback<std::vector<std::string>> cb) = 0;
+    virtual void async_authenticate(xoauth2_creds_t creds, async_callback<void> cb) = 0;
 };
 
 std::shared_ptr<imap_client_t> make_imap_client(asio::io_context& ctx);

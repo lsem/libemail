@@ -20,7 +20,8 @@ target_link_libraries(emailkit
         folly::uri
         asio::asio
         OpenSSL::SSL
-        rapidjson::rapidjson)
+        rapidjson::rapidjson
+        b64::b64)
 
 # emailkit-tests
 file(GLOB_RECURSE TEST_HPP_FILES CONFIGURE_DEPENDS "*.h")

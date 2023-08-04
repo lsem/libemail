@@ -1,4 +1,5 @@
 #include "imap_client.hpp"
+#include <b64/naive.h>
 #include <map>
 #include "imap_socket.hpp"
 
@@ -81,12 +82,42 @@ class imap_client_impl_t : public imap_client_t {
             // ..
         }};
 
-        m_imap_socket->async_send_command(fmt::format("{} CAPABILITY\r\n", id), [](std::error_code ec) {
-            // ..
-        });
+        m_imap_socket->async_send_command(fmt::format("{} CAPABILITY\r\n", id),
+                                          [](std::error_code ec) {
+                                              // ..
+                                          });
     }
 
-    std::string new_command_id() { return std::to_string(m_command_counter++); }
+    virtual void async_authenticate(xoauth2_creds_t creds, async_callback<void> cb) override {
+        // prepare XOAUTH2 request
+        // https://developers.google.com/gmail/imap/xoauth2-protocol
+        // https://learn.microsoft.com/en-us/exchange/client-developer/legacy-protocols/how-to-authenticate-an-imap-pop-smtp-application-by-using-oauth
+        const std::string xoauth2_req =
+            fmt::format("user={}^Auth=Bearer {}^A^A", creds.user_email, creds.oauth_token);
+        log_debug("xoauth2_req: {}", xoauth2_req);
+        const std::string xoauth2_req_encoded = b64::base64_naive_encode(xoauth2_req);
+
+        // TODO: don't use this.
+        const auto id = new_command_id();
+
+        m_active_commands[id] = {.cb = [id, cb = std::move(cb)](std::error_code ec) mutable {
+            log_debug("command {} finished: {}", id, ec);
+            cb(ec);
+        }};
+
+        m_imap_socket->async_send_command(
+            fmt::format("{} AUTHENTICATE XOAUTH2 {}\r\n", id, xoauth2_req_encoded),
+            [this](std::error_code ec) {
+                if (ec) {
+                    // TODO: remove active command.
+                    log_error("'AUTHENTICATE XOAUTH2' command failed: {}", ec);
+                    return;
+                }
+                log_debug("auth command send, waiting response");
+            });
+    }
+
+    std::string new_command_id() { return std::string("A") + std::to_string(m_command_counter++); }
 
    private:
     asio::io_context& m_ctx;
