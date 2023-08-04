@@ -1,3 +1,4 @@
+#include <b64/naive.h>
 #include <emailkit/emailkit.hpp>
 #include <emailkit/global.hpp>
 #include <emailkit/google_auth.hpp>
@@ -129,6 +130,19 @@ void imap_socket_test() {
     ctx.run();
 }
 
+/*
+ * Calculate a maximum required buffer length for decoded output based on input size.
+ *
+ * Return the value as size_t
+ */
+
+void base64_encode_decode_test() {
+    const std::string example_test = "dGhlcmUgaXMgc29tZSB0ZXN0IGZvciBlbmNvZGluZw==";
+    log_info("output_buffer: '{}'",
+             b64::base64_naive_encode(b64::base64_naive_decode(example_test)));
+}
+
 int main() {
-    gmail_auth_test();
+    base64_encode_decode_test();
+    // gmail_auth_test();
 }
