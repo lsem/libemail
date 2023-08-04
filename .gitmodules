@@ -14,3 +14,6 @@
 [submodule "vendor/rapidjson"]
 	path = vendor/rapidjson
 	url = https://github.com/Tencent/rapidjson.git
+[submodule "vendor/apg-6.3"]
+	path = vendor/apg-6.3
+	url = git@github.com:lsem/apg-6.3.git
