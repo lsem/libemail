@@ -11,45 +11,45 @@ class http_srv_impl_t : public http_srv_t, public std::enable_shared_from_this<h
     explicit http_srv_impl_t(asio::io_context& ctx, std::string host, std::string port)
         : m_ctx(ctx), m_acceptor(m_ctx), m_host(host), m_port(port) {}
 
-    virtual bool start() override {
+    virtual std::error_code start() override {
         std::error_code ec;
 
         asio::ip::tcp::resolver resolver(m_ctx);
         asio::ip::tcp::endpoint endpoint = *resolver.resolve(m_host, m_port, ec).begin();
         if (ec) {
             log_error("resolve failed: {}", ec);
-            return false;
+            return ec;
         }
 
         m_acceptor.open(endpoint.protocol(), ec);
         if (ec) {
-            log_error("open fialed: {}", ec);
-            return false;
+            log_error("open failed: {}", ec);
+            return ec;
         }
 
         m_acceptor.set_option(asio::ip::tcp::acceptor::reuse_address(true), ec);
         if (ec) {
             log_error("set_option failed: {}", ec);
-            return false;
+            return ec;
         }
 
         m_acceptor.bind(endpoint, ec);
         if (ec) {
-            log_error("bind fialed: {}", ec);
-            return false;
+            log_error("bind failed: {}", ec);
+            return ec;
         }
 
         m_acceptor.listen(128, ec);
         if (ec) {
-            log_error("listen fialed: {}", ec);
-            return false;
+            log_error("listen failed: {}", ec);
+            return ec;
         }
 
         log_debug("started http server on {}:{}", m_host, m_port);
 
         do_accept();
 
-        return true;
+        return {};
     }
 
     virtual void register_handler(std::string method, std::string pattern, handler_func_t func) {

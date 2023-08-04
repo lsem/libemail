@@ -441,29 +441,34 @@ class google_auth_t_impl : public google_auth_t,
         return m_srv != nullptr;
     }
 
+    std::string get_auth_page_text(const google_auth_app_creds_t& app_creds,
+                                   const std::vector<std::string>& scopes) {
+        const auto scopes_encoded =
+            emailkit::encode_uri_component(fmt::format("{}", fmt::join(scopes, " ")));
+
+        // log_debug("scopes_encoded: {}", scopes_encoded);
+
+        // NOTE: redirect uri should be registered in google console in Credentials for the
+        // app. otherwise one will got: 400/redirect_uri_mismatch.
+        // TODO: make URL adjustable so clients of this class can utilize public interface of the
+        // class.
+        const auto redirect_uri = emailkit::encode_uri_component(local_site_uri("/done"));
+
+        return fmt::format(
+            fmt::runtime(auth_page_template), fmt::arg("client_id", app_creds.client_id),
+            fmt::arg("scope", scopes_encoded), fmt::arg("redirect_uri", redirect_uri));
+    }
+
     virtual void async_handle_auth(google_auth_app_creds_t app_creds,
                                    std::vector<std::string> scopes,
                                    async_callback<auth_data_t> cb) override {
         m_callback = std::move(cb);
 
-        const auto scopes_encoded =
-            emailkit::encode_uri_component(fmt::format("{}", fmt::join(scopes, " ")));
-        log_debug("scopes_encoded: {}", scopes_encoded);
-
-        // NOTE: redirect uri should be registred in google console in Credentials for the app.
-        // othetwise one will got: 400/redirect_uri_mismatch.
-        // TODO: make this possible to specify from parmater if we are building Kit here.
-        const auto redirect_uri = emailkit::encode_uri_component(local_site_uri("/done"));
-
-        const auto html_page = fmt::format(
-            fmt::runtime(auth_page_template), fmt::arg("client_id", app_creds.client_id),
-            fmt::arg("scope", scopes_encoded), fmt::arg("redirect_uri", redirect_uri));
-
-        log_debug("page: {}", html_page);
-
         m_srv->register_handler(
             "get", "/",
-            [html_page](const http_srv::request& req, async_callback<http_srv::reply> cb) {
+            [html_page = get_auth_page_text(app_creds, scopes)](
+                const http_srv::request& req, async_callback<http_srv::reply> cb) {
+                log_debug("page:\n'{}'", html_page);
                 http_srv::reply reply;
                 reply.headers.emplace_back(http_srv::header{"Connection", "Close"});
                 reply.content = html_page;
@@ -471,8 +476,8 @@ class google_auth_t_impl : public google_auth_t,
             });
         m_srv->register_handler(
             "get", "/done",
-            [this_weak = weak_from_this(), app_creds, redirect_uri](
-                const http_srv::request& req, async_callback<http_srv::reply> cb) mutable {
+            [this_weak = weak_from_this(), app_creds](const http_srv::request& req,
+                                                      async_callback<http_srv::reply> cb) mutable {
                 auto this_ptr = this_weak.lock();
                 if (!this_ptr) {
                     cb(make_error_code(std::errc::owner_dead), {});
@@ -562,7 +567,12 @@ class google_auth_t_impl : public google_auth_t,
                 cb({}, http_srv::reply::stock_reply(http_srv::reply::not_found));
             });
 
-        m_srv->start();
+        if (auto ec = m_srv->start(); ec) {
+            log_error("failed starting local http server needed for auth: {}", ec);
+            m_callback(ec, {});
+            return;
+        }
+
         // TODO: make sure we can really connect to immidiately after start() returned.
 
         if (!launch_system_browser(local_site_uri("/"))) {

@@ -14,7 +14,7 @@ using handler_func_t = fu2::unique_function<void(const emailkit::http_srv::reque
 class http_srv_t {
    public:
     virtual ~http_srv_t() = default;
-    virtual bool start() = 0;
+    virtual std::error_code start() = 0;
     virtual void register_handler(std::string method, std::string pattern, handler_func_t) = 0;
 };
 
