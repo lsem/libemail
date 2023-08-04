@@ -17,3 +17,6 @@
 [submodule "vendor/apg-6.3"]
 	path = vendor/apg-6.3
 	url = git@github.com:lsem/apg-6.3.git
+[submodule "vendor/apg-7.0"]
+	path = vendor/apg-7.0
+	url = git@github.com:lsem/apg-7.0.git
