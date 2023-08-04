@@ -38,18 +38,33 @@ void gmail_auth_test() {
                                              "https://www.googleapis.com/auth/userinfo.profile",
                                              "https://mail.google.com/"};
 
+    auto imap_socket = emailkit::make_imap_socket(ctx);
+
     // We are requesting authentication for our app (represented by app_creds) for scoped needed for
     // our application.
     auto google_auth = emailkit::make_google_auth(ctx, "localhost", "8089");
-    google_auth->async_handle_auth(app_creds, scopes,
-                                   [](std::error_code ec, auth_data_t auth_data) {
-                                       if (ec) {
-                                           log_error("async_handle_auth failed: {}", ec);
-                                           return;
-                                       }
+    google_auth->async_handle_auth(
+        app_creds, scopes, [&](std::error_code ec, auth_data_t auth_data) {
+            if (ec) {
+                log_error("async_handle_auth failed: {}", ec);
+                return;
+            }
 
-                                       log_info("received creds: {}", auth_data);
-                                   });
+            log_info("received creds: {}", auth_data);
+
+            log_debug("connecting to GMail IMAP endpoint..");
+
+            imap_socket->async_connect("imap.gmail.com", "993", [&](std::error_code ec) {
+                if (ec) {
+                    log_error("failed connecting Gmail IMAP: {}", ec);
+                    return;
+                }
+
+                log_info("connected GMail IMAP, authenticating via SASL");
+
+                // send SASL 
+            });
+        });
 
     ctx.run();
 }
@@ -143,6 +158,5 @@ void base64_encode_decode_test() {
 }
 
 int main() {
-    base64_encode_decode_test();
-    // gmail_auth_test();
+    gmail_auth_test();
 }
