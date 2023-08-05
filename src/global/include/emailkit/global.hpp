@@ -5,6 +5,7 @@
 #include <emailkit/log.hpp>
 #include <memory>
 #include <system_error>
+#include <type_traits>
 
 using std::shared_ptr;
 
@@ -19,6 +20,28 @@ struct emailkit_log_fns {
 
 template <class T>
 using async_callback = lsem::async_kit::async_callback_impl_t<T, emailkit_log_fns>;
+
+namespace details {
+template <class T>
+void call_cb(async_callback<T>& cb, std::error_code ec) {
+    if constexpr (std::is_void_v<T>) {
+        cb(ec);
+    } else {
+        cb(ec, T{});
+    }
+}
+}  // namespace details
+
+#define PROPAGATE_ERROR_VIA_CB(ec, Message, Cb)      \
+    do {                                      \
+        if (ec) {                             \
+            log_error("{}: {}", Message, ec); \
+            details::call_cb(Cb, ec);         \
+            return;                           \
+        }                                     \
+    } while (false)
+
+//////////////////////////////////////////////////////////////////////////////////////////
 
 #include <fmt/core.h>
 #include <fmt/ranges.h>

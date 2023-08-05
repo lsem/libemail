@@ -41,15 +41,34 @@ llvm::Expected<auth_data_t> parase_google_oauth20_json(std::string j) {
     rapidjson::Document d;
     d.Parse(j.c_str());
     if (d.HasParseError()) {
-        return llvm::createStringError("JSON parse error");
-        // return llvm::createStringError("JSON parse error: {} ({})",
-        //                                rapidjson::GetParseError_En(ok.Code(), ok.Offset()));
+        return llvm::createStringError(fmt::format("JSON parse error: '{}'", j));
     }
-    // TODO: validate all fields.
-    return auth_data_t{.access_token = d["access_token"].GetString(),
-                       .expires_in = d["expires_in"].GetInt(),
-                       .token_type = d["token_type"].GetString(),
-                       .id_token = d["id_token"].GetString()};
+
+    auto as_str_or = [&d](const char* key, std::string _default) -> std::string {
+        return d.HasMember(key) && d[key].IsString() ? d[key].GetString() : _default;
+    };
+    auto as_int_or = [&d](const char* key, int _default) -> int {
+        return d.HasMember(key) && d[key].IsInt() ? d[key].GetInt() : _default;
+    };
+
+    auto as_string_vec = [&d](const char* key) -> std::vector<std::string> {
+        std::vector<std::string> r;
+        if (!d.HasMember(key) || !d.IsArray()) {
+            return {};
+        }
+        for (auto& x : d[key].GetArray()) {
+            if (x.IsString()) {
+                r.emplace_back(x.GetString());
+            }
+        }
+        return r;
+    };
+
+    return auth_data_t{.access_token = as_str_or("access_token", ""),
+                       .expires_in = as_int_or("expires_in", 0),
+                       .token_type = as_str_or("token_type", ""),
+                       .id_token = as_str_or("id_token", ""),
+                       .scope = as_str_or("scope", "")};
 }
 
 std::string mask_http_control_characters(std::string s) {

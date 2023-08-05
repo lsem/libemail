@@ -47,13 +47,15 @@ class imap_client_impl_t : public imap_client_t {
                                              // this fact into the log.
                                              //  alterntive is to start on special command like
                                              //  ready_to_receive()
-                                             recive_next_line();
+                                             // TODO: have separatec call ready_receive/go_live
+                                             // recive_next_line();
                                          }
                                          cb(ec);
                                      });
     }
 
     void recive_next_line() {
+        log_debug("waiting next line ...");
         m_imap_socket->async_receive_line([this](std::error_code ec, std::string line) {
             if (ec) {
                 if (ec == asio::error::eof) {
@@ -66,9 +68,22 @@ class imap_client_impl_t : public imap_client_t {
                 return;
             }
             log_debug("received line: {}", line);
+
+            for (auto& [id, h] : m_active_commands) {
+                if (line.find(id) == 0) {
+                    log_info("found active command!");
+                    auto cb = std::move(h.cb);
+                    m_active_commands.erase(id);
+                    cb(std::error_code(), line);
+                    break;
+                }
+            }
+
             recive_next_line();
         });
     }
+
+    // void async_execute_imap_command(std::string command, strong_callback<std::vector<std::)
 
     virtual void async_obtain_capabilities(async_callback<std::vector<std::string>> cb) override {
         // IDEA: before sending command we register handler, or we can attach handler to
@@ -77,43 +92,120 @@ class imap_client_impl_t : public imap_client_t {
         // without ID then we have unregistered response/upstream command.
         //
         const auto id = new_command_id();
-        m_active_commands[id] = {.cb = [id](std::error_code ec) {
-            log_debug("command {} finished: {}", id, ec.message());
-            // ..
-        }};
+        // m_active_commands[id] = {
+        //     .cb = [id, cb2 = std::move(cb2)](std::error_code ec, std::string line) mutable {
+        //         log_debug("command {} finished: {}: {}", id, ec.message(), line);
+        //         // TODO: parse capabilities.
+        //         cb2(std::error_code(), std::vector<std::string>{});
+        //     }};
 
-        m_imap_socket->async_send_command(fmt::format("{} CAPABILITY\r\n", id),
-                                          [](std::error_code ec) {
-                                              // ..
-                                          });
+        m_imap_socket->async_send_command(
+            fmt::format("{} CAPABILITY\r\n", id),
+            [this, cb = std::move(cb)](std::error_code ec) mutable {
+                if (ec) {
+                    // TODO: better message
+                    log_error("send caps command failed: {}", ec);
+                    cb(ec, {});
+                    return;
+                }
+
+                m_imap_socket->async_receive_line(
+                    [this, cb = std::move(cb)](std::error_code ec, std::string line) mutable {
+                        if (ec) {
+                            log_error("failed receiving line: {}", ec);
+                            cb(ec, {});
+                            return;
+                        }
+
+                        log_debug("got response: {}", line);
+
+                        // TODO: keep receiving lines until we have OK or NO (check RFC for more).
+                        m_imap_socket->async_receive_line(
+                            [this, cb = std::move(cb)](std::error_code ec,
+                                                       std::string line) mutable {
+                                if (ec) {
+                                    log_error("failed receiving line2: {}", ec);
+                                    cb(ec, {});
+                                    return;
+                                }
+
+                                log_debug("got response2: {}", line);
+
+                                m_imap_socket->async_receive_line(
+                                    [this, cb = std::move(cb)](std::error_code ec,
+                                                               std::string line) mutable {
+                                        if (ec) {
+                                            log_error("failed receiving line3: {}", ec);
+                                            cb(ec, {});
+                                            return;
+                                        }
+
+                                        log_debug("got response3: {}", line);
+
+                                        cb(ec, {});
+                                    });
+                            });
+                    });
+            });
     }
 
     virtual void async_authenticate(xoauth2_creds_t creds, async_callback<void> cb) override {
+        // TODO: run capabilities command first, or if this considered to be low-level command
+        // then accept capabilities and check there is SASL-IR which is what we are going to support
+        // in first implementation.
+        // For now we just assume that server supoorts SASL-IR.
+
         // prepare XOAUTH2 request
         // https://developers.google.com/gmail/imap/xoauth2-protocol
         // https://learn.microsoft.com/en-us/exchange/client-developer/legacy-protocols/how-to-authenticate-an-imap-pop-smtp-application-by-using-oauth
-        const std::string xoauth2_req =
-            fmt::format("user={}^Auth=Bearer {}^A^A", creds.user_email, creds.oauth_token);
+        // const std::string xoauth2_req =
+        //     fmt::format("user={}Aauth=Bearer {}^A^A", creds.user_email, creds.oauth_token);
+
+        auto decoded = b64::base64_naive_decode(
+            "dXNlcj1zb21ldXNlckBleGFtcGxlLmNvbQFhdXRoPUJlYXJlciB5YTI5LnZGOWRmdDRxbVRjMk52YjNSbGNrQm"
+            "hkSFJoZG1semRHRXVZMjl0Q2cBAQ==");
+        log_debug("chars:");
+        for (char c : decoded) {
+            // log_debug("{}: {}", (char)c, (int)c);
+        }
+
+        std::string xoauth2_req;
+        xoauth2_req += "user=" + creds.user_email;
+        xoauth2_req += 0x01;
+        xoauth2_req += "auth=Bearer " + creds.oauth_token;
+        xoauth2_req += 0x01;
+        xoauth2_req += 0x01;
+
+        log_debug("my chars");
+        for (char c : xoauth2_req) {
+            // log_debug("{}: {}", (char)c, (int)c);
+        }
+
         log_debug("xoauth2_req: {}", xoauth2_req);
         const std::string xoauth2_req_encoded = b64::base64_naive_encode(xoauth2_req);
 
         // TODO: don't use this.
         const auto id = new_command_id();
 
-        m_active_commands[id] = {.cb = [id, cb = std::move(cb)](std::error_code ec) mutable {
-            log_debug("command {} finished: {}", id, ec);
-            cb(ec);
-        }};
+        // TODO: this in fact should be stateful thing implement as unit.
 
         m_imap_socket->async_send_command(
             fmt::format("{} AUTHENTICATE XOAUTH2 {}\r\n", id, xoauth2_req_encoded),
-            [this](std::error_code ec) {
-                if (ec) {
-                    // TODO: remove active command.
-                    log_error("'AUTHENTICATE XOAUTH2' command failed: {}", ec);
-                    return;
-                }
+            [this, id, cb = std::move(cb)](std::error_code ec) mutable {
+                PROPAGATE_ERROR_VIA_CB(ec, "send AUTHENTICATE XOAUTH2", cb);
+
                 log_debug("auth command send, waiting response");
+                
+                m_imap_socket->async_receive_line(
+                    [this, id, cb = std::move(cb)](std::error_code ec, std::string line) mutable {
+                        PROPAGATE_ERROR_VIA_CB(ec, "receive first line", cb);
+
+                        if (line.find(id) == 0) {
+                            log_debug("line {} must be a response we were looking for", line);                            
+                        }
+                    });
+
+                cb({});
             });
     }
 
@@ -127,7 +219,7 @@ class imap_client_impl_t : public imap_client_t {
 
     // a registry of pending commands for which we are waiting response.
     struct pending_command_ctx {
-        async_callback<void> cb;
+        async_callback<std::string> cb;
     };
     std::map<std::string, pending_command_ctx> m_active_commands;
 };

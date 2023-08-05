@@ -72,7 +72,7 @@ class imap_client_impl_t : public imap_socket_t, std::enable_shared_from_this<im
                             });
     }
 
-    virtual void async_receive_line(async_callback<std::string> cb) override {
+    virtual void async_receive_line(async_callback<std::string> cb) override {                
         asio::async_read_until(
             m_socket, m_recv_buff, "\r\n",
             [this, cb = std::move(cb)](std::error_code ec, size_t bytes_transferred) mutable {

@@ -57,11 +57,13 @@ struct google_auth_app_creds_t {
 };
 
 struct auth_data_t {
+    std::string user_email;
     std::string access_token;
     int expires_in;
     std::string token_type;
     std::string id_token;
-    std::vector<std::string> scope;
+    std::string scope;
+    std::vector<std::string> scope_vec;
 };
 
 class google_auth_t {
@@ -83,18 +85,11 @@ shared_ptr<google_auth_t> make_google_auth(asio::io_context& ctx,
 
 }  // namespace emailkit
 
-//////////////////////////////////////////////////////////////////////////
-template <>
-struct fmt::formatter<emailkit::auth_data_t> {
-    constexpr auto parse(format_parse_context& ctx) -> format_parse_context::iterator {
-        return ctx.end();
-    };
-
-    auto format(const emailkit::auth_data_t& data, format_context& ctx) const
-        -> format_context::iterator {
-        return fmt::format_to(
-            ctx.out(),
-            "auth_data_t(access_token: {}, expires_in: {}, token_type: {}, id_token: {})",
-            data.access_token, data.expires_in, data.token_type, data.id_token);
-    }
-};
+DEFINE_FMT_FORMATTER(
+    emailkit::auth_data_t,
+    "auth_data_t(access_token: '{}', expires_in: {}, token_type: '{}', id_token: '{}', scope: {})",
+    arg.access_token,
+    arg.expires_in,
+    arg.token_type,
+    arg.id_token,
+    arg.scope);
