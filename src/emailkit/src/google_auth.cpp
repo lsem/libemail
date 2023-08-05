@@ -484,8 +484,11 @@ class google_auth_t_impl : public google_auth_t,
     virtual void async_handle_auth(google_auth_app_creds_t app_creds,
                                    std::vector<std::string> scopes,
                                    async_callback<auth_data_t> cb) override {
-        const auto scopes_encoded =
-            emailkit::encode_uri_component(fmt::format("{}", fmt::join(scopes, " ")));
+        // for (auto& s : scopes) {
+        // s = encode_uri_component(s);
+        //}
+        //const auto scopes_encoded = encode_uri_component(fmt::format("{}", fmt::join(scopes, " ")));
+        const auto scopes_encoded = fmt::format("{}", fmt::join(scopes, " "));
 
         m_callback = std::move(cb);
 

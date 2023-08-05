@@ -19,4 +19,8 @@ class imap_socket_t {
 
 std::shared_ptr<imap_socket_t> make_imap_socket(asio::io_context& ctx);
 
+void async_keep_receiving_lines_until(std::weak_ptr<imap_socket_t> socket_ptr,
+                                      fu2::function<std::error_code(const std::string& l)> p,
+                                      async_callback<void> cb);
+
 }  // namespace emailkit

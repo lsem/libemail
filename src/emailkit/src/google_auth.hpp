@@ -25,11 +25,14 @@ namespace emailkit {
 // https://developers.google.com/gmail/api/auth/scopes
 // https://developers.google.com/gmail/api/reference/rest/v1/users.settings/getImap
 // https://developers.google.com/gmail/api/guides/pop_imap_settings
+// https://developers.google.com/identity/protocols/oauth2/production-readiness/restricted-scope-verification
 
 // to be copy pasted to playground:
 //      ideally we should not be commiting this stuff into source code I guess.
 // email: liubomyr.semkiv.test
 // password: *D*E6BGWV8w2
+// // email: liubomyr.semkiv.test2
+//    password: ViZj07u4*HW7
 // const GOOGLE_TOKEN_URI = 'https://accounts.google.com/o/oauth2/token';
 // const std::string google_client_id =
 //     "303173870696-bsun94hmoseeumiat4iaa6dr752ta805.apps.googleusercontent.com";
@@ -63,6 +66,9 @@ struct auth_data_t {
     std::string token_type;
     std::string id_token;
     std::string scope;
+
+    // TODO: we need to provide scoped granted by user so we can inspect whether we have access at
+    // all before processing with IMAP/SMTP.
     std::vector<std::string> scope_vec;
 };
 

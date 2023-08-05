@@ -36,10 +36,10 @@ void gmail_auth_test() {
         .client_secret = "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"};
 
     // Note the app should also have scopes selected and proper test users to make it working.
-    const std::vector<std::string> scopes = {"https://mail.google.com/",
-                                             "https://www.googleapis.com/auth/userinfo.email",
-                                             "https://www.googleapis.com/auth/userinfo.profile"};
-    // const std::vector<std::string> scopes = {"https://mail.google.com/"};
+    // const std::vector<std::string> scopes = {"https://mail.google.com/",
+    //                                          "https://www.googleapis.com/auth/userinfo.email",
+    //                                          "https://www.googleapis.com/auth/userinfo.profile"};
+     const std::vector<std::string> scopes = {"https://mail.google.com"};
 
     auto imap_client = emailkit::make_imap_client(ctx);
 
@@ -66,9 +66,7 @@ void gmail_auth_test() {
                 log_info("connected GMail IMAP, authenticating via SASL");
 
                 // TODO: why user is not provided from google auth?
-                const std::string user = "liubomyr.semkiv.test@gmail.com";
-
-                
+                const std::string user = "liubomyr.semkiv.test2@gmail.com";
 
                 // imap_client->async_obtain_capabilities(
                 //     [&, user, auth_data](std::error_code ec, std::vector<std::string> caps) {
@@ -77,17 +75,20 @@ void gmail_auth_test() {
                 //             return;
                 //         }
 
-                        imap_client->async_authenticate(
-                            {.user_email = user, .oauth_token = auth_data.access_token},
-                            [](std::error_code ec) {
-                                if (ec) {
-                                    log_error("async_authenticate failed: {}", ec);
-                                    return;
-                                }
+                imap_client->async_authenticate(
+                    {.user_email = user, .oauth_token = auth_data.access_token},
+                    [](std::error_code ec, emailkit::auth_error_details_t err_details) {
+                        if (ec) {
+                            log_error("async_authenticate failed: {}{}", ec,
+                                      err_details.summary.empty()
+                                          ? ""
+                                          : fmt::format(", summary: {})", err_details.summary));
+                            return;
+                        }
 
-                                log_info("authenticated to gimap");
-                            });
-                    // });
+                        log_info("authenticated to gimap");
+                    });
+                // });
             });
         });
 

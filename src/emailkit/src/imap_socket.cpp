@@ -6,6 +6,7 @@
 #include <asio/ssl.hpp>
 #include <asio/streambuf.hpp>
 #include <asio/write.hpp>
+#include <system_error>
 
 #define RAISE_CB_ON_ERROR(ec)                     \
     do {                                          \
@@ -72,7 +73,7 @@ class imap_client_impl_t : public imap_socket_t, std::enable_shared_from_this<im
                             });
     }
 
-    virtual void async_receive_line(async_callback<std::string> cb) override {                
+    virtual void async_receive_line(async_callback<std::string> cb) override {
         asio::async_read_until(
             m_socket, m_recv_buff, "\r\n",
             [this, cb = std::move(cb)](std::error_code ec, size_t bytes_transferred) mutable {
@@ -85,10 +86,21 @@ class imap_client_impl_t : public imap_socket_t, std::enable_shared_from_this<im
                 log_debug("bytes_transferred: {}, stream size: {}", bytes_transferred,
                           m_recv_buff.size());
 
-                std::istream is{&m_recv_buff};
-                std::string line;
-                std::getline(is, line);
-                cb({}, line);
+                // TODO: ensure that stripping the line of \r\n is good idea. ABNF parses may not
+                // like it and we may want to do it on upper level or have as parameter!
+
+                const auto& buff_data = m_recv_buff.data();
+                const char* data_ptr = static_cast<const char*>(buff_data.data());
+                for (size_t i = 0; i < buff_data.size() - 1; i++) {
+                    if (data_ptr[i] == '\r' && data_ptr[i + 1] == '\n') {
+                        m_recv_buff.consume(i + 2);
+                        cb({}, std::string(data_ptr, data_ptr + i - 1));
+                        return;
+                    }
+                }
+
+                log_error("failed finding \r\n in the end of the line");
+                cb(make_error_code(std::errc::io_error), {});
             });
     }
 
@@ -125,6 +137,34 @@ class imap_client_impl_t : public imap_socket_t, std::enable_shared_from_this<im
 
 std::shared_ptr<imap_socket_t> make_imap_socket(asio::io_context& ctx) {
     return std::make_shared<imap_client_impl_t>(ctx);
+}
+
+void async_keep_receiving_lines_until(std::weak_ptr<imap_socket_t> socket_ptr,
+                                      fu2::function<std::error_code(const std::string& l)> p,
+                                      async_callback<void> cb) {
+    // TODO: what about the lifetime? what if socket gets deleted, this should rather be a member or
+    // we should pass shared_ptr/weak_ptr to socket.
+
+    auto socket = socket_ptr.lock();
+    if (!socket) {
+        cb(make_error_code(std::errc::owner_dead));
+        return;
+    }
+
+    socket->async_receive_line([cb = std::move(cb), p = std::move(p), socket_ptr = socket](
+                                   std::error_code ec, std::string line) mutable {
+        if (ec) {
+            cb(ec);
+            return;
+        }
+
+        auto predicate_ec = p(line);
+        if (predicate_ec) {
+            cb(predicate_ec);
+        } else {
+            async_keep_receiving_lines_until(socket_ptr, std::move(p), std::move(cb));
+        }
+    });
 }
 
 }  // namespace emailkit
