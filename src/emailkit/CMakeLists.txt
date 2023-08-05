@@ -1,4 +1,3 @@
-
 find_package(OpenSSL REQUIRED)
 
 # emailkit
@@ -22,13 +21,17 @@ target_link_libraries(emailkit
         OpenSSL::SSL
         rapidjson::rapidjson
         b64::b64)
-
+        
+##############################################################################
 # emailkit-tests
-file(GLOB_RECURSE TEST_HPP_FILES CONFIGURE_DEPENDS "*.h")
-file(GLOB_RECURSE TEST_CPP_FILES CONFIGURE_DEPENDS "*.cpp")
-# list(FILTER TEST_CPP_FILES INCLUDE REGEX "(.*\\/src\\/sskitlib)(.*)(\\/tests\\/)(.*\\.cpp)")
+file(GLOB_RECURSE TESTS_HPP_FILES  CONFIGURE_DEPENDS "tests/*.hpp")
+file(GLOB_RECURSE TESTS_CPP_FILES  CONFIGURE_DEPENDS "tests/*.cpp")
+add_executable(emailkit-tests ${TESTS_HPP_FILES} ${TESTS_CPP_FILES})
+target_link_libraries(emailkit-tests
+    PRIVATE
+        emailkit::emailkit
+        GTest::gtest
+        GTest::gmock
+        GTest::gtest_main)
 
-# list(FILTER TEST_HEADER_FILES INCLUDE REGEX "(.*\\/src\\/sskitlib)(.*)(\\/tests\\/)(.*\\.h)")
 
-message(STATUS "TEST_CPP_FILES: ${TEST_HPP_FILES}")
-message(STATUS "TEST_CPP_FILES: ${TEST_CPP_FILES}")
