@@ -396,3 +396,51 @@ TEST(imap_client_test, gmail_imap_xoauth_failure_400_test) {
     EXPECT_TRUE(test_ran);
     EXPECT_TRUE(error_challange_accepted);
 }
+
+TEST(imap_client_test, imap_xoauth_failure_no_challange_test) {
+    // haven't check but it is reasonable that server is not oblicated to respond with challange
+    // and can just return NO (TODO: separate test for "BAD") and separate test for timeout?
+    // https://learn.microsoft.com/en-us/exchange/client-developer/legacy-protocols/how-to-authenticate-an-imap-pop-smtp-application-by-using-oauth
+
+    asio::io_context ctx;
+
+    bool test_ran = false;
+
+    fake_imap_server srv{ctx, "localhost", "9934"};
+    ASSERT_FALSE(srv.start());
+
+    srv.reply_once(
+        [&](std::error_code ec, std::tuple<std::string, async_callback<std::string>> line_and_cb) {
+            auto& [line, cb] = line_and_cb;
+
+            auto maybe_cmd = parse_imap_command(line);
+            // that is we who send this command and we expect to have it valid.
+            ASSERT_TRUE(maybe_cmd);
+            auto& cmd = *maybe_cmd;
+
+            ASSERT_GT(cmd.tokens.size(), 3);
+            EXPECT_EQ(cmd.tokens[1], "AUTHENTICATE");
+            EXPECT_EQ(cmd.tokens[2], "XOAUTH2");
+
+            cb({}, fmt::format("{} NO AUTHENTICATE failed.\r\n", cmd.tokens[0]));
+        });
+
+    auto client = make_imap_client(ctx);
+    client->async_connect("localhost", "9934", [&](std::error_code ec) {
+        ASSERT_FALSE(ec);
+
+        client->async_authenticate(
+            {.user_email = "niklaus.wirth@example.com", .oauth_token = "[virth_token]"},
+            [&](std::error_code ec, auto details) {
+                ASSERT_TRUE(ec);
+                ASSERT_NE(ec,
+                          make_error_code(lsem::async_kit::errors::async_callback_err::not_called));
+                EXPECT_EQ(details.summary, "");
+                test_ran = true;
+                ctx.stop();
+            });
+    });
+
+    ctx.run_for(std::chrono::seconds(1));
+    EXPECT_TRUE(test_ran);
+}
