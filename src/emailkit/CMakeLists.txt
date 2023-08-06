@@ -21,7 +21,7 @@ target_link_libraries(emailkit
         OpenSSL::SSL
         rapidjson::rapidjson
         b64::b64)
-        
+
 ##############################################################################
 # emailkit-tests
 file(GLOB_RECURSE TESTS_HPP_FILES  CONFIGURE_DEPENDS "tests/*.hpp")
