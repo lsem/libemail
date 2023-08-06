@@ -282,42 +282,48 @@ class imap_client_impl_t : public imap_client_t {
                             // once we received this line explaining error we should send \r\n to
                             // finish auth session.
                             m_imap_socket->async_send_command("\r\n", [this, id, cb = std::move(cb),
-                                                                       status](std::error_code
-                                                                                   ec) mutable {
+                                                                       status, maybe_json_error](
+                                                                          std::error_code
+                                                                              ec) mutable {
                                 PROPAGATE_ERROR_VIA_CB(ec, "send \\r\\n after error", cb);
 
                                 // TODO: alternatively we can read everything until we find
                                 // response to the command, just in case server wants to write
                                 // more *.
-                                m_imap_socket->async_receive_line([cb = std::move(cb), id, status](
-                                                                      std::error_code ec,
-                                                                      std::string line) mutable {
-                                    PROPAGATE_ERROR_VIA_CB(ec, "receive command response line", cb);
+                                m_imap_socket->async_receive_line(
+                                    [cb = std::move(cb), id, status, maybe_json_error](
+                                        std::error_code ec, std::string line) mutable {
+                                        PROPAGATE_ERROR_VIA_CB(ec, "receive command response line",
+                                                               cb);
 
-                                    log_debug("got command response line: '{}'", line);
+                                        log_debug("got command response line: '{}'", line);
 
-                                    if (line.find(id) == 0) {
-                                        log_debug("AUTH command finished");
-                                        // TODO: analyze whether it is really "BAD"!
-                                        const auto response = std::string(line, id.size() + 1);
-                                        if (response.find("BAD") == 0) {
-                                            std::string sasl_fail = std::string(response, 4);
-                                            cb(make_error_code(std::errc::protocol_error),
-                                               {.summary =
-                                                    fmt::format("SASL error: {}, server status: {}",
-                                                                sasl_fail, status)});
-                                        } else if (response.find("OK") == 0) {
-                                            log_warning("OK returned after error details ");
-                                            cb({}, {});
+                                        if (line.find(id) == 0) {
+                                            log_debug("AUTH command finished");
+                                            // TODO: analyze whether it is really "BAD"!
+                                            const auto response = std::string(line, id.size() + 1);
+                                            if (response.find("BAD") == 0) {
+                                                std::string sasl_fail = std::string(response, 4);
+                                                cb(make_error_code(std::errc::protocol_error),
+                                                   {.summary = fmt::format(
+                                                        "SASL error: {}, server status: {}",
+                                                        sasl_fail, status)});
+                                            } else if (response.find("OK") == 0) {
+                                                log_warning("OK returned after error details ");
+                                                cb({}, {});
+                                            } else if (response.find("NO") == 0) {
+                                                // TODO: we must  have some good details!
+                                                cb(make_error_code(std::errc::invalid_argument),
+                                                   {.summary = maybe_json_error});
+                                            }
+                                        } else {
+                                            log_warning("received something else, giving up");
+                                            cb(make_error_code(std::errc::protocol_not_supported),
+                                               {.summary = fmt::format(
+                                                    "AUTH command not finished, server status: {}",
+                                                    status)});
                                         }
-                                    } else {
-                                        log_warning("received something else, giving up");
-                                        cb(make_error_code(std::errc::protocol_not_supported),
-                                           {.summary = fmt::format(
-                                                "AUTH command not finished, server status: {}",
-                                                status)});
-                                    }
-                                });
+                                    });
                             });
 
                             // TODO: provide details to the user so that he or she can ask support

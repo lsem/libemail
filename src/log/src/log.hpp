@@ -40,7 +40,7 @@ void log_impl(log_level_t level, fmt_and_location fmt, fmt::format_args args) {
     }
     return fmt::text_style{};
   })();
-  fmt::print(stdout, style, "{}: {}: ", fmt.location.file_name(),
+  fmt::print(stdout, style, "{}:{}: ", fmt.location.file_name(),
              fmt.location.line());
   fmt::vprint(stdout, style, fmt.fmt, args);
   fmt::print(stdout, "\n");

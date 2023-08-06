@@ -9,6 +9,8 @@
 #include <fstream>
 #include <system_error>
 
+#include "utils.hpp"
+
 #define RAISE_CB_ON_ERROR(ec)                     \
     do {                                          \
         if (ec) {                                 \
@@ -132,7 +134,7 @@ class imap_client_impl_t : public imap_socket_t, std::enable_shared_from_this<im
             return;
         }
 
-        log_debug("sending command '{}'", command);
+        log_debug("sending command '{}'", utils::escape_ctrl(command));
 
         asio::async_write(m_socket, asio::buffer(command),
                           [cb = std::move(cb)](std::error_code ec, size_t bytes_written) mutable {

@@ -82,9 +82,9 @@ class fake_imap_server {
         return {};
     }
 
-    void reply_once(async_callback<std::tuple<std::string, async_callback<std::string>>> cb) {
-        m_pending_reply = std::move(cb);
-    }
+    using reply_once_cb_t = async_callback<std::tuple<std::string, async_callback<std::string>>>;
+
+    void reply_once(reply_once_cb_t cb) { m_pending_reply.emplace_back(std::move(cb)); }
 
     void do_accept() {
         m_acceptor.async_accept([this](std::error_code ec, asio::ip::tcp::socket socket) {
@@ -122,8 +122,9 @@ class fake_imap_server {
                 std::string line(data_ptr, data_ptr + bytes_transfered);
                 m_recv_buff.consume(bytes_transfered);
 
-                if (m_pending_reply) {
-                    auto pending_reply = std::exchange(m_pending_reply, nullptr);
+                if (!m_pending_reply.empty()) {
+                    auto pending_reply = std::move(m_pending_reply.front());
+                    m_pending_reply.pop_front();
 
                     pending_reply(
                         std::error_code{},
@@ -147,6 +148,12 @@ class fake_imap_server {
                             }
 
                         });
+                } else {
+                    // The test must be wrong or client has some bug.
+                    // TODO: consider having strict semantics to catch bugs when client sends
+                    // unexpectes stuff.
+                    log_warning("unexpected call from client, no reply, closing connection..");
+                    close_conn();
                 }
             });
     }
@@ -249,7 +256,7 @@ class fake_imap_server {
     asio::streambuf m_recv_buff;
     bool m_authenticated = false;
 
-    async_callback<std::tuple<std::string, async_callback<std::string>>> m_pending_reply;
+    std::list<reply_once_cb_t> m_pending_reply;
 };
 
 struct imap_command_t {
@@ -273,13 +280,9 @@ TEST(imap_client_test, gmail_imap_xoauth_success_test) {
 
     bool test_ran = false;
 
-    auto client = make_imap_client(ctx);
-    client->async_connect("localhost", "9934", [&](std::error_code ec) {
-        ASSERT_FALSE(ec);
-
-        // Instruct server reply once with the following:
-        srv.reply_once([&](std::error_code ec,
-                           std::tuple<std::string, async_callback<std::string>> line_and_cb) {
+    // Instruct server reply once with the following:
+    srv.reply_once(
+        [&](std::error_code ec, std::tuple<std::string, async_callback<std::string>> line_and_cb) {
             auto& [line, cb] = line_and_cb;
 
             auto maybe_cmd = parse_imap_command(line);
@@ -306,6 +309,10 @@ TEST(imap_client_test, gmail_imap_xoauth_success_test) {
             cb({}, fmt::format("{} OK\r\n", cmd.tokens[0]));
         });
 
+    auto client = make_imap_client(ctx);
+    client->async_connect("localhost", "9934", [&](std::error_code ec) {
+        ASSERT_FALSE(ec);
+
         client->async_authenticate(
             {.user_email = "alan.kay@example.com", .oauth_token = "[alan_kay_oauth_token]"},
             [&](std::error_code ec, auto details) {
@@ -328,10 +335,64 @@ TEST(imap_client_test, gmail_imap_xoauth_failure_400_test) {
     fake_imap_server srv{ctx, "localhost", "9934"};
     ASSERT_FALSE(srv.start());
 
+    // When gmail does not like our auth data it responds with explanation which is reported
+    // as challenge "+ <BASE64>\r\n" which clients needs to read and send \r\n in reply after which
+    // server will replies with "<ID> NO".
+    std::string auth_command_id;
+
     bool test_ran = false;
+    bool error_challange_accepted = false;
+
+    srv.reply_once([&](std::error_code ec,
+                       std::tuple<std::string, async_callback<std::string>> line_and_cb) {
+        auto& [line, cb] = line_and_cb;
+
+        auto maybe_cmd = parse_imap_command(line);
+        // that is we who send this command and we expect to have it valid.
+        ASSERT_TRUE(maybe_cmd);
+        auto& cmd = *maybe_cmd;
+
+        ASSERT_GT(cmd.tokens.size(), 3);
+        EXPECT_EQ(cmd.tokens[1], "AUTHENTICATE");
+        EXPECT_EQ(cmd.tokens[2], "XOAUTH2");
+
+        // save command id so we can reply with it after challange.
+        auth_command_id = cmd.tokens[0];
+
+        const std::string json_reply =
+            R"json({"status" : "400", "schemes" : "Bearer", "scope" : "https://mail.google.com/" })json";
+
+        cb({}, fmt::format("+ {}\r\n", utils::base64_naive_encode(json_reply)));
+    });
+
+    srv.reply_once(
+        [&](std::error_code ec, std::tuple<std::string, async_callback<std::string>> line_and_cb) {
+            auto& [line, cb] = line_and_cb;
+            EXPECT_EQ(line, "\r\n");
+            error_challange_accepted = true;
+            cb({}, fmt::format("{} NO [AUTHENTICATIONFAILED] Invalid credentials (Failure)\r\n",
+                               auth_command_id));
+        });
 
     auto client = make_imap_client(ctx);
     client->async_connect("localhost", "9934", [&](std::error_code ec) {
         ASSERT_FALSE(ec);
 
+        client->async_authenticate(
+            {.user_email = "niklaus.wirth@example.com", .oauth_token = "[virth_token]"},
+            [&](std::error_code ec, auto details) {
+                ASSERT_TRUE(ec);  // TODO: concrete error?
+                ASSERT_NE(ec,
+                          make_error_code(lsem::async_kit::errors::async_callback_err::not_called));
+                EXPECT_EQ(
+                    details.summary,
+                    R"json({"status" : "400", "schemes" : "Bearer", "scope" : "https://mail.google.com/" })json");
+                test_ran = true;
+                ctx.stop();
+            });
+    });
+
+    ctx.run_for(std::chrono::seconds(1));
+    EXPECT_TRUE(test_ran);
+    EXPECT_TRUE(error_challange_accepted);
 }
