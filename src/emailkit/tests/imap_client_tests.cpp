@@ -100,6 +100,53 @@ class fake_imap_server {
         });
     }
 
+    void serve_client_per_behavior() {
+        // TODO: this is success behavior        
+        log_debug("waiting line from client..");
+        asio::async_read_until(
+            *m_ssl_socket, m_recv_buff, "\r\n",
+            [this](std::error_code ec, size_t bytes_transfered) {
+                const auto& buff_data = m_recv_buff.data();
+                const char* data_ptr = static_cast<const char*>(buff_data.data());
+                std::string line(data_ptr, data_ptr + bytes_transfered);
+                m_recv_buff.consume(bytes_transfered);
+                log_debug("server got a line: '{}' (of size {}))",
+                          utils::replace_control_chars(line), line.size());
+
+                // example of command
+                // A0 AUTHENTICATE XOAUTH2 dXNlcj0BYXV0aD1CZWFyZXIgAQ\r\n
+                if (line.find("AUTHENTICATE") != std::string::npos) {
+                    const auto tokens = utils::split(line, ' ');
+                    log_debug("tokens: ({})", tokens);
+                    if (tokens.size() < 3) {
+                        log_error("unexpected line from client, closing connection");
+                        close_conn();
+                        return;
+                    }
+
+                    std::string response;
+                    response += tokens[0];
+                    response += " OK liubomyr.semkiv.test2@gmail.com authenticated (Success)\r\n";
+                    asio::async_write(*m_ssl_socket, asio::buffer(response),
+                                      [this](std::error_code ec, size_t bytes_transfered) {
+                                          if (ec) {
+                                              log_error("failed sending reply: {}", ec);
+                                              close_conn();
+                                              return;
+                                          }
+
+                                          m_authenticated = true;
+
+                                          log_debug("reply sent, reading next command..");
+                                          serve_client_per_behavior();
+                                      });
+                } else {
+                    log_warning("unknown command: {}", utils::replace_control_chars(line));
+                    close_conn();
+                }
+            });
+    }
+
     void serve_client_async(asio::ip::tcp::socket socket) {
         log_debug("got connection on test server from: {}",
                   socket.remote_endpoint().address().to_string());
@@ -119,63 +166,8 @@ class fake_imap_server {
 
             log_debug("handshake done");
 
-            // read command from client
-            asio::async_read_until(
-                *m_ssl_socket, m_recv_buff, "\r\n",
-                [this](std::error_code ec, size_t bytes_transfered) {
-                    const auto& buff_data = m_recv_buff.data();
-                    const char* data_ptr = static_cast<const char*>(buff_data.data());
-                    std::string line(data_ptr, data_ptr + bytes_transfered);
-                    m_recv_buff.consume(bytes_transfered);
-                    log_debug("server got a line: '{}' (of size {}))",
-                              utils::replace_control_chars(line), line.size());
-
-                    // example of command
-                    // A0 AUTHENTICATE XOAUTH2 dXNlcj0BYXV0aD1CZWFyZXIgAQ\r\n
-                    if (line.find("AUTHENTICATE") != std::string::npos) {
-                        const auto tokens = utils::split(line, ' ');
-                        log_debug("tokens: ({})", tokens);
-                        if (tokens.size() < 3) {
-                            log_error("unexpected line from client, closing connection");
-                            close_conn();
-                            return;
-                        }
-
-                        std::string response;
-                        response += tokens[0];
-                        response +=
-                            " OK liubomyr.semkiv.test2@gmail.com authenticated (Success)\r\n";
-                        asio::async_write(*m_ssl_socket, asio::buffer(response),
-                                          [this](std::error_code ec, size_t bytes_transfered) {
-                                              if (ec) {
-                                                  log_error("failed sending reply: {}", ec);
-                                                  close_conn();
-                                                  return;
-                                              }
-
-                                              log_debug("reply sent, reading next command..");
-                                          });
-
-                        // size_t space_pos = line.find_first_of(' ');
-                        // assert(space_pos != std::string::npos);  // suppoort
-                        // only valid commands std::string command_id(line, 0,
-                        // space_pos); std::string rest(line, space_pos + 1);
-                        // log_debug("rest: {}", rest);
-                        // size_t space_pos2 = rest.find_first_of(' ');
-                        // assert(space_pos2 != std::string::npos);  // suppoort
-                        // only valid commands rest = std::string(rest,
-                        // space_pos2 + 1); log_debug("rest of command: '{}'",
-                        // rest);
-
-                        // size_t space_pos3 = rest.find_first_of(' ');
-                        // if ()
-                    } else {
-                        log_warning("unknown command: {}", utils::replace_control_chars(line));
-                        close_conn();
-                    }
-                });
+            serve_client_per_behavior();
         });
-        // socket.close();
     }
 
     void close_conn() {
@@ -204,6 +196,7 @@ class fake_imap_server {
     asio::ip::tcp::acceptor m_acceptor;
     std::unique_ptr<asio::ssl::stream<asio::ip::tcp::socket>> m_ssl_socket;
     asio::streambuf m_recv_buff;
+    bool m_authenticated = false;
 };
 
 TEST(imap_client_test, gmail_imap_xoauth_success_test) {
