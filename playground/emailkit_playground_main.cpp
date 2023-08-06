@@ -1,4 +1,3 @@
-#include <b64/naive.h>
 #include <emailkit/emailkit.hpp>
 #include <emailkit/global.hpp>
 #include <emailkit/google_auth.hpp>
@@ -7,6 +6,7 @@
 #include <emailkit/imap_socket.hpp>
 #include <emailkit/log.hpp>
 #include <emailkit/uri_codec.hpp>
+#include <emailkit/utils.hpp>
 #include <folly/folly_uri.hpp>
 #include <iostream>
 
@@ -39,7 +39,7 @@ void gmail_auth_test() {
     // const std::vector<std::string> scopes = {"https://mail.google.com/",
     //                                          "https://www.googleapis.com/auth/userinfo.email",
     //                                          "https://www.googleapis.com/auth/userinfo.profile"};
-     const std::vector<std::string> scopes = {"https://mail.google.com"};
+    const std::vector<std::string> scopes = {"https://mail.google.com"};
 
     auto imap_client = emailkit::make_imap_client(ctx);
 
@@ -180,7 +180,7 @@ void imap_socket_test() {
 void base64_encode_decode_test() {
     const std::string example_test = "dGhlcmUgaXMgc29tZSB0ZXN0IGZvciBlbmNvZGluZw==";
     log_info("output_buffer: '{}'",
-             b64::base64_naive_encode(b64::base64_naive_decode(example_test)));
+             utils::base64_naive_encode(utils::base64_naive_decode(example_test)));
 }
 
 int main() {

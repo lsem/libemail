@@ -6,6 +6,8 @@
 #include <asio/read_until.hpp>
 #include <asio/ssl.hpp>
 
+#include <list>
+
 using namespace emailkit;
 
 const std::string gmail_imap_oauth2_success =
@@ -80,6 +82,10 @@ class fake_imap_server {
         return {};
     }
 
+    void reply_once(async_callback<std::tuple<std::string, async_callback<std::string>>> cb) {
+        m_pending_reply = std::move(cb);
+    }
+
     void do_accept() {
         m_acceptor.async_accept([this](std::error_code ec, asio::ip::tcp::socket socket) {
             log_debug("accepted connection");
@@ -100,8 +106,53 @@ class fake_imap_server {
         });
     }
 
+    void serve_mocked_version() {
+        log_debug("waiting line from client..");
+        asio::async_read_until(
+            *m_ssl_socket, m_recv_buff, "\r\n",
+            [this](std::error_code ec, size_t bytes_transfered) {
+                if (ec) {
+                    log_error("async_read_until failed: {}", ec);
+                    close_conn();
+                    return;
+                }
+
+                const auto& buff_data = m_recv_buff.data();
+                const char* data_ptr = static_cast<const char*>(buff_data.data());
+                std::string line(data_ptr, data_ptr + bytes_transfered);
+                m_recv_buff.consume(bytes_transfered);
+
+                if (m_pending_reply) {
+                    auto pending_reply = std::exchange(m_pending_reply, nullptr);
+
+                    pending_reply(
+                        std::error_code{},
+                        std::tuple{
+                            line,
+                            [this](std::error_code ec, std::string data) {
+                                asio::async_write(
+                                    *m_ssl_socket, asio::buffer(data),
+                                    [this, data](std::error_code ec, size_t bytes_transfered) {
+                                        if (ec) {
+                                            log_error("writing reply failed: {}", ec);
+                                            close_conn();
+                                            return;
+                                        }
+
+                                        log_debug("line '{}' has been sent  to the client",
+                                                  utils::escape_ctrl(data));
+
+                                        serve_mocked_version();
+                                    });
+                            }
+
+                        });
+                }
+            });
+    }
+
     void serve_client_per_behavior() {
-        // TODO: this is success behavior        
+        // TODO: this is success behavior
         log_debug("waiting line from client..");
         asio::async_read_until(
             *m_ssl_socket, m_recv_buff, "\r\n",
@@ -166,7 +217,7 @@ class fake_imap_server {
 
             log_debug("handshake done");
 
-            serve_client_per_behavior();
+            serve_mocked_version();
         });
     }
 
@@ -197,7 +248,22 @@ class fake_imap_server {
     std::unique_ptr<asio::ssl::stream<asio::ip::tcp::socket>> m_ssl_socket;
     asio::streambuf m_recv_buff;
     bool m_authenticated = false;
+
+    async_callback<std::tuple<std::string, async_callback<std::string>>> m_pending_reply;
 };
+
+struct imap_command_t {
+    std::vector<std::string> tokens;
+};
+
+std::optional<imap_command_t> parse_imap_command(std::string s) {
+    auto tokens = utils::split(s, ' ');
+    if (tokens.size() < 2) {
+        log_error("invalid imap command: {}", s);
+        return {};
+    }
+    return imap_command_t{.tokens = tokens};
+}
 
 TEST(imap_client_test, gmail_imap_xoauth_success_test) {
     asio::io_context ctx;
@@ -211,14 +277,61 @@ TEST(imap_client_test, gmail_imap_xoauth_success_test) {
     client->async_connect("localhost", "9934", [&](std::error_code ec) {
         ASSERT_FALSE(ec);
 
-        client->async_authenticate({}, [&](std::error_code ec, auto details) {
-            ASSERT_FALSE(ec);
-            ctx.stop();
-            test_ran = true;
+        // Instruct server reply once with the following:
+        srv.reply_once([&](std::error_code ec,
+                           std::tuple<std::string, async_callback<std::string>> line_and_cb) {
+            auto& [line, cb] = line_and_cb;
+
+            auto maybe_cmd = parse_imap_command(line);
+            // that is we who send this command and we expect to have it valid.
+            ASSERT_TRUE(maybe_cmd);
+            auto& cmd = *maybe_cmd;
+
+            log_debug("client sent: {}", cmd.tokens);
+
+            ASSERT_EQ(cmd.tokens.size(), 4);
+
+            EXPECT_EQ(cmd.tokens[1], "AUTHENTICATE");
+            EXPECT_EQ(cmd.tokens[2], "XOAUTH2");
+
+            auto decoded_tok3 = utils::base64_naive_decode(cmd.tokens[3]);
+            log_debug("decoded_token: {}", utils::replace_control_chars(decoded_tok3));
+
+            EXPECT_EQ(decoded_tok3[decoded_tok3.size() - 1], 0x01);
+            EXPECT_EQ(decoded_tok3[decoded_tok3.size() - 2], 0x01);
+
+            EXPECT_EQ(utils::replace_control_chars(decoded_tok3),
+                      "user=alan.kay@example.com^Aauth=Bearer [alan_kay_oauth_token]^A^A");
+
+            cb({}, fmt::format("{} OK\r\n", cmd.tokens[0]));
         });
+
+        client->async_authenticate(
+            {.user_email = "alan.kay@example.com", .oauth_token = "[alan_kay_oauth_token]"},
+            [&](std::error_code ec, auto details) {
+                ASSERT_FALSE(ec);
+                ctx.stop();
+                test_ran = true;
+            });
     });
 
-    ctx.run_for(std::chrono::seconds(3));
+    ctx.run_for(std::chrono::seconds(1));
 
     EXPECT_TRUE(test_ran);
+}
+
+TEST(imap_client_test, gmail_imap_xoauth_failure_400_test) {
+    // Test recorded from experiments with gmail imap server. In this particular example gmail imap
+    // complains about lack of scope.
+    asio::io_context ctx;
+
+    fake_imap_server srv{ctx, "localhost", "9934"};
+    ASSERT_FALSE(srv.start());
+
+    bool test_ran = false;
+
+    auto client = make_imap_client(ctx);
+    client->async_connect("localhost", "9934", [&](std::error_code ec) {
+        ASSERT_FALSE(ec);
+
 }

@@ -1,8 +1,7 @@
 #include "imap_client.hpp"
-#include <b64/naive.h>
 #include <map>
-#include "utils.hpp"
 #include "imap_socket.hpp"
+#include "utils.hpp"
 
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
@@ -180,18 +179,13 @@ class imap_client_impl_t : public imap_client_t {
         xoauth2_req += 0x01;
         xoauth2_req += 0x01;
 
-        log_debug("my chars");
-        for (char c : xoauth2_req) {
-            // log_debug("{}: {}", (char)c, (int)c);
-        }
+        const std::string xoauth2_req_encoded = utils::base64_naive_encode(xoauth2_req);
+        auto decoded = utils::base64_naive_decode(xoauth2_req_encoded);
 
-        log_debug("xoauth2_req: {}", xoauth2_req);
-        const std::string xoauth2_req_encoded = b64::base64_naive_encode(xoauth2_req);
-
-        // TODO: don't use this.
         const auto id = new_command_id();
 
         // TODO: this in fact should be stateful thing implement as unit.
+        // TODO: don't use this.
 
         m_imap_socket->async_send_command(
             fmt::format("{} AUTHENTICATE XOAUTH2 {}\r\n", id, xoauth2_req_encoded),
@@ -256,7 +250,7 @@ class imap_client_impl_t : public imap_client_t {
                                 shared_ctx->base64_error_challenge, 2);  // left+strip "+ "
                             // this is supposed to be encoded JSON with error
                             const auto maybe_json_error =
-                                b64::base64_naive_decode(shared_ctx->base64_error_challenge);
+                                utils::base64_naive_decode(shared_ctx->base64_error_challenge);
 
                             // TODO: is JSON here google specific or generic XOATUH2?
                             rapidjson::Document d;
