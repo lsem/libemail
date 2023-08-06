@@ -1,7 +1,9 @@
 #include <gtest/gtest.h>
 #include <emailkit/imap_client.hpp>
+#include <emailkit/utils.hpp>
 
 #include <asio.hpp>
+#include <asio/read_until.hpp>
 #include <asio/ssl.hpp>
 
 using namespace emailkit;
@@ -116,13 +118,82 @@ class fake_imap_server {
             }
 
             log_debug("handshake done");
-            // std::string garbage = "garbage";
-            // asio::async_write(*m_ssl_socket, asio::buffer(garbage), [](std::error_code ec, size_t
-            // bytes_transfered) {
-            //     log_info("async write result: {}", ec);
-            // });
+
+            // read command from client
+            asio::async_read_until(
+                *m_ssl_socket, m_recv_buff, "\r\n",
+                [this](std::error_code ec, size_t bytes_transfered) {
+                    const auto& buff_data = m_recv_buff.data();
+                    const char* data_ptr = static_cast<const char*>(buff_data.data());
+                    std::string line(data_ptr, data_ptr + bytes_transfered);
+                    m_recv_buff.consume(bytes_transfered);
+                    log_debug("server got a line: '{}' (of size {}))",
+                              utils::replace_control_chars(line), line.size());
+
+                    // example of command
+                    // A0 AUTHENTICATE XOAUTH2 dXNlcj0BYXV0aD1CZWFyZXIgAQ\r\n
+                    if (line.find("AUTHENTICATE") != std::string::npos) {
+                        const auto tokens = utils::split(line, ' ');
+                        log_debug("tokens: ({})", tokens);
+                        if (tokens.size() < 3) {
+                            log_error("unexpected line from client, closing connection");
+                            close_conn();
+                            return;
+                        }
+
+                        std::string response;
+                        response += tokens[0];
+                        response +=
+                            " OK liubomyr.semkiv.test2@gmail.com authenticated (Success)\r\n";
+                        asio::async_write(*m_ssl_socket, asio::buffer(response),
+                                          [this](std::error_code ec, size_t bytes_transfered) {
+                                              if (ec) {
+                                                  log_error("failed sending reply: {}", ec);
+                                                  close_conn();
+                                                  return;
+                                              }
+
+                                              log_debug("reply sent, reading next command..");
+                                          });
+
+                        // size_t space_pos = line.find_first_of(' ');
+                        // assert(space_pos != std::string::npos);  // suppoort
+                        // only valid commands std::string command_id(line, 0,
+                        // space_pos); std::string rest(line, space_pos + 1);
+                        // log_debug("rest: {}", rest);
+                        // size_t space_pos2 = rest.find_first_of(' ');
+                        // assert(space_pos2 != std::string::npos);  // suppoort
+                        // only valid commands rest = std::string(rest,
+                        // space_pos2 + 1); log_debug("rest of command: '{}'",
+                        // rest);
+
+                        // size_t space_pos3 = rest.find_first_of(' ');
+                        // if ()
+                    } else {
+                        log_warning("unknown command: {}", utils::replace_control_chars(line));
+                        close_conn();
+                    }
+                });
         });
         // socket.close();
+    }
+
+    void close_conn() {
+        if (!m_ssl_socket->lowest_layer().is_open()) {
+            log_warning("already closed");
+            return;
+        }
+        std::error_code ec;
+        m_ssl_socket->lowest_layer().shutdown(asio::socket_base::shutdown_both, ec);
+        if (ec) {
+            log_error("shutdown failed: {}", ec);
+            // ignore error.
+        }
+        m_ssl_socket->lowest_layer().close(ec);
+        if (ec) {
+            log_error("close failed: {}", ec);
+            // ignore error.
+        }
     }
 
    private:
@@ -132,6 +203,7 @@ class fake_imap_server {
     asio::ssl::context m_ssl_ctx;
     asio::ip::tcp::acceptor m_acceptor;
     std::unique_ptr<asio::ssl::stream<asio::ip::tcp::socket>> m_ssl_socket;
+    asio::streambuf m_recv_buff;
 };
 
 TEST(imap_client_test, gmail_imap_xoauth_success_test) {
@@ -145,14 +217,15 @@ TEST(imap_client_test, gmail_imap_xoauth_success_test) {
     auto client = make_imap_client(ctx);
     client->async_connect("localhost", "9934", [&](std::error_code ec) {
         ASSERT_FALSE(ec);
-        test_ran = true;
 
-        client->async_authenticate({}, [](std::error_code ec, auto details) {
+        client->async_authenticate({}, [&](std::error_code ec, auto details) {
+            ASSERT_FALSE(ec);
 
+            test_ran = true;
         });
     });
 
-    ctx.run();
+    ctx.run_for(std::chrono::seconds(3));
 
     EXPECT_TRUE(test_ran);
 }
