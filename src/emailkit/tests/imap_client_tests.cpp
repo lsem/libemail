@@ -220,7 +220,7 @@ TEST(imap_client_test, gmail_imap_xoauth_success_test) {
 
         client->async_authenticate({}, [&](std::error_code ec, auto details) {
             ASSERT_FALSE(ec);
-
+            ctx.stop();
             test_ran = true;
         });
     });

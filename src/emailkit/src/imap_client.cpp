@@ -1,6 +1,7 @@
 #include "imap_client.hpp"
 #include <b64/naive.h>
 #include <map>
+#include "utils.hpp"
 #include "imap_socket.hpp"
 
 #include <rapidjson/document.h>
@@ -201,6 +202,7 @@ class imap_client_impl_t : public imap_client_t {
 
                 struct context_t {
                     std::string base64_error_challenge;
+                    bool auth_success = false;
                 };
                 auto shared_ctx = std::make_shared<context_t>();
 
@@ -208,7 +210,7 @@ class imap_client_impl_t : public imap_client_t {
                 // TODO: timeout or putting timeout on entire high-level procedure
                 async_keep_receiving_lines_until(
                     m_imap_socket,
-                    [shared_ctx](const std::string& line) -> std::error_code {
+                    [shared_ctx, id](const std::string& line) -> std::error_code {
                         log_info("received line: '{}'", line);
                         if (line.find("* ") == 0) {
                             // this is so called untagged response and indicates data transmitted
@@ -222,6 +224,10 @@ class imap_client_impl_t : public imap_client_t {
                             // and it is our turn
                             shared_ctx->base64_error_challenge = line;
                             return make_error_code(std::errc::interrupted);
+                        } else if (line.find(id) == 0) {
+                            shared_ctx->base64_error_challenge = line;
+                            shared_ctx->auth_success = true;
+                            return make_error_code(std::errc::interrupted);
                         }
                         return {};
                     },
@@ -232,6 +238,16 @@ class imap_client_impl_t : public imap_client_t {
                         }
 
                         if (ec == std::errc::interrupted) {
+                            if (shared_ctx->auth_success) {
+                                log_debug("authenticated! line was: '{}'",
+                                          utils::replace_control_chars(
+                                              shared_ctx->base64_error_challenge));
+                                // TODO: we need to parse and make sure we authenticated exactly the
+                                // same user.
+                                // TODO: check RFC.
+                                cb({}, {});
+                                return;
+                            }
                             // server responded with error code and we need to send CRLF
                             log_debug("server responded with challenge: '{}'",
                                       shared_ctx->base64_error_challenge);
