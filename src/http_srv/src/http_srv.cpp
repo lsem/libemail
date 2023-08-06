@@ -15,11 +15,13 @@ class http_srv_impl_t : public http_srv_t, public std::enable_shared_from_this<h
         std::error_code ec;
 
         asio::ip::tcp::resolver resolver(m_ctx);
-        asio::ip::tcp::endpoint endpoint = *resolver.resolve(m_host, m_port, ec).begin();
+        auto resolve_res = resolver.resolve(m_host, m_port, ec);
         if (ec) {
             log_error("resolve failed: {}", ec);
             return ec;
         }
+
+        asio::ip::tcp::endpoint endpoint = *resolve_res.begin();
 
         m_acceptor.open(endpoint.protocol(), ec);
         if (ec) {

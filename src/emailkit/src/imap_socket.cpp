@@ -6,6 +6,7 @@
 #include <asio/ssl.hpp>
 #include <asio/streambuf.hpp>
 #include <asio/write.hpp>
+#include <fstream>
 #include <system_error>
 
 #define RAISE_CB_ON_ERROR(ec)                     \
@@ -56,7 +57,8 @@ class imap_client_impl_t : public imap_socket_t, std::enable_shared_from_this<im
                                     return;
                                 }
 
-                                log_debug("connected: {}", e.address().to_string());
+                                log_debug("connected: {}:{} (proto: {}), doing handhshake",
+                                          e.address().to_string(), e.port(), e.protocol().family());
                                 m_socket.async_handshake(
                                     asio::ssl::stream_base::client,
                                     [this, cb = std::move(cb)](std::error_code ec) mutable {
@@ -90,7 +92,26 @@ class imap_client_impl_t : public imap_socket_t, std::enable_shared_from_this<im
                 // like it and we may want to do it on upper level or have as parameter!
 
                 const auto& buff_data = m_recv_buff.data();
+
+                if (buff_data.size() < bytes_transferred) {
+                    log_error("buff_data.size={} while bytes_transferred={}", buff_data.size(),
+                              bytes_transferred);
+                    cb(ec, {});
+                    return;
+                }
+
                 const char* data_ptr = static_cast<const char*>(buff_data.data());
+
+                if (m_opt_dump_stream_to_file) {
+                    std::ofstream fs{"imap_socket_dump.bin", std::ios_base::out |
+                                                                 std::ios_base::app |
+                                                                 std::ios_base::binary};
+                    fs.write(data_ptr, bytes_transferred);
+                    if (!fs.good()) {
+                        log_warning("dump failed");
+                    }
+                }
+
                 for (size_t i = 0; i < buff_data.size() - 1; i++) {
                     if (data_ptr[i] == '\r' && data_ptr[i + 1] == '\n') {
                         m_recv_buff.consume(i + 2);
@@ -125,12 +146,17 @@ class imap_client_impl_t : public imap_socket_t, std::enable_shared_from_this<im
                           });
     }
 
+    virtual void set_option(imap_socket_opts::dump_stream_to_file) override {
+        m_opt_dump_stream_to_file = true;
+    }
+
    private:
     asio::io_context& m_ctx;
     asio::ssl::context m_ssl_ctx;
     asio::ssl::stream<asio::ip::tcp::socket> m_socket;
     bool m_connected = false;
     asio::streambuf m_recv_buff;
+    bool m_opt_dump_stream_to_file = false;
 };
 
 }  // namespace

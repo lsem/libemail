@@ -109,6 +109,10 @@ class https_client_t : public std::enable_shared_from_this<https_client_t> {
             return;
         }
 
+
+        m_ssl_ctx.set_verify_mode(asio::ssl::context::verify_none);
+
+
         asio::async_connect(m_socket.lowest_layer(), std::move(endpoints),
                             [cb = std::move(cb), this_weak = weak_from_this()](
                                 std::error_code ec, const asio::ip::tcp::endpoint& e) mutable {

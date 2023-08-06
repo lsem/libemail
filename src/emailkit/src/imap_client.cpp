@@ -19,6 +19,7 @@ class imap_client_impl_t : public imap_client_t {
             log_info("make_imap_socket failed");
             return false;
         }
+        m_imap_socket->set_option(imap_socket_opts::dump_stream_to_file{});
         return true;
     }
 
