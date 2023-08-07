@@ -58,34 +58,34 @@ class imap_client_impl_t : public imap_client_t {
                                      });
     }
 
-    void recive_next_line() {
-        log_debug("waiting next line ...");
-        m_imap_socket->async_receive_line([this](std::error_code ec, std::string line) {
-            if (ec) {
-                if (ec == asio::error::eof) {
-                    // socket closed
-                    // TODO:
-                    log_warning("socket closed");
-                } else {
-                    log_error("error reading line: {}", ec);
-                }
-                return;
-            }
-            log_debug("received line: {}", line);
+    // void recive_next_line() {
+    //     log_debug("waiting next line ...");
+    //     m_imap_socket->async_receive_line([this](std::error_code ec, imap_response_line_t line) {
+    //         if (ec) {
+    //             if (ec == asio::error::eof) {
+    //                 // socket closed
+    //                 // TODO:
+    //                 log_warning("socket closed");
+    //             } else {
+    //                 log_error("error reading line: {}", ec);
+    //             }
+    //             return;
+    //         }
+    //         log_debug("received line: {}", line);
 
-            for (auto& [id, h] : m_active_commands) {
-                if (line.find(id) == 0) {
-                    log_info("found active command!");
-                    auto cb = std::move(h.cb);
-                    m_active_commands.erase(id);
-                    cb(std::error_code(), line);
-                    break;
-                }
-            }
+    //         for (auto& [id, h] : m_active_commands) {
+    //             if (line.find(id) == 0) {
+    //                 log_info("found active command!");
+    //                 auto cb = std::move(h.cb);
+    //                 m_active_commands.erase(id);
+    //                 cb(std::error_code(), line);
+    //                 break;
+    //             }
+    //         }
 
-            recive_next_line();
-        });
-    }
+    //         recive_next_line();
+    //     });
+    // }
 
     // void async_execute_imap_command(std::string command, strong_callback<std::vector<std::)
 
@@ -114,7 +114,8 @@ class imap_client_impl_t : public imap_client_t {
                 }
 
                 m_imap_socket->async_receive_line(
-                    [this, cb = std::move(cb)](std::error_code ec, std::string line) mutable {
+                    [this, cb = std::move(cb)](std::error_code ec,
+                                               imap_response_line_t line) mutable {
                         if (ec) {
                             log_error("failed receiving line: {}", ec);
                             cb(ec, {});
@@ -126,7 +127,7 @@ class imap_client_impl_t : public imap_client_t {
                         // TODO: keep receiving lines until we have OK or NO (check RFC for more).
                         m_imap_socket->async_receive_line(
                             [this, cb = std::move(cb)](std::error_code ec,
-                                                       std::string line) mutable {
+                                                       imap_response_line_t line) mutable {
                                 if (ec) {
                                     log_error("failed receiving line2: {}", ec);
                                     cb(ec, {});
@@ -137,7 +138,7 @@ class imap_client_impl_t : public imap_client_t {
 
                                 m_imap_socket->async_receive_line(
                                     [this, cb = std::move(cb)](std::error_code ec,
-                                                               std::string line) mutable {
+                                                               imap_response_line_t line) mutable {
                                         if (ec) {
                                             log_error("failed receiving line3: {}", ec);
                                             cb(ec, {});
@@ -204,22 +205,22 @@ class imap_client_impl_t : public imap_client_t {
                 // TODO: timeout or putting timeout on entire high-level procedure
                 async_keep_receiving_lines_until(
                     m_imap_socket,
-                    [shared_ctx, id](const std::string& line) -> std::error_code {
+                    [shared_ctx, id](const imap_response_line_t& line) -> std::error_code {
                         log_info("received line: '{}'", line);
-                        if (line.find("* ") == 0) {
+                        if (line.is_untagged_reply()) {
                             // this is so called untagged response and indicates data transmitted
                             // from server which do not indicate command completion, we should not
                             // take any action and continue.
                             log_debug("starts with *, skip");
                             return {};
-                        } else if (line.find("+ ") == 0) {
+                        } else if (line.is_command_continiation_request()) {
                             // the server indicates that it is ready for remainder of the command,
                             // in other words it is not going to send us more data (as with "*"")
                             // and it is our turn
-                            shared_ctx->base64_error_challenge = line;
+                            shared_ctx->base64_error_challenge = line.line;
                             return make_error_code(std::errc::interrupted);
-                        } else if (line.find(id) == 0) {
-                            shared_ctx->base64_error_challenge = line;
+                        } else if (line.tokens.size() > 0 && line.tokens[0] == id) {
+                            shared_ctx->base64_error_challenge = line.line;
                             shared_ctx->auth_success = true;
                             return make_error_code(std::errc::interrupted);
                         }
@@ -292,26 +293,26 @@ class imap_client_impl_t : public imap_client_t {
                                 // more *.
                                 m_imap_socket->async_receive_line(
                                     [cb = std::move(cb), id, status, maybe_json_error](
-                                        std::error_code ec, std::string line) mutable {
+                                        std::error_code ec, imap_response_line_t line) mutable {
                                         PROPAGATE_ERROR_VIA_CB(ec, "receive command response line",
                                                                cb);
 
                                         log_debug("got command response line: '{}'", line);
 
-                                        if (line.find(id) == 0) {
+                                        if (line.tokens.size() > 0 && line.tokens[0] == id) {
                                             log_debug("AUTH command finished");
                                             // TODO: analyze whether it is really "BAD"!
-                                            const auto response = std::string(line, id.size() + 1);
-                                            if (response.find("BAD") == 0) {
+                                            const auto response = std::string(line.line, id.size() + 1);
+                                            if (line.tokens[1] == "BAD") {
                                                 std::string sasl_fail = std::string(response, 4);
                                                 cb(make_error_code(std::errc::protocol_error),
                                                    {.summary = fmt::format(
                                                         "SASL error: {}, server status: {}",
                                                         sasl_fail, status)});
-                                            } else if (response.find("OK") == 0) {
+                                            } else if (line.tokens[1] == "OK") {
                                                 log_warning("OK returned after error details ");
                                                 cb({}, {});
-                                            } else if (response.find("NO") == 0) {
+                                            } else if (line.tokens[1] == "NO") {
                                                 // TODO: we must  have some good details!
                                                 cb(make_error_code(std::errc::invalid_argument),
                                                    {.summary = maybe_json_error});

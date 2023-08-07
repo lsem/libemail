@@ -77,7 +77,14 @@ class imap_client_impl_t : public imap_socket_t, std::enable_shared_from_this<im
                             });
     }
 
-    virtual void async_receive_line(async_callback<std::string> cb) override {
+    // virtual void async_receive_line(async_callback<std::string> cb) override {
+    //     async_receive_line(
+    //         [cb = std::move(cb)](std::error_code ec, imap_response_line_t line) mutable {
+    //             cb(ec, line.line);
+    //         });
+    // }
+
+    virtual void async_receive_line(async_callback<imap_response_line_t> cb) override {
         asio::async_read_until(
             m_socket, m_recv_buff, "\r\n",
             [this, cb = std::move(cb)](std::error_code ec, size_t bytes_transferred) mutable {
@@ -117,7 +124,7 @@ class imap_client_impl_t : public imap_socket_t, std::enable_shared_from_this<im
                 for (size_t i = 0; i < buff_data.size() - 1; i++) {
                     if (data_ptr[i] == '\r' && data_ptr[i + 1] == '\n') {
                         m_recv_buff.consume(i + 2);
-                        cb({}, std::string(data_ptr, data_ptr + i - 1));
+                        cb({}, imap_response_line_t{std::string(data_ptr, data_ptr + i - 1)});
                         return;
                     }
                 }
@@ -167,9 +174,10 @@ std::shared_ptr<imap_socket_t> make_imap_socket(asio::io_context& ctx) {
     return std::make_shared<imap_client_impl_t>(ctx);
 }
 
-void async_keep_receiving_lines_until(std::weak_ptr<imap_socket_t> socket_ptr,
-                                      fu2::function<std::error_code(const std::string& l)> p,
-                                      async_callback<void> cb) {
+void async_keep_receiving_lines_until(
+    std::weak_ptr<imap_socket_t> socket_ptr,
+    fu2::function<std::error_code(const imap_response_line_t& l)> p,
+    async_callback<void> cb) {
     // TODO: what about the lifetime? what if socket gets deleted, this should rather be a member or
     // we should pass shared_ptr/weak_ptr to socket.
 
@@ -180,7 +188,7 @@ void async_keep_receiving_lines_until(std::weak_ptr<imap_socket_t> socket_ptr,
     }
 
     socket->async_receive_line([cb = std::move(cb), p = std::move(p), socket_ptr = socket](
-                                   std::error_code ec, std::string line) mutable {
+                                   std::error_code ec, imap_response_line_t line) mutable {
         if (ec) {
             cb(ec);
             return;

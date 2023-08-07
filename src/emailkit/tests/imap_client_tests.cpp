@@ -444,3 +444,5 @@ TEST(imap_client_test, imap_xoauth_failure_no_challange_test) {
     ctx.run_for(std::chrono::seconds(1));
     EXPECT_TRUE(test_ran);
 }
+
+// TODO: test for when server responds with * during authentication.

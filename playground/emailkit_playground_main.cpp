@@ -119,10 +119,10 @@ void imap_socket_test() {
     auto imap_socket = emailkit::make_imap_socket(ctx);
     const std::string gmail_imap_uri = "imap.gmail.com";
 
-    async_callback<std::string> async_receive_line_cb;
+    async_callback<imap_response_line_t> async_receive_line_cb;
 
     async_receive_line_cb = [&async_receive_line_cb, &imap_socket](std::error_code ec,
-                                                                   std::string line) {
+                                                                   imap_response_line_t line) {
         if (ec) {
             if (ec == asio::error::eof) {
                 log_warning("connection closed by the server (eof)");
@@ -143,7 +143,7 @@ void imap_socket_test() {
 
         // keep receiving lines
         imap_socket->async_receive_line(
-            [&async_receive_line_cb](std::error_code ec, std::string line) {
+            [&async_receive_line_cb](std::error_code ec, imap_response_line_t line) {
                 async_receive_line_cb(ec, line);
             });
     };
@@ -153,7 +153,7 @@ void imap_socket_test() {
 
         // start receiving lines
         imap_socket->async_receive_line(
-            [&async_receive_line_cb](std::error_code ec, std::string line) {
+            [&async_receive_line_cb](std::error_code ec, imap_response_line_t line) {
                 async_receive_line_cb(ec, std::move(line));
             });
 

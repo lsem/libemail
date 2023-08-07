@@ -1,5 +1,6 @@
 #include <emailkit/utils.hpp>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <fmt/format.h>
@@ -115,6 +116,42 @@ TEST(utils_test, base64_encode_decode_roundtrip_test) {
         EXPECT_EQ(s, decoded) << fmt::format("encoded: '{}', decoded: '{}', sample: '{}'", encoded,
                                              emailkit::utils::escape_ctrl(decoded),
                                              emailkit::utils::escape_ctrl(s));
+    }
+}
+
+TEST(utils_test, split_view_test) {
+    {
+        const std::string sample = "T0 OK [AUTHENTICATED]\r\n";
+        auto tokens = emailkit::utils::split_views(sample, ' ');
+        EXPECT_THAT(tokens, testing::ElementsAre("T0", "OK", "[AUTHENTICATED]\r\n"));
+    }
+    {
+        const std::string sample = "just_a_text";
+        auto tokens = emailkit::utils::split_views(sample, ' ');
+        EXPECT_THAT(tokens, testing::ElementsAre("just_a_text"));
+    }
+    {
+        const std::string sample = "";
+        auto tokens = emailkit::utils::split_views(sample, ' ');
+        EXPECT_THAT(tokens, testing::ElementsAre());
+    }
+}
+
+TEST(utils_test, split_test) {
+    {
+        const std::string sample = "T0 OK [AUTHENTICATED]\r\n";
+        auto tokens = emailkit::utils::split(sample, ' ');
+        EXPECT_THAT(tokens, testing::ElementsAre("T0", "OK", "[AUTHENTICATED]\r\n"));
+    }
+    {
+        const std::string sample = "just_a_text";
+        auto tokens = emailkit::utils::split(sample, ' ');
+        EXPECT_THAT(tokens, testing::ElementsAre("just_a_text"));
+    }
+    {
+        const std::string sample = "";
+        auto tokens = emailkit::utils::split(sample, ' ');
+        EXPECT_THAT(tokens, testing::ElementsAre());
     }
 }
 
