@@ -183,7 +183,7 @@ class imap_client_impl_t : public imap_client_t {
                         receive_xoauth2_result(state, std::move(cb));
                     });
             } else if (line.maybe_tagged_reply()) {
-                log_debug("got tagged reply, finishing: line: '{}', line tokens: {}", line, line,
+                log_debug("got tagged reply, finishing: line: '{}', line tokens: {}", line,
                           line.tokens);
                 if (line.tokens[1] == "OK") {
                     state.auth_success = true;
