@@ -24,7 +24,6 @@ struct oauthbearer_creds_t {
     std::string oauth_token;
 };
 
-
 struct auth_error_details_t {
     std::string summary;
 };
@@ -42,7 +41,9 @@ class imap_client_t {
 
     // TODO: https://www.rfc-editor.org/rfc/rfc7628.html
     virtual void async_authenticate(oauthbearer_creds_t creds,
-                                    async_callback<auth_error_details_t> cb) {}    
+                                    async_callback<auth_error_details_t> cb) {}
+
+    // TODO: state change API (logical states + disconnected/failed)
 };
 
 std::shared_ptr<imap_client_t> make_imap_client(asio::io_context& ctx);
