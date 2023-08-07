@@ -77,13 +77,6 @@ class imap_client_impl_t : public imap_socket_t, std::enable_shared_from_this<im
                             });
     }
 
-    // virtual void async_receive_line(async_callback<std::string> cb) override {
-    //     async_receive_line(
-    //         [cb = std::move(cb)](std::error_code ec, imap_response_line_t line) mutable {
-    //             cb(ec, line.line);
-    //         });
-    // }
-
     virtual void async_receive_line(async_callback<imap_response_line_t> cb) override {
         asio::async_read_until(
             m_socket, m_recv_buff, "\r\n",
@@ -111,6 +104,7 @@ class imap_client_impl_t : public imap_socket_t, std::enable_shared_from_this<im
 
                 const char* data_ptr = static_cast<const char*>(buff_data.data());
 
+#ifndef NDEBUG
                 if (m_opt_dump_stream_to_file) {
                     std::ofstream fs{"imap_socket_dump.bin", std::ios_base::out |
                                                                  std::ios_base::app |
@@ -120,17 +114,18 @@ class imap_client_impl_t : public imap_socket_t, std::enable_shared_from_this<im
                         log_warning("dump failed");
                     }
                 }
+#endif
 
-                for (size_t i = 0; i < buff_data.size() - 1; i++) {
-                    if (data_ptr[i] == '\r' && data_ptr[i + 1] == '\n') {
-                        m_recv_buff.consume(i + 2);
-                        cb({}, imap_response_line_t{std::string(data_ptr, data_ptr + i - 1)});
-                        return;
-                    }
+                std::string received_data{data_ptr, bytes_transferred};
+                if (received_data.size() < 2 || received_data[received_data.size() - 2] != '\r' ||
+                    received_data[received_data.size() - 1] != '\n') {
+                    log_error("received not a line, no \\r\\n");
+                    cb(make_error_code(std::errc::io_error), {});
+                    return;
                 }
 
-                log_error("failed finding \r\n in the end of the line");
-                cb(make_error_code(std::errc::io_error), {});
+                m_recv_buff.consume(bytes_transferred);
+                cb({}, imap_response_line_t{std::move(received_data)});
             });
     }
 

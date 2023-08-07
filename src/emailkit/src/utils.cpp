@@ -33,7 +33,7 @@ std::vector<std::string> split(const std::string& s, char delimiter) {
     return r;
 }
 
-std::vector<std::string_view> split_views(const std::string& s, char delimiter) {
+std::vector<std::string_view> split_views(std::string_view s, char delimiter) {
     std::vector<std::string_view> r;
     bool in_word = false;
     size_t tok_start = 0;

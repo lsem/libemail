@@ -126,6 +126,13 @@ TEST(utils_test, split_view_test) {
         EXPECT_THAT(tokens, testing::ElementsAre("T0", "OK", "[AUTHENTICATED]\r\n"));
     }
     {
+        std::string sample = "T0 OK [AUTHENTICATED]\r\n";
+        std::string_view sample_view = sample;
+        sample_view.remove_suffix(2);
+        auto tokens = emailkit::utils::split_views(sample_view, ' ');
+        EXPECT_THAT(tokens, testing::ElementsAre("T0", "OK", "[AUTHENTICATED]"));
+    }
+    {
         const std::string sample = "just_a_text";
         auto tokens = emailkit::utils::split_views(sample, ' ');
         EXPECT_THAT(tokens, testing::ElementsAre("just_a_text"));

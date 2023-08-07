@@ -6,7 +6,14 @@
 TEST(imap_response_line_test, basic_test) {
     emailkit::imap_response_line_t response_line{"T0 OK [AUTHENTICATED]\r\n"};
     EXPECT_EQ(response_line.line, "T0 OK [AUTHENTICATED]\r\n");
-    EXPECT_THAT(response_line.tokens, ::testing::ElementsAre("T0", "OK", "[AUTHENTICATED]\r\n"));
+    EXPECT_THAT(response_line.tokens, ::testing::ElementsAre("T0", "OK", "[AUTHENTICATED]"));
+    EXPECT_EQ(response_line.is_untagged_reply(), false);
+}
+
+TEST(imap_response_line_test, empty_line) {
+    emailkit::imap_response_line_t response_line{"\r\n"};
+    EXPECT_EQ(response_line.line, "\r\n");
+    EXPECT_THAT(response_line.tokens, ::testing::ElementsAre());
     EXPECT_EQ(response_line.is_untagged_reply(), false);
 }
 

@@ -58,34 +58,24 @@ class imap_client_impl_t : public imap_client_t {
                                      });
     }
 
-    // void recive_next_line() {
-    //     log_debug("waiting next line ...");
-    //     m_imap_socket->async_receive_line([this](std::error_code ec, imap_response_line_t line) {
-    //         if (ec) {
-    //             if (ec == asio::error::eof) {
-    //                 // socket closed
-    //                 // TODO:
-    //                 log_warning("socket closed");
-    //             } else {
-    //                 log_error("error reading line: {}", ec);
-    //             }
-    //             return;
-    //         }
-    //         log_debug("received line: {}", line);
+    void recive_next_line() {
+        log_debug("waiting next line ...");
+        m_imap_socket->async_receive_line([this](std::error_code ec, imap_response_line_t line) {
+            if (ec) {
+                if (ec == asio::error::eof) {
+                    // socket closed
+                    // TODO:
+                    log_warning("socket closed");
+                } else {
+                    log_error("error reading line: {}", ec);
+                }
+                return;
+            }
+            log_debug("received line: {}", line);
 
-    //         for (auto& [id, h] : m_active_commands) {
-    //             if (line.find(id) == 0) {
-    //                 log_info("found active command!");
-    //                 auto cb = std::move(h.cb);
-    //                 m_active_commands.erase(id);
-    //                 cb(std::error_code(), line);
-    //                 break;
-    //             }
-    //         }
-
-    //         recive_next_line();
-    //     });
-    // }
+            recive_next_line();
+        });
+    }
 
     // void async_execute_imap_command(std::string command, strong_callback<std::vector<std::)
 
@@ -96,12 +86,6 @@ class imap_client_impl_t : public imap_client_t {
         // without ID then we have unregistered response/upstream command.
         //
         const auto id = new_command_id();
-        // m_active_commands[id] = {
-        //     .cb = [id, cb2 = std::move(cb2)](std::error_code ec, std::string line) mutable {
-        //         log_debug("command {} finished: {}: {}", id, ec.message(), line);
-        //         // TODO: parse capabilities.
-        //         cb2(std::error_code(), std::vector<std::string>{});
-        //     }};
 
         m_imap_socket->async_send_command(
             fmt::format("{} CAPABILITY\r\n", id),
@@ -154,24 +138,68 @@ class imap_client_impl_t : public imap_client_t {
             });
     }
 
+    struct xoauth2_auth_result_state {
+        bool auth_success = false;
+        std::string error_details;
+
+        // TODO: collect received untagged lines
+        // std::vector<std::string> untagged_lines;
+    };
+
+    void receive_xoauth2_result(xoauth2_auth_result_state state,
+                                async_callback<xoauth2_auth_result_state> cb) {
+        m_imap_socket->async_receive_line([this, state, cb = std::move(cb)](
+                                              std::error_code ec,
+                                              imap_response_line_t line) mutable {
+            if (ec) {
+                // TODO: check for eof?
+                log_error("async_receive_line failed: {}", ec);
+                cb(ec, state);
+                return;
+            }
+
+            if (line.is_untagged_reply()) {
+                // so far just ignore this and keep reading..
+                receive_xoauth2_result(state, std::move(cb));
+            } else if (line.is_command_continiation_request()) {
+                // this must be error happened and server challanged us to accept result
+                // and confirm by sending \r\n before it will send its final result (<TAG>
+                // OK/NO/BAD)
+                log_debug("got continuation request, line: {}", line);
+
+                if (line.tokens.size() > 1) {
+                    state.error_details = utils::base64_naive_decode(std::string{line.tokens[1]});
+                }
+
+                m_imap_socket->async_send_command(
+                    "\r\n", [this, cb = std::move(cb), state](std::error_code ec) mutable {
+                        if (ec) {
+                            log_error("failed sending \r\n in response to auth challange: {}", ec);
+                            cb(ec, state);
+                            return;
+                        }
+                        // sent, we can continue reading and don't expect continuations any more
+                        // TODO: put flag in a state that continuations are not expected anymore.
+                        receive_xoauth2_result(state, std::move(cb));
+                    });
+            } else if (line.maybe_tagged_reply()) {
+                log_debug("got tagged reply, finishing: line: '{}', line tokens: {}", line, line,
+                          line.tokens);
+                if (line.tokens[1] == "OK") {
+                    state.auth_success = true;
+                } else if (line.tokens[1] == "NO" || line.tokens[1] == "BAD") {
+                    state.auth_success = false;
+                }
+                cb({}, state);
+            }
+        });
+    }
+
     virtual void async_authenticate(xoauth2_creds_t creds,
                                     async_callback<auth_error_details_t> cb) override {
-        // TODO: run capabilities command first, or if this considered to be low-level command
-        // then accept capabilities and check there is SASL-IR which is what we are going to support
-        // in first implementation.
-        // For now we just assume that server supoorts SASL-IR.
-        // https://www.rfc-editor.org/rfc/rfc4959
-
-        // '*' in IMAP: https://datatracker.ietf.org/doc/html/rfc3501#section-2.2.2
-        // '+' in IMAP: https://datatracker.ietf.org/doc/html/rfc3501#section-2.2.1
-
-        // prepare XOAUTH2 request
         // https://developers.google.com/gmail/imap/xoauth2-protocol
         // https://learn.microsoft.com/en-us/exchange/client-developer/legacy-protocols/how-to-authenticate-an-imap-pop-smtp-application-by-using-oauth
-        // const std::string xoauth2_req =
-        //     fmt::format("user={}Aauth=Bearer {}^A^A", creds.user_email, creds.oauth_token);
-
-        log_info("creds.user_email: {}", creds.user_email);
+        // TODO: run capabilities command first, or if this considered to be low-level command
 
         std::string xoauth2_req;
         xoauth2_req += "user=" + creds.user_email;
@@ -185,172 +213,31 @@ class imap_client_impl_t : public imap_client_t {
 
         const auto id = new_command_id();
 
-        // TODO: this in fact should be stateful thing implement as unit.
-        // TODO: don't use this.
-
         m_imap_socket->async_send_command(
             fmt::format("{} AUTHENTICATE XOAUTH2 {}\r\n", id, xoauth2_req_encoded),
             [this, id, cb = std::move(cb)](std::error_code ec) mutable {
-                PROPAGATE_ERROR_VIA_CB(ec, "send AUTHENTICATE XOAUTH2", cb);
+                if (ec) {
+                    log_error("send AUTHENTICATE XOAUTH2 failed: {}", ec);
+                    cb(ec, {});
+                    return;
+                }
 
-                log_debug("auth command send, waiting response");
-
-                struct context_t {
-                    std::string base64_error_challenge;
-                    bool auth_success = false;
-                };
-                auto shared_ctx = std::make_shared<context_t>();
-
-                // keep receiving lines until
-                // TODO: timeout or putting timeout on entire high-level procedure
-                async_keep_receiving_lines_until(
-                    m_imap_socket,
-                    [shared_ctx, id](const imap_response_line_t& line) -> std::error_code {
-                        log_info("received line: '{}'", line);
-                        if (line.is_untagged_reply()) {
-                            // this is so called untagged response and indicates data transmitted
-                            // from server which do not indicate command completion, we should not
-                            // take any action and continue.
-                            log_debug("starts with *, skip");
-                            return {};
-                        } else if (line.is_command_continiation_request()) {
-                            // the server indicates that it is ready for remainder of the command,
-                            // in other words it is not going to send us more data (as with "*"")
-                            // and it is our turn
-                            shared_ctx->base64_error_challenge = line.line;
-                            return make_error_code(std::errc::interrupted);
-                        } else if (line.tokens.size() > 0 && line.tokens[0] == id) {
-                            shared_ctx->base64_error_challenge = line.line;
-                            shared_ctx->auth_success = true;
-                            return make_error_code(std::errc::interrupted);
-                        }
-                        return {};
-                    },
-                    [this, cb = std::move(cb), id, shared_ctx](std::error_code ec) mutable {
-                        if (ec && ec != std::errc::interrupted) {
-                            PROPAGATE_ERROR_VIA_CB(ec, "async_keep_receiving_lines_until/xoauth2",
-                                                   cb);
+                receive_xoauth2_result(
+                    {}, [this, cb = std::move(cb)](std::error_code ec,
+                                                   xoauth2_auth_result_state state) mutable {
+                        if (ec) {
+                            log_error("receive_xoauth2_result failed: {}", ec);
+                            cb(ec, {});
+                            return;
                         }
 
-                        if (ec == std::errc::interrupted) {
-                            if (shared_ctx->auth_success) {
-                                log_debug("authenticated! line was: '{}'",
-                                          utils::replace_control_chars(
-                                              shared_ctx->base64_error_challenge));
-                                // TODO: we need to parse and make sure we authenticated exactly the
-                                // same user.
-                                // TODO: check RFC.
-                                cb({}, {});
-                                return;
-                            }
-                            // server responded with error code and we need to send CRLF
-                            log_debug("server responded with challenge: '{}'",
-                                      shared_ctx->base64_error_challenge);
-
-                            shared_ctx->base64_error_challenge = std::string(
-                                shared_ctx->base64_error_challenge, 2);  // left+strip "+ "
-                            // this is supposed to be encoded JSON with error
-                            const auto maybe_json_error =
-                                utils::base64_naive_decode(shared_ctx->base64_error_challenge);
-
-                            // TODO: is JSON here google specific or generic XOATUH2?
-                            rapidjson::Document d;
-                            d.Parse(maybe_json_error.c_str());
-                            if (d.HasParseError()) {
-                                // no, it is not a json
-                                // TODO: warning: it is unsafe print garbage!
-                                log_warning("returned response is not a json: '{}'",
-                                            maybe_json_error);
-                                cb(make_error_code(std::errc::protocol_error),
-                                   {.summary = "error details is not a JSON"});
-                                return;
-                            }
-
-                            auto as_str_or = [&d](const char* key,
-                                                  std::string _default = {}) -> std::string {
-                                return d.HasMember(key) && d[key].IsString() ? d[key].GetString()
-                                                                             : _default;
-                            };
-                            auto as_int_or = [&d](const char* key, int _default = {}) -> int {
-                                return d.HasMember(key) && d[key].IsInt() ? d[key].GetInt()
-                                                                          : _default;
-                            };
-
-                            log_info("it is a JSON: {}", maybe_json_error);
-                            auto status = as_str_or("status");
-                            log_warning("server returned: {}", status);
-
-                            // once we received this line explaining error we should send \r\n to
-                            // finish auth session.
-                            m_imap_socket->async_send_command("\r\n", [this, id, cb = std::move(cb),
-                                                                       status, maybe_json_error](
-                                                                          std::error_code
-                                                                              ec) mutable {
-                                PROPAGATE_ERROR_VIA_CB(ec, "send \\r\\n after error", cb);
-
-                                // TODO: alternatively we can read everything until we find
-                                // response to the command, just in case server wants to write
-                                // more *.
-                                m_imap_socket->async_receive_line(
-                                    [cb = std::move(cb), id, status, maybe_json_error](
-                                        std::error_code ec, imap_response_line_t line) mutable {
-                                        PROPAGATE_ERROR_VIA_CB(ec, "receive command response line",
-                                                               cb);
-
-                                        log_debug("got command response line: '{}'", line);
-
-                                        if (line.tokens.size() > 0 && line.tokens[0] == id) {
-                                            log_debug("AUTH command finished");
-                                            // TODO: analyze whether it is really "BAD"!
-                                            const auto response = std::string(line.line, id.size() + 1);
-                                            if (line.tokens[1] == "BAD") {
-                                                std::string sasl_fail = std::string(response, 4);
-                                                cb(make_error_code(std::errc::protocol_error),
-                                                   {.summary = fmt::format(
-                                                        "SASL error: {}, server status: {}",
-                                                        sasl_fail, status)});
-                                            } else if (line.tokens[1] == "OK") {
-                                                log_warning("OK returned after error details ");
-                                                cb({}, {});
-                                            } else if (line.tokens[1] == "NO") {
-                                                // TODO: we must  have some good details!
-                                                cb(make_error_code(std::errc::invalid_argument),
-                                                   {.summary = maybe_json_error});
-                                            }
-                                        } else {
-                                            log_warning("received something else, giving up");
-                                            cb(make_error_code(std::errc::protocol_not_supported),
-                                               {.summary = fmt::format(
-                                                    "AUTH command not finished, server status: {}",
-                                                    status)});
-                                        }
-                                    });
-                            });
-
-                            // TODO: provide details to the user so that he or she can ask support
-                            // for this problem.
-
-                            // as_str_or("")
+                        if (state.auth_success) {
+                            cb({}, {});
+                        } else {
+                            cb(make_error_code(std::errc::protocol_error),
+                               auth_error_details_t{.summary = state.error_details});
                         }
-
-                        log_debug("received lines!");
                     });
-
-                // m_imap_socket->async_receive_line(
-                //     [this, id, cb = std::move(cb)](std::error_code ec, std::string line) mutable
-                //     {
-                //         log_debug("got response: {}: {}", ec, line);
-                //         PROPAGATE_ERROR_VIA_CB(ec, "receive first line", cb);
-
-                //         // TODO: use to unit test: "* OK Gimap ready for requests from
-                //         149.255.130.5 f19mb79827071wmq\r\n"
-
-                //         if (line.find(id) == 0) {
-                //             log_debug("line {} must be a response we were looking for", line);
-                //         }
-
-                //         cb({});
-                //     });
             });
     }
 
