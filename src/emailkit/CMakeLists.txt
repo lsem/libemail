@@ -36,3 +36,12 @@ target_link_libraries(emailkit-tests
 
 target_compile_options(emailkit-tests PRIVATE "-fsanitize=address")
 target_link_options(emailkit-tests PRIVATE "-fsanitize=address")
+
+# Our tests require some certificate for running test server,we use self-signed one:
+# To generate new keys use:
+# openssl genrsa -out privkey.pem 2048
+# openssl req -new -key privkey.pem  -out certreq.csr
+# openssl x509 -req -days 3650 -in certreq.csr -signkey privkey.pem -out newcert.pem
+# TODO: consider generating this on the fly since we have dependency on OpenSSL here.
+configure_file(tests/newcert.pem ${CMAKE_BINARY_DIR}/)
+configure_file(tests/privkey.pem ${CMAKE_BINARY_DIR}/)
