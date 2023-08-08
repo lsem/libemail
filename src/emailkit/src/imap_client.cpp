@@ -215,7 +215,7 @@ class imap_client_impl_t : public imap_client_t {
 
         m_imap_socket->async_send_command(
             fmt::format("{} AUTHENTICATE XOAUTH2 {}\r\n", id, xoauth2_req_encoded),
-            [this, id, cb = std::move(cb)](std::error_code ec) mutable {
+        [this, id, cb = std::move(cb)](std::error_code ec) mutable {
                 if (ec) {
                     log_error("send AUTHENTICATE XOAUTH2 failed: {}", ec);
                     cb(ec, {});
@@ -287,6 +287,16 @@ class imap_client_impl_t : public imap_client_t {
                 // TODO: parse response
                 cb(ec);
             });
+    }
+
+    virtual void async_execute_command(imap_commands::list_, async_callback<void> cb) override {
+        async_execute_simple_command(
+            fmt::format("list \"\" \"*\""),
+            [cb = std::move(cb)](std::error_code ec, imap_response_t response) mutable {
+                // TODO: parse response
+                cb(ec);
+            });
+
     }
 
     void async_receive_response(imap_socket_t& socket,

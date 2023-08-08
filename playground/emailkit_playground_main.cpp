@@ -96,6 +96,16 @@ void gmail_auth_test() {
                                 }
 
                                 log_info("executed namespace command");
+
+                                imap_client->async_execute_command(
+                                    imap_commands::list_{}, [&](std::error_code ec) {
+                                        if (ec) {
+                                            log_error("failed exeucting list command: {}", ec);
+                                            return;
+                                        }
+
+                                        log_info("executed list ocmmand");
+                                    });
                             });
                     });
                 // });
