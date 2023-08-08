@@ -28,6 +28,10 @@ struct auth_error_details_t {
     std::string summary;
 };
 
+namespace imap_commands {
+struct namespace_ {};
+}  // namespace imap_commands
+
 class imap_client_t {
    public:
     virtual ~imap_client_t() = default;
@@ -40,8 +44,10 @@ class imap_client_t {
                                     async_callback<auth_error_details_t> cb) = 0;
 
     // TODO: https://www.rfc-editor.org/rfc/rfc7628.html
-    virtual void async_authenticate(oauthbearer_creds_t creds,
-                                    async_callback<auth_error_details_t> cb) {}
+    // virtual void async_authenticate(oauthbearer_creds_t creds,
+    //                                 async_callback<auth_error_details_t> cb) {}
+
+    virtual void async_execute_command(imap_commands::namespace_, async_callback<void> cb) = 0;
 
     // TODO: state change API (logical states + disconnected/failed)
 };

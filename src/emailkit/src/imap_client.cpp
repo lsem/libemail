@@ -241,7 +241,78 @@ class imap_client_impl_t : public imap_client_t {
             });
     }
 
+    virtual void async_execute_command(imap_commands::namespace_,
+                                       async_callback<void> cb) override {
+        // TODO: ensure connected and authenticated?
+
+        const auto tag = next_tag();
+        m_imap_socket->async_send_command(
+            fmt::format("{} namespace\r\n", tag),
+            [this, tag, cb = std::move(cb)](std::error_code ec) mutable {
+                if (ec) {
+                    log_error("failed sending namespace command: {}", ec);
+                    cb(ec);
+                    return;
+                }
+
+                async_receive_response(*m_imap_socket, {.tag = tag},
+                                       [this, cb = std::move(cb)](
+                                           std::error_code ec, imap_response_t response) mutable {
+                                           if (ec) {
+                                               log_error("failed receiving namespace command: {}",
+                                                         ec);
+                                               cb(ec);
+                                               return;
+                                           }
+
+                                           log_debug("received command, lines are:");
+                                           for (auto& line : response.lines) {
+                                               log_debug("{}", line);
+                                           }
+
+                                           cb({});
+                                       });
+            });
+    }
+
+    struct imap_response_t {
+        std::vector<imap_response_line_t> lines;
+        std::string tag;
+    };
+
+    void async_receive_response(imap_socket_t& socket,
+                                imap_response_t r,
+                                async_callback<imap_response_t> cb) {
+        // receiving response means we read until we get tag or +. If we encounter plus.
+        socket.async_receive_line([this, &socket, cb = std::move(cb), r = std::move(r)](
+                                      std::error_code ec, imap_response_line_t line) mutable {
+            if (ec) {
+                log_error("failed receiving line {}: {}", r.lines.size() + 1, ec);
+                cb(ec, std::move(r));
+                return;
+            }
+
+            r.lines.emplace_back(std::move(line));
+            const auto& l = r.lines.back();
+
+            if (l.first_token_is(r.tag)) {
+                cb({}, std::move(r));
+                return;
+            } else if (l.is_command_continiation_request()) {
+                cb(make_error_code(std::errc::interrupted), std::move(r));
+                return;
+            } else if (l.is_untagged_reply()) {
+                // continue receiving lines
+                async_receive_response(socket, std::move(r), std::move(cb));
+            } else {
+                log_error("unexpected line from server: {}", l);
+                cb(make_error_code(std::errc::bad_message), std::move(r));
+            }
+        });
+    }
+
     std::string new_command_id() { return std::string("A") + std::to_string(m_command_counter++); }
+    std::string next_tag() { return new_command_id(); }
 
    private:
     asio::io_context& m_ctx;
@@ -254,7 +325,7 @@ class imap_client_impl_t : public imap_client_t {
         async_callback<std::string> cb;
     };
     std::map<std::string, pending_command_ctx> m_active_commands;
-};
+};  // namespace
 
 }  // namespace
 

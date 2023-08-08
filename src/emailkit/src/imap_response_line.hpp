@@ -46,4 +46,6 @@ struct imap_response_line_t {
 
 }  // namespace emailkit
 
-DEFINE_FMT_FORMATTER(emailkit::imap_response_line_t, "{}", emailkit::utils::escape_ctrl(arg.line));
+DEFINE_FMT_FORMATTER(emailkit::imap_response_line_t,
+                     "'{}'",
+                     emailkit::utils::escape_ctrl(arg.line));

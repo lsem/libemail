@@ -77,7 +77,7 @@ void gmail_auth_test() {
 
                 imap_client->async_authenticate(
                     {.user_email = user, .oauth_token = auth_data.access_token},
-                    [](std::error_code ec, emailkit::auth_error_details_t err_details) {
+                    [&](std::error_code ec, emailkit::auth_error_details_t err_details) {
                         if (ec) {
                             log_error("async_authenticate failed: {}{}", ec,
                                       err_details.summary.empty()
@@ -87,6 +87,16 @@ void gmail_auth_test() {
                         }
 
                         log_info("authenticated to gimap");
+
+                        imap_client->async_execute_command(
+                            imap_commands::namespace_{}, [&](std::error_code ec) {
+                                if (ec) {
+                                    log_error("failed executing ns command: {}", ec);
+                                    return;
+                                }
+
+                                log_info("executed namespace command");
+                            });
                     });
                 // });
             });
