@@ -241,44 +241,53 @@ class imap_client_impl_t : public imap_client_t {
             });
     }
 
-    virtual void async_execute_command(imap_commands::namespace_,
-                                       async_callback<void> cb) override {
-        // TODO: ensure connected and authenticated?
-
-        const auto tag = next_tag();
-        m_imap_socket->async_send_command(
-            fmt::format("{} namespace\r\n", tag),
-            [this, tag, cb = std::move(cb)](std::error_code ec) mutable {
-                if (ec) {
-                    log_error("failed sending namespace command: {}", ec);
-                    cb(ec);
-                    return;
-                }
-
-                async_receive_response(*m_imap_socket, {.tag = tag},
-                                       [this, cb = std::move(cb)](
-                                           std::error_code ec, imap_response_t response) mutable {
-                                           if (ec) {
-                                               log_error("failed receiving namespace command: {}",
-                                                         ec);
-                                               cb(ec);
-                                               return;
-                                           }
-
-                                           log_debug("received command, lines are:");
-                                           for (auto& line : response.lines) {
-                                               log_debug("{}", line);
-                                           }
-
-                                           cb({});
-                                       });
-            });
-    }
-
     struct imap_response_t {
         std::vector<imap_response_line_t> lines;
         std::string tag;
     };
+
+    virtual void async_execute_simple_command(std::string command,
+                                              async_callback<imap_response_t> cb) {
+        const auto tag = next_tag();
+        m_imap_socket->async_send_command(
+            fmt::format("{} {}\r\n", tag, command),
+            [this, tag, cb = std::move(cb)](std::error_code ec) mutable {
+                imap_response_t response{.tag = tag};
+                if (ec) {
+                    log_error("failed sending namespace command: {}", ec);
+                    cb(ec, std::move(response));
+                    return;
+                }
+
+                async_receive_response(*m_imap_socket, std::move(response),
+                                       [this, cb = std::move(cb)](
+                                           std::error_code ec, imap_response_t response) mutable {
+                                           if (ec) {
+                                               cb(ec, std::move(response));
+                                               return;
+                                           }
+
+                                           log_debug("{} command finished, lines are:",
+                                                     response.tag);
+                                           for (auto& line : response.lines) {
+                                               log_debug("{}", line);
+                                           }
+
+                                           cb({}, std::move(response));
+                                       });
+            });
+    }
+
+    virtual void async_execute_command(imap_commands::namespace_,
+                                       async_callback<void> cb) override {
+        // TODO: ensure connected and authenticated?
+        async_execute_simple_command(
+            "namespace",
+            [cb = std::move(cb)](std::error_code ec, imap_response_t response) mutable {
+                // TODO: parse response
+                cb(ec);
+            });
+    }
 
     void async_receive_response(imap_socket_t& socket,
                                 imap_response_t r,
