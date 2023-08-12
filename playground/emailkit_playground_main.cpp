@@ -203,11 +203,31 @@ void base64_encode_decode_test() {
              utils::base64_naive_encode(utils::base64_naive_decode(example_test)));
 }
 
+void parsing_list_flags_test() {
+    imap_parser::parse_flags_list(R"imap(\AnyFlag \AnierFlag)imap");
+}
+
 void imap_parsing_test() {
-    parse_mailbox_data(R"(LIST (\HasNoChildren) "/" "INBOX")");  // IMAP_PARSER_MAILBOX_DATA
+    const std::vector<std::string> samples = {
+        R"(LIST (\HasNoChildren) "/" "INBOX")",
+        R"(LIST (\AnyFlag \AnierFlag) "/" "[Gmail]")",
+        R"(LIST (\HasChildren \Noselect) "/" "[Gmail]")",
+        R"(LIST (\Flagged \HasNoChildren) "/" "[Gmail]/&BAYENw- &BDcEVgRABD4ERwQ6BD4ETg-")",
+        R"(LIST (\HasNoChildren \Important) "/" "[Gmail]/&BBIEMAQ2BDsEOAQyBD4-")",
+        R"(LIST (\HasNoChildren \Trash) "/" "[Gmail]/&BBoEPgRIBDgEOg-")",
+        R"(LIST (\HasNoChildren \Sent) "/" "[Gmail]/&BB0EMAQ0BFYEQQQ7BDAEPQRW-")",
+        R"(LIST (\HasNoChildren \Junk) "/" "[Gmail]/&BCEEPwQwBDw-")",
+        R"(LIST (\All \HasNoChildren) "/" "[Gmail]/&BCMEQQRP- &BD8EPgRIBEIEMA-")",
+        R"(LIST (\Drafts \HasNoChildren) "/" "[Gmail]/&BCcENQRABD0ENQRCBDoEOA-")",
+    };
+    for (auto& s : samples) {
+        imap_parser::parse_mailbox_data(s);
+        log_debug("\n");
+    }
 }
 
 int main() {
-    gmail_auth_test();
-    // imap_parsing_test();
+    // gmail_auth_test();
+    imap_parsing_test();
+    //parsing_list_flags_test();
 }

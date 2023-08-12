@@ -26,3 +26,6 @@
 [submodule "vendor/scope_guard"]
 	path = vendor/scope_guard
 	url = git@github.com:lsem/scope_guard.git
+[submodule "vendor/belr"]
+	path = vendor/belr
+	url = git@github.com:lsem/belr.git

@@ -7,7 +7,7 @@
 #include <function2/function2.hpp>
 #include <vector>
 
-namespace emailkit {
+namespace emailkit::imap_parser {
 
 namespace {
 std::string format_apg_parser_state(const parser_state& state) {
@@ -35,7 +35,7 @@ void apg_invoke_parser(uint32_t starting_rule,
     struct apg_invoke_context {
         // registered callbacks for which we set parsers C-callbacks.
         std::vector<fu2::function_view<void(std::string_view)>> callbacks_map{
-            RULE_COUNT_IMAP_PARSER};
+            RULE_COUNT_IMAP_PARSER_APG_IMPL};
     };
 
     apg_invoke_context ctx;
@@ -63,7 +63,7 @@ void apg_invoke_parser(uint32_t starting_rule,
     XCTOR(apg_exception);
     if (apg_exception.try_) {
         log_debug("constructing APG parser object");
-        parser = ::vpParserCtor(&apg_exception, vpImapParserInit);
+        parser = ::vpParserCtor(&apg_exception, vpImapParserApgImplInit);
         log_debug("constructing APG parser object -- done");
 
         // Set single callback for each rule and use context for routing to user-defined callbacks.
@@ -124,6 +124,37 @@ void apg_invoke_parser(uint32_t starting_rule,
 
 }  // namespace
 
+void parse_flags_list(std::string_view input) {
+    apg_invoke_parser(IMAP_PARSER_APG_IMPL_MBX_LIST_FLAGS, input,
+                      {
+                          {IMAP_PARSER_APG_IMPL_MBX_LIST_FLAGS,
+                           [](std::string_view tok) {
+                               log_debug("IMAP_PARSER_APG_IMPL_MBX_LIST_FLAGS handler: '{}'", tok);
+                           }},
+                          {IMAP_PARSER_APG_IMPL_MBX_LIST_OFLAG,
+                           [](std::string_view tok) {
+                               log_debug("IMAP_PARSER_APG_IMPL_MBX_LIST_OFLAG handler: '{}'", tok);
+                           }},
+                          {IMAP_PARSER_APG_IMPL_MBX_LIST_SFLAG,
+                           [](std::string_view tok) {
+                               log_debug("IMAP_PARSER_APG_IMPL_MBX_LIST_SFLAG handler: '{}'", tok);
+                           }},
+                          {IMAP_PARSER_APG_IMPL_FLAG_EXTENSION,
+                           [](std::string_view tok) {
+                               log_debug("IMAP_PARSER_APG_IMPL_FLAG_EXTENSION handler: '{}'", tok);
+                           }},
+                          {IMAP_PARSER_APG_IMPL_QUOTED_CHAR,
+                           [](std::string_view tok) {
+                               log_debug("IMAP_PARSER_APG_IMPL_QUOTED_CHAR handler: '{}'", tok);
+                           }},
+                          {IMAP_PARSER_APG_IMPL_ATOM_CHAR,
+                           [](std::string_view tok) {
+                               log_debug("IMAP_PARSER_APG_IMPL_ATOM_CHAR handler: '{}'", tok);
+                           }},
+
+                      });
+}
+
 void parse_mailbox_data(std::string_view input) {
     // 6.3.8 LIST Command https://datatracker.ietf.org/doc/html/rfc3501#section-6.3.8
     // 7.2.2 LIST Response (https://datatracker.ietf.org/doc/html/rfc3501#section-7.2.2)
@@ -134,20 +165,42 @@ void parse_mailbox_data(std::string_view input) {
         // std::vector<std::string>
     };
 
-    apg_invoke_parser(
-        IMAP_PARSER_MAILBOX_DATA, input,
-        {{IMAP_PARSER_MBX_LIST_FLAGS,
-          [](std::string_view tok) { log_debug("IMAP_PARSER_MBX_LIST_FLAGS handler: '{}'", tok); }},
-         {IMAP_PARSER_MBX_LIST_OFLAG,
-          [](std::string_view tok) { log_debug("IMAP_PARSER_MBX_LIST_OFLAG handler: '{}'", tok); }},
-         {IMAP_PARSER_MBX_LIST_SFLAG,
-          [](std::string_view tok) { log_debug("IMAP_PARSER_MBX_LIST_SFLAG handler: '{}'", tok); }},
-         {IMAP_PARSER_MAILBOX,
-          [](std::string_view tok) { log_debug("IMAP_PARSER_MAILBOX handler: '{}'", tok); }},
-         {IMAP_PARSER_QUOTED_CHAR,
-          [](std::string_view tok) { log_debug("IMAP_PARSER_QUOTED_CHAR handler: '{}'", tok); }},
-         {IMAP_PARSER_NIL,
-          [](std::string_view tok) { log_debug("IMAP_PARSER_NIL handler: '{}'", tok); }}});
+    apg_invoke_parser(IMAP_PARSER_APG_IMPL_MAILBOX_DATA, input,
+                      {
+                          {IMAP_PARSER_APG_IMPL_MBX_LIST_FLAGS,
+                           [](std::string_view tok) {
+                               log_debug("IMAP_PARSER_APG_IMPL_MBX_LIST_FLAGS handler: '{}'", tok);
+                           }},
+                          {IMAP_PARSER_APG_IMPL_MBX_LIST_OFLAG,
+                           [](std::string_view tok) {
+                               log_debug("IMAP_PARSER_APG_IMPL_MBX_LIST_OFLAG handler: '{}'", tok);
+                           }},
+                          {IMAP_PARSER_APG_IMPL_MBX_LIST_SFLAG,
+                           [](std::string_view tok) {
+                               log_debug("IMAP_PARSER_APG_IMPL_MBX_LIST_SFLAG handler: '{}'", tok);
+                           }},
+                          {IMAP_PARSER_APG_IMPL_FLAG_EXTENSION,
+                           [](std::string_view tok) {
+                               log_debug("IMAP_PARSER_APG_IMPL_FLAG_EXTENSION handler: '{}'", tok);
+                           }},
+                          {IMAP_PARSER_APG_IMPL_MAILBOX,
+                           [](std::string_view tok) {
+                               log_debug("IMAP_PARSER_APG_IMPL_MAILBOX handler: '{}'", tok);
+                           }},
+                          {IMAP_PARSER_APG_IMPL_QUOTED_CHAR,
+                           [](std::string_view tok) {
+                               log_debug("IMAP_PARSER_APG_IMPL_QUOTED_CHAR handler: '{}'", tok);
+                           }},
+                          {IMAP_PARSER_APG_IMPL_NIL,
+                           [](std::string_view tok) {
+                               log_debug("IMAP_PARSER_APG_IMPL_NIL handler: '{}'", tok);
+                           }},
+                          {IMAP_PARSER_APG_IMPL_ATOM_CHAR,
+                           [](std::string_view tok) {
+                               log_debug("IMAP_PARSER_APG_IMPL_ATOM_CHAR handler: '{}'", tok);
+                           }},
+
+                      });
 }  // namespace emailkit
 
-}  // namespace emailkit
+}  // namespace emailkit::imap_parser
