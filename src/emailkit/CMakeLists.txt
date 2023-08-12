@@ -6,7 +6,7 @@ file(GLOB_RECURSE CPP_FILES  CONFIGURE_DEPENDS "*.cpp")
 list(FILTER HPP_FILES EXCLUDE REGEX "_tests\\.hpp")
 list(FILTER CPP_FILES EXCLUDE REGEX "_tests\\.cpp")
 
-set (IMAP_PARSER_SRC "src/imap_parser.h" "src/imap_parser.c")
+set (IMAP_PARSER_SRC "src/imap_parser_apg_impl.h" "src/imap_parser_apg_impl.c")
 
 add_library(emailkit ${HPP_FILES} ${CPP_FILES} ${IMAP_PARSER_SRC})
 add_library(emailkit::emailkit ALIAS emailkit)

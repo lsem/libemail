@@ -1,18 +1,16 @@
+#include <fmt/ranges.h>
 #include <emailkit/emailkit.hpp>
 #include <emailkit/global.hpp>
 #include <emailkit/google_auth.hpp>
 #include <emailkit/http_srv.hpp>
 #include <emailkit/imap_client.hpp>
+#include <emailkit/imap_parser.hpp>
 #include <emailkit/imap_socket.hpp>
 #include <emailkit/log.hpp>
 #include <emailkit/uri_codec.hpp>
 #include <emailkit/utils.hpp>
 #include <folly/folly_uri.hpp>
 #include <iostream>
-
-#include <emailkit/imap_parser_1.hpp>
-
-#include <fmt/ranges.h>
 
 using namespace emailkit;
 
@@ -207,10 +205,9 @@ void base64_encode_decode_test() {
 
 void imap_parsing_test() {
     parse_mailbox_data(R"(LIST (\HasNoChildren) "/" "INBOX")");  // IMAP_PARSER_MAILBOX_DATA
-    parse_mailbox_list(R"((\HasNoChildren) "/" "INBOX")");       // IMAP_PARSER_MAILBOX_LIST
 }
 
 int main() {
-    // gmail_auth_test();
-    imap_parsing_test();
+    gmail_auth_test();
+    // imap_parsing_test();
 }
