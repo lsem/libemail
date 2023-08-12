@@ -1,10 +1,13 @@
 #include "imap_client.hpp"
-#include <map>
 #include "imap_socket.hpp"
 #include "utils.hpp"
 
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
+
+#include <map>
+
+
 
 namespace emailkit {
 
@@ -290,6 +293,7 @@ class imap_client_impl_t : public imap_client_t {
     }
 
     virtual void async_execute_command(imap_commands::list_, async_callback<void> cb) override {
+        // https://datatracker.ietf.org/doc/html/rfc3501#section-6.3.8
         async_execute_simple_command(
             fmt::format("list \"\" \"*\""),
             [cb = std::move(cb)](std::error_code ec, imap_response_t response) mutable {

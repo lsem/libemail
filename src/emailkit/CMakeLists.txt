@@ -6,7 +6,9 @@ file(GLOB_RECURSE CPP_FILES  CONFIGURE_DEPENDS "*.cpp")
 list(FILTER HPP_FILES EXCLUDE REGEX "_tests\\.hpp")
 list(FILTER CPP_FILES EXCLUDE REGEX "_tests\\.cpp")
 
-add_library(emailkit ${HPP_FILES} ${CPP_FILES})
+set (IMAP_PARSER_SRC "src/imap_parser.h" "src/imap_parser.c")
+
+add_library(emailkit ${HPP_FILES} ${CPP_FILES} ${IMAP_PARSER_SRC})
 add_library(emailkit::emailkit ALIAS emailkit)
 
 target_include_directories(emailkit PUBLIC include/)
@@ -20,7 +22,8 @@ target_link_libraries(emailkit
         asio::asio
         OpenSSL::SSL
         rapidjson::rapidjson
-        b64::b64)
+        b64::b64
+        apg::library)
 
 ##############################################################################
 # emailkit-tests

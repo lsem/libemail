@@ -10,6 +10,8 @@
 #include <folly/folly_uri.hpp>
 #include <iostream>
 
+#include <emailkit/imap_parser_1.hpp>
+
 #include <fmt/ranges.h>
 
 using namespace emailkit;
@@ -203,6 +205,12 @@ void base64_encode_decode_test() {
              utils::base64_naive_encode(utils::base64_naive_decode(example_test)));
 }
 
+void imap_parsing_test() {
+    //do_parse(R"(LIST (\HasNoChildren) "/" "INBOX")"); // IMAP_PARSER_MAILBOX_DATA
+    do_parse(R"((\HasNoChildren) "/" "INBOX")"); // IMAP_PARSER_MAILBOX_LIST
+}
+
 int main() {
-    gmail_auth_test();
+    // gmail_auth_test();
+    imap_parsing_test();
 }
