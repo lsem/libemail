@@ -206,8 +206,8 @@ void base64_encode_decode_test() {
 }
 
 void imap_parsing_test() {
-    //do_parse(R"(LIST (\HasNoChildren) "/" "INBOX")"); // IMAP_PARSER_MAILBOX_DATA
-    do_parse(R"((\HasNoChildren) "/" "INBOX")"); // IMAP_PARSER_MAILBOX_LIST
+    parse_mailbox_data(R"(LIST (\HasNoChildren) "/" "INBOX")");  // IMAP_PARSER_MAILBOX_DATA
+    parse_mailbox_list(R"((\HasNoChildren) "/" "INBOX")");       // IMAP_PARSER_MAILBOX_LIST
 }
 
 int main() {

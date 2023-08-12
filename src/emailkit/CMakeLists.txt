@@ -23,7 +23,8 @@ target_link_libraries(emailkit
         OpenSSL::SSL
         rapidjson::rapidjson
         b64::b64
-        apg::library)
+        apg::library
+        ricab::scope_guard)
 
 ##############################################################################
 # emailkit-tests

@@ -23,3 +23,6 @@
 [submodule "vendor/libb64"]
 	path = vendor/libb64
 	url = git@github.com:lsem/libb64.git
+[submodule "vendor/scope_guard"]
+	path = vendor/scope_guard
+	url = git@github.com:lsem/scope_guard.git
