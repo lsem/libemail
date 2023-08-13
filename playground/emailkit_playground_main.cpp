@@ -1,10 +1,11 @@
+#include <emailkit/global.hpp>
 #include <fmt/ranges.h>
 #include <emailkit/emailkit.hpp>
-#include <emailkit/global.hpp>
 #include <emailkit/google_auth.hpp>
 #include <emailkit/http_srv.hpp>
 #include <emailkit/imap_client.hpp>
 #include <emailkit/imap_parser.hpp>
+#include <emailkit/imap_parser_utils.hpp>
 #include <emailkit/imap_socket.hpp>
 #include <emailkit/log.hpp>
 #include <emailkit/uri_codec.hpp>
@@ -210,6 +211,7 @@ void parsing_list_flags_test() {
 void imap_parsing_test() {
     const std::vector<std::string> samples = {
         R"(LIST (\HasNoChildren) "/" "INBOX")",
+        R"(LIST (\A1 \A2) "/" "INBOX")",
         R"(LIST (\AnyFlag \AnierFlag) "/" "[Gmail]")",
         R"(LIST (\HasChildren \Noselect) "/" "[Gmail]")",
         R"(LIST (\Flagged \HasNoChildren) "/" "[Gmail]/&BAYENw- &BDcEVgRABD4ERwQ6BD4ETg-")",
@@ -220,14 +222,31 @@ void imap_parsing_test() {
         R"(LIST (\All \HasNoChildren) "/" "[Gmail]/&BCMEQQRP- &BD8EPgRIBEIEMA-")",
         R"(LIST (\Drafts \HasNoChildren) "/" "[Gmail]/&BCcENQRABD0ENQRCBDoEOA-")",
     };
+
+    // TODO: questions: what guaranteed should parser provide?
+    //      can we expect that hiererchy delimited is always there? I think no, and I guess NIL is
+    //      exavtly for this
+    // purpose in the protocol. So it should rather be optional. But empty string looks good as
+    // well.
+    //
     for (auto& s : samples) {
-        imap_parser::parse_mailbox_data(s);
-        log_debug("\n");
+        auto parsed_line_or_err = imap_parser::parse_list_response_line(s);
+        if (!parsed_line_or_err) {
+            log_error("failed parsing line: '{}': {}", s, parsed_line_or_err.takeError());
+        }
+        auto& parsed_line = *parsed_line_or_err;
+
+        log_info("> parsed: {}\n", imap_parser::to_json(parsed_line));
+
+        log_info("parsed box: {}",
+                 imap_parser::utils::decode_mailbox_path_from_list_response(parsed_line));
+
+        // check if we can decode with delimiter
     }
 }
 
 int main() {
     // gmail_auth_test();
     imap_parsing_test();
-    //parsing_list_flags_test();
+    // parsing_list_flags_test();
 }

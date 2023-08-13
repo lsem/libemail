@@ -29,3 +29,6 @@
 [submodule "vendor/belr"]
 	path = vendor/belr
 	url = git@github.com:lsem/belr.git
+[submodule "vendor/utf-7"]
+	path = vendor/utf-7
+	url = git@github.com:lsem/utf-7.git

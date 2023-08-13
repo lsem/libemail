@@ -3,11 +3,14 @@
 #include <asio/io_context.hpp>
 #include <async_kit/async_callback.hpp>
 #include <emailkit/log.hpp>
+#include <llvm_expected.hpp>
 #include <memory>
 #include <system_error>
 #include <type_traits>
 
 using std::shared_ptr;
+
+using llvm::Expected;
 
 namespace asynckit = lsem::async_kit;
 
@@ -32,13 +35,13 @@ void call_cb(async_callback<T>& cb, std::error_code ec) {
 }
 }  // namespace details
 
-#define PROPAGATE_ERROR_VIA_CB(ec, Message, Cb)      \
-    do {                                      \
-        if (ec) {                             \
-            log_error("{}: {}", Message, ec); \
-            details::call_cb(Cb, ec);         \
-            return;                           \
-        }                                     \
+#define PROPAGATE_ERROR_VIA_CB(ec, Message, Cb) \
+    do {                                        \
+        if (ec) {                               \
+            log_error("{}: {}", Message, ec);   \
+            details::call_cb(Cb, ec);           \
+            return;                             \
+        }                                       \
     } while (false)
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -58,3 +61,8 @@ void call_cb(async_callback<T>& cb, std::error_code ec) {
     };
 
 DEFINE_FMT_FORMATTER(std::error_code, "{}:{}", arg.category().name(), arg.message());
+
+namespace details {
+std::string to_string(const llvm::Error& e);
+}
+DEFINE_FMT_FORMATTER(llvm::Error, "{}", details::to_string(arg));

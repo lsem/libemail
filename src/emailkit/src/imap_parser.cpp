@@ -1,11 +1,19 @@
+#include <emailkit/global.hpp>
+
 #include "imap_parser.hpp"
+
 #include <emailkit/log.hpp>
 
-#include <parser.h>                // apg70
+#include "utils.hpp"
+
+#include <parser.h>  // apg70
+#include <utilities.h>
 #include "imap_parser_apg_impl.h"  // grammar generated for apg70
 
 #include <function2/function2.hpp>
 #include <vector>
+
+#include <cstdlib>
 
 namespace emailkit::imap_parser {
 
@@ -56,6 +64,7 @@ void apg_invoke_parser(uint32_t starting_rule,
     parser_config apg_parser_config;
     exception apg_exception;
     void* parser = nullptr;
+    void* vpTrace = nullptr;
 
     // XCTOR macros sets kind of label (setjmp) that can be jumped to. So in case exception occurs
     // in APG it will jump back (longjmp) to this label but this time apg_exception.try_ will be set
@@ -66,6 +75,11 @@ void apg_invoke_parser(uint32_t starting_rule,
         parser = ::vpParserCtor(&apg_exception, vpImapParserApgImplInit);
         log_debug("constructing APG parser object -- done");
 
+        if (std::getenv("MMAP_TRACE")) {
+            vpTrace = vpTraceCtor(parser);
+            vTraceConfigGen(vpTrace, NULL);
+        }
+
         // Set single callback for each rule and use context for routing to user-defined callbacks.
         for (auto& [rule, callback_ref] : cbs) {
             ctx.callbacks_map[rule] = callback_ref;
@@ -73,6 +87,10 @@ void apg_invoke_parser(uint32_t starting_rule,
                 parser, rule, +[](callback_data* cb_data) {
                     auto* invoke_ctx = static_cast<apg_invoke_context*>(cb_data->vpUserData);
                     if (cb_data->uiParserState == ID_MATCH) {
+                        // log_debug(
+                        //     "uiParserState: {}, uiCallbackState: {}: uiCallbackPhraseLength: {}",
+                        //     cb_data->uiParserState, cb_data->uiCallbackState,
+                        //     cb_data->uiCallbackPhraseLength);
                         auto& callbacks_map = invoke_ctx->callbacks_map;
 
                         if (cb_data->uiRuleIndex >= callbacks_map.size()) {
@@ -98,8 +116,9 @@ void apg_invoke_parser(uint32_t starting_rule,
         apg_parser_config.acpInput = input_text_data.data();
         apg_parser_config.uiInputLength = input_text_data.size();
         apg_parser_config.uiStartRule = starting_rule;
-        apg_parser_config.vpUserData = &ctx;
         apg_parser_config.bParseSubString = APG_FALSE;
+        apg_parser_config.uiLookBehindLength = 0;
+        apg_parser_config.vpUserData = &ctx;
 
         log_debug("invoking APG parser");
         ::vParserParse(parser, &apg_parser_config, &apg_parser_state);
@@ -123,6 +142,85 @@ void apg_invoke_parser(uint32_t starting_rule,
 }
 
 }  // namespace
+
+Expected<list_response_t> parse_list_response_line(std::string_view input) {
+    list_response_t parsed_line;
+
+    // to parse
+    // (DQUOTE QUOTED-CHAR DQUOTE / nil)
+
+    bool list_matched =
+        false;  // flag tells that among all mailbox alternatives exactly LIST matched
+
+    bool flags_list_done = false;
+    int dquote_count = 0;
+
+    apg_invoke_parser(IMAP_PARSER_APG_IMPL_MAILBOX_DATA, input,
+                      {
+                          {IMAP_PARSER_APG_IMPL_MAILBOX_LIST,
+                           [&](std::string_view tok) {
+                               log_debug("IMAP_PARSER_APG_IMPL_MAILBOX_LIST: '{}'", tok);
+                               list_matched = true;
+                           }},
+
+                          {IMAP_PARSER_APG_IMPL_DQUOTE,
+                           [&](std::string_view tok) {
+                               if (flags_list_done) {
+                                   log_debug("DQUOTE: '{}'", tok);
+                                   dquote_count++;
+                               }
+                           }},
+
+                          {IMAP_PARSER_APG_IMPL_MBX_LIST_FLAGS,
+                           [&](std::string_view tok) {
+                               log_debug("IMAP_PARSER_APG_IMPL_MBX_LIST_FLAGS: '{}'", tok);
+                               flags_list_done = true;
+                           }},
+
+                          {IMAP_PARSER_APG_IMPL_QUOTED_CHAR,
+                           [&](std::string_view tok) {
+                               // log_debug("IMAP_PARSER_APG_IMPL_QUOTED_CHAR: '{}'", tok);
+                               if (flags_list_done && dquote_count == 1) {
+                                   parsed_line.hierarchy_delimiter = tok;
+                                   // log_warning("this is our delimiter");
+                               }
+                           }},
+                          {IMAP_PARSER_APG_IMPL_NIL,
+                           [&](std::string_view tok) {
+                               log_debug("IMAP_PARSER_APG_IMPL_NIL: '{}'", tok);
+                               if (flags_list_done) {
+                                   log_warning("our delimited is NIL");
+                               }
+                           }},
+
+                          {IMAP_PARSER_APG_IMPL_MBX_LIST_OFLAG,
+                           [&](std::string_view tok) {
+                               log_debug("IMAP_PARSER_APG_IMPL_MBX_LIST_OFLAG: '{}'", tok);
+                               parsed_line.mailbox_list_flags.emplace_back(tok);
+                           }},
+                          {IMAP_PARSER_APG_IMPL_MBX_LIST_SFLAG,
+                           [&](std::string_view tok) {
+                               log_debug("IMAP_PARSER_APG_IMPL_MBX_LIST_SFLAG: '{}'", tok);
+                               parsed_line.mailbox_list_flags.emplace_back(tok);
+                           }},
+                          {IMAP_PARSER_APG_IMPL_MAILBOX,
+                           [&](std::string_view tok) {
+                               // TODO: it might be possible to negotiate encoding to utf8 before so
+                               // this should be passed as flag here if we want to avoid dealing
+                               // with utf7.
+                               log_debug("IMAP_PARSER_APG_IMPL_MAILBOX: '{}'", tok);
+
+                               auto stripped_tok = emailkit::utils::strip_double_quotes(tok);
+                               parsed_line.mailbox = stripped_tok;
+                           }},
+                      });
+
+    if (!list_matched) {
+        return llvm::createStringError("list not matched");
+    }
+
+    return parsed_line;
+}
 
 void parse_flags_list(std::string_view input) {
     apg_invoke_parser(IMAP_PARSER_APG_IMPL_MBX_LIST_FLAGS, input,

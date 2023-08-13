@@ -13,6 +13,8 @@ add_library(emailkit::emailkit ALIAS emailkit)
 
 target_include_directories(emailkit PUBLIC include/)
 
+add_compile_definitions(APG_DEBUG APG_TRACE)
+
 target_link_libraries(emailkit 
     PUBLIC
         emailkit::global
@@ -24,7 +26,9 @@ target_link_libraries(emailkit
         rapidjson::rapidjson
         b64::b64
         apg::library
-        ricab::scope_guard)
+        apg::utilities
+        ricab::scope_guard
+        skeeto::utf7)
 
 ##############################################################################
 # emailkit-tests
