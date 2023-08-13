@@ -42,7 +42,7 @@ void gmail_auth_test() {
     //                                          "https://www.googleapis.com/auth/userinfo.profile"};
     const std::vector<std::string> scopes = {"https://mail.google.com"};
 
-    auto imap_client = emailkit::make_imap_client(ctx);
+    auto imap_client = emailkit::imap_client::make_imap_client(ctx);
 
     // We are requesting authentication for our app (represented by app_creds) for scoped needed for
     // our application.
@@ -78,7 +78,8 @@ void gmail_auth_test() {
 
                 imap_client->async_authenticate(
                     {.user_email = user, .oauth_token = auth_data.access_token},
-                    [&](std::error_code ec, emailkit::auth_error_details_t err_details) {
+                    [&](std::error_code ec,
+                        emailkit::imap_client::auth_error_details_t err_details) {
                         if (ec) {
                             log_error("async_authenticate failed: {}{}", ec,
                                       err_details.summary.empty()
@@ -90,7 +91,7 @@ void gmail_auth_test() {
                         log_info("authenticated to gimap");
 
                         imap_client->async_execute_command(
-                            imap_commands::namespace_{}, [&](std::error_code ec) {
+                            imap_client::imap_commands::namespace_{}, [&](std::error_code ec) {
                                 if (ec) {
                                     log_error("failed executing ns command: {}", ec);
                                     return;
@@ -99,13 +100,19 @@ void gmail_auth_test() {
                                 log_info("executed namespace command");
 
                                 imap_client->async_execute_command(
-                                    imap_commands::list_{}, [&](std::error_code ec) {
+                                    imap_client::imap_commands::list_{},
+                                    [&](std::error_code ec,
+                                        imap_client::types::list_response_t response) {
                                         if (ec) {
                                             log_error("failed exeucting list command: {}", ec);
                                             return;
                                         }
 
-                                        log_info("executed list ocmmand");
+                                        log_info("executed list command:\n{}",
+                                                 fmt::join(response.inbox_list, "\n"));
+                                        // for (auto& entry : response.inbox_list) {
+                                        //     log_info("    {}", entry);
+                                        // }
                                     });
                             });
                     });
@@ -246,7 +253,7 @@ void imap_parsing_test() {
 }
 
 int main() {
-    // gmail_auth_test();
-    imap_parsing_test();
+    gmail_auth_test();
+    // imap_parsing_test();
     // parsing_list_flags_test();
 }

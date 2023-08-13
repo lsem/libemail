@@ -141,13 +141,16 @@ void apg_invoke_parser(uint32_t starting_rule,
     }
 }
 
+// FIXME: because of some bug in grammar/parser flags rule is hit twice so we work around this.
+void emplace_unique(std::vector<std::string>& v, std::string_view tok) {
+    if (std::find_if(v.begin(), v.end(), [&tok](auto& x) { return x == tok; }) == v.end())
+        v.emplace_back(tok);
+}
+
 }  // namespace
 
 Expected<list_response_t> parse_list_response_line(std::string_view input) {
     list_response_t parsed_line;
-
-    // to parse
-    // (DQUOTE QUOTED-CHAR DQUOTE / nil)
 
     bool list_matched =
         false;  // flag tells that among all mailbox alternatives exactly LIST matched
@@ -196,12 +199,12 @@ Expected<list_response_t> parse_list_response_line(std::string_view input) {
                           {IMAP_PARSER_APG_IMPL_MBX_LIST_OFLAG,
                            [&](std::string_view tok) {
                                log_debug("IMAP_PARSER_APG_IMPL_MBX_LIST_OFLAG: '{}'", tok);
-                               parsed_line.mailbox_list_flags.emplace_back(tok);
+                               emplace_unique(parsed_line.mailbox_list_flags, tok);
                            }},
                           {IMAP_PARSER_APG_IMPL_MBX_LIST_SFLAG,
                            [&](std::string_view tok) {
                                log_debug("IMAP_PARSER_APG_IMPL_MBX_LIST_SFLAG: '{}'", tok);
-                               parsed_line.mailbox_list_flags.emplace_back(tok);
+                               emplace_unique(parsed_line.mailbox_list_flags, tok);
                            }},
                           {IMAP_PARSER_APG_IMPL_MAILBOX,
                            [&](std::string_view tok) {

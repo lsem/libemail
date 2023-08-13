@@ -9,6 +9,7 @@
 #include <list>
 
 using namespace emailkit;
+using namespace emailkit::imap_client;
 
 const std::string gmail_imap_oauth2_success =
     "* OK Gimap ready for requests from 45.12.24.19 n18mb10782105ltg\r\n* CAPABILITY IMAP4rev1 "

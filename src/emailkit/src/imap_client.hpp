@@ -1,10 +1,13 @@
-#include <asio/io_context.hpp>
 #include <emailkit/global.hpp>
+#include <asio/io_context.hpp>
+
 #include <functional>
 #include <memory>
 #include <vector>
 
-namespace emailkit {
+#include "imap_client_types.hpp"
+
+namespace emailkit::imap_client {
 
 enum class imap_client_state {
     not_connected,
@@ -49,11 +52,12 @@ class imap_client_t {
     //                                 async_callback<auth_error_details_t> cb) {}
 
     virtual void async_execute_command(imap_commands::namespace_, async_callback<void> cb) = 0;
-    virtual void async_execute_command(imap_commands::list_, async_callback<void> cb) = 0;
+    virtual void async_execute_command(imap_commands::list_,
+                                       async_callback<types::list_response_t> cb) = 0;
 
     // TODO: state change API (logical states + disconnected/failed)
 };
 
 std::shared_ptr<imap_client_t> make_imap_client(asio::io_context& ctx);
 
-}  // namespace emailkit
+}  // namespace emailkit::imap_client

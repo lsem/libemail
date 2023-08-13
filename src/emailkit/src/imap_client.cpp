@@ -2,14 +2,15 @@
 #include "imap_socket.hpp"
 #include "utils.hpp"
 
+#include "imap_parser.hpp"
+#include "imap_parser_utils.hpp"
+
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
 
 #include <map>
 
-
-
-namespace emailkit {
+namespace emailkit::imap_client {
 
 namespace {
 class imap_client_impl_t : public imap_client_t {
@@ -218,7 +219,7 @@ class imap_client_impl_t : public imap_client_t {
 
         m_imap_socket->async_send_command(
             fmt::format("{} AUTHENTICATE XOAUTH2 {}\r\n", id, xoauth2_req_encoded),
-        [this, id, cb = std::move(cb)](std::error_code ec) mutable {
+            [this, id, cb = std::move(cb)](std::error_code ec) mutable {
                 if (ec) {
                     log_error("send AUTHENTICATE XOAUTH2 failed: {}", ec);
                     cb(ec, {});
@@ -292,15 +293,55 @@ class imap_client_impl_t : public imap_client_t {
             });
     }
 
-    virtual void async_execute_command(imap_commands::list_, async_callback<void> cb) override {
+    virtual void async_execute_command(imap_commands::list_,
+                                       async_callback<types::list_response_t> cb) override {
         // https://datatracker.ietf.org/doc/html/rfc3501#section-6.3.8
         async_execute_simple_command(
             fmt::format("list \"\" \"*\""),
             [cb = std::move(cb)](std::error_code ec, imap_response_t response) mutable {
-                // TODO: parse response
-                cb(ec);
-            });
+                if (ec) {
+                    cb(ec, {});
+                    return;
+                }
+                // TODO: what about tags and generic failures from server (bye)? CHECK THE GRAMMAR
+                // and write unit tests.
 
+                types::list_response_t command_result;
+                for (auto& l : response.lines) {
+                    if (l.is_untagged_reply()) {
+                        log_debug("untagged reply, stripping *");
+
+                        auto unwrapped_line = l.unwrap_untagged_reply();
+
+                        auto parsed_line_or_err =
+                            imap_parser::parse_list_response_line(unwrapped_line);
+                        if (!parsed_line_or_err) {
+                            log_error("failed parsing line: '{}': {}", unwrapped_line,
+                                      parsed_line_or_err.takeError());
+                            // TODO: I would rather liked to have strict mode to break it and
+                            // control it from settings. Can be helpful for QA.
+                            continue;
+                        }
+                        auto& parsed_line = *parsed_line_or_err;
+
+                        command_result.inbox_list.emplace_back(types::list_response_entry_t{
+                            .inbox_path =
+                                imap_parser::utils::decode_mailbox_path_from_list_response(
+                                    parsed_line),
+                            .flags = parsed_line.mailbox_list_flags});
+                    } else if (l.maybe_tagged_reply()) {
+                        // this must be reply to our command, this should be guaranteed by
+                        // execute_simple_command
+                        if (l.is_ok_response()) {
+                            log_debug("got OK");
+                        }
+                    } else {
+                        log_error("not implemented!: '{}'", l.line);
+                    }
+                }
+
+                cb(ec, std::move(command_result));
+            });
     }
 
     void async_receive_response(imap_socket_t& socket,
@@ -360,4 +401,4 @@ std::shared_ptr<imap_client_t> make_imap_client(asio::io_context& ctx) {
     return client;
 }
 
-}  // namespace emailkit
+}  // namespace emailkit::imap_client

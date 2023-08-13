@@ -28,3 +28,18 @@ TEST(imap_response_line_test, continutation_request) {
     EXPECT_EQ(response_line.is_untagged_reply(), false);
     EXPECT_EQ(response_line.is_command_continiation_request(), true);
 }
+
+TEST(imap_response_line_test, untagged_reply_utils) {
+    {
+        emailkit::imap_response_line_t response_line{R"(* LIST (\HasNoChildren) "/" "INBOX"\r\n)"};
+        EXPECT_TRUE(response_line.is_untagged_reply());
+        EXPECT_EQ(response_line.unwrap_untagged_reply(),
+                  R"(LIST (\HasNoChildren) "/" "INBOX"\r\n)");
+    }
+    {
+        // emailkit::imap_response_line_t response_line{R"(* \r\n)"};
+        // EXPECT_TRUE(response_line.is_untagged_reply());
+        // EXPECT_EQ(response_line.unwrap_untagged_reply(),
+        //           R"(LIST (\HasNoChildren) "/" "INBOX"\r\n)");
+    }
+}
