@@ -333,6 +333,10 @@ class imap_client_impl_t : public imap_client_t {
                         }
                         auto& parsed_line = *parsed_line_or_err;
 
+                        log_debug("parsed_line.mailbox: '{}'", parsed_line.mailbox);
+                        log_debug("parsed_line.hierarchy_delimiter: '{}'",
+                                  parsed_line.hierarchy_delimiter);
+
                         command_result.inbox_list.emplace_back(types::list_response_entry_t{
                             .inbox_path =
                                 imap_parser::utils::decode_mailbox_path_from_list_response(
