@@ -5,6 +5,5 @@ target_include_directories(emailkit_global PRIVATE src PUBLIC include)
 target_link_libraries(emailkit_global
     PUBLIC
     async_kit
-    emailkit::log
-    llvm_expected
+    emailkit::log    
     tl::expected)
