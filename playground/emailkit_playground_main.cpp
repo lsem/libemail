@@ -100,7 +100,8 @@ void gmail_auth_test() {
                                 log_info("executed namespace command");
 
                                 imap_client->async_execute_command(
-                                    imap_client::imap_commands::list_t{},
+                                    imap_client::imap_commands::list_t{.reference_name = "\"",
+                                                                       .mailbox_name = "*"},
                                     [&](std::error_code ec,
                                         imap_client::types::list_response_t response) {
                                         if (ec) {

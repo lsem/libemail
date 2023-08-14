@@ -33,7 +33,11 @@ struct auth_error_details_t {
 
 namespace imap_commands {
 struct namespace_t {};
-struct list_t {};
+
+struct list_t {
+    std::string reference_name;
+    std::string mailbox_name; // with possible wildcards.
+};
 }  // namespace imap_commands
 
 class imap_client_t {

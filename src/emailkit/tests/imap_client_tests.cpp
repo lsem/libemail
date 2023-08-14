@@ -508,7 +508,7 @@ TEST(imap_client_test, list_command_basic_test) {
         ASSERT_FALSE(ec);
 
         client->async_execute_command(
-            emailkit::imap_client::imap_commands::list_t{},
+            emailkit::imap_client::imap_commands::list_t{.reference_name = "", .mailbox_name = "*"},
             [&](std::error_code ec, emailkit::imap_client::types::list_response_t r) {
                 ASSERT_FALSE(ec);
                 EXPECT_EQ(r.inbox_list.size(), 11);
@@ -631,8 +631,8 @@ TEST(imap_client_test, list_command_invalid_response) {
 
             ASSERT_GT(cmd.tokens.size(), 3);
             EXPECT_EQ(cmd.tokens[1], "list");
-            EXPECT_EQ(cmd.tokens[2], R"("")");   // "" this thing called reference name
-            EXPECT_EQ(cmd.tokens[3], R"("*")");  // "" mailbox name with possible wildcards
+            EXPECT_EQ(cmd.tokens[2], R"("reference/")");  // "" this thing called reference name
+            EXPECT_EQ(cmd.tokens[3], R"("*")");           // "" mailbox name with possible wildcards
 
             // clang-format off
     std::string response = 
@@ -650,9 +650,117 @@ TEST(imap_client_test, list_command_invalid_response) {
         ASSERT_FALSE(ec);
 
         client->async_execute_command(
-            emailkit::imap_client::imap_commands::list_t{},
+            emailkit::imap_client::imap_commands::list_t{.reference_name = "reference/",
+                                                         .mailbox_name = "*"},
             [&](std::error_code ec, emailkit::imap_client::types::list_response_t r) {
-                ASSERT_FALSE(ec); // ERROR IGNORED!
+                ASSERT_FALSE(ec);  // ERROR IGNORED!
+                EXPECT_EQ(r.inbox_list.size(), 0);
+                test_ran = true;
+                ctx.stop();
+            });
+    });
+
+    ctx.run_for(std::chrono::seconds(1));
+    EXPECT_TRUE(test_ran);
+}
+
+TEST(imap_client_test, list_command_NO_response) {
+    // according to RFC, list commands can return:
+    //     NO - list failure: can't list that reference or name
+
+    asio::io_context ctx;
+
+    // I could not find how realword NO looks like so this test is from my understading of this.
+    // Please update test with realistic example if one ever finds it.
+    bool test_ran = false;
+
+    fake_imap_server srv{ctx, "localhost", "9934"};
+    ASSERT_FALSE(srv.start());
+
+    srv.reply_once(
+        [&](std::error_code ec, std::tuple<std::string, async_callback<std::string>> line_and_cb) {
+            auto& [line, cb] = line_and_cb;
+
+            auto maybe_cmd = parse_imap_command(line);
+            ASSERT_TRUE(maybe_cmd);
+            auto& cmd = *maybe_cmd;
+
+            // TODO: check that cmd.tokens[0] is valid tag, check that two commands in a row have
+            // uniqu tags.
+
+            ASSERT_GT(cmd.tokens.size(), 3);
+            EXPECT_EQ(cmd.tokens[1], "list");
+            // No expectations here.
+
+            cb({}, fmt::format("{} NO Failed.\r\n", cmd.tokens[0]));
+        });
+
+    auto client = make_imap_client(ctx);
+    client->async_connect("localhost", "9934", [&](std::error_code ec) {
+        ASSERT_FALSE(ec);
+
+        client->async_execute_command(
+            // '"' as reference name makes response bad (tested on gmail).
+            imap_client::imap_commands::list_t{.reference_name = "SOME WRONG REF",
+                                               .mailbox_name = "SOME WRONG MAILBOX"},
+            [&](std::error_code ec, emailkit::imap_client::types::list_response_t r) {
+                ASSERT_TRUE(ec);
+                ASSERT_EQ(ec, emailkit::imap_client::types::imap_errors::imap_no);
+                EXPECT_EQ(r.inbox_list.size(), 0);
+                test_ran = true;
+                ctx.stop();
+            });
+    });
+
+    ctx.run_for(std::chrono::seconds(1));
+    EXPECT_TRUE(test_ran);
+}
+
+// TODO: empty request test.
+// request: 'A2 list "" ""\r\n'
+// response: '* LIST (\Noselect) "/" "/"\r\n'
+//           'A2 OK Success\r\n'
+
+TEST(imap_client_test, list_command_BAD_response) {
+    asio::io_context ctx;
+
+    // Example of Gmail response:
+    // 'A2 BAD Could not parse command\r\n'
+
+    bool test_ran = false;
+
+    fake_imap_server srv{ctx, "localhost", "9934"};
+    ASSERT_FALSE(srv.start());
+
+    srv.reply_once(
+        [&](std::error_code ec, std::tuple<std::string, async_callback<std::string>> line_and_cb) {
+            auto& [line, cb] = line_and_cb;
+
+            auto maybe_cmd = parse_imap_command(line);
+            ASSERT_TRUE(maybe_cmd);
+            auto& cmd = *maybe_cmd;
+
+            // TODO: check that cmd.tokens[0] is valid tag, check that two commands in a row have
+            // uniqu tags.
+
+            ASSERT_GT(cmd.tokens.size(), 3);
+            EXPECT_EQ(cmd.tokens[1], "list");
+            EXPECT_EQ(cmd.tokens[2], "\"\"\"");  // "" this thing called reference name
+            EXPECT_EQ(cmd.tokens[3], "\"*\"");   // "" mailbox name with possible wildcards
+
+            cb({}, fmt::format("{} BAD Could not parse command\r\n", cmd.tokens[0]));
+        });
+
+    auto client = make_imap_client(ctx);
+    client->async_connect("localhost", "9934", [&](std::error_code ec) {
+        ASSERT_FALSE(ec);
+
+        client->async_execute_command(
+            // '"' as reference name makes response bad (tested on gmail).
+            imap_client::imap_commands::list_t{.reference_name = "\"", .mailbox_name = "*"},
+            [&](std::error_code ec, emailkit::imap_client::types::list_response_t r) {
+                ASSERT_TRUE(ec);
+                ASSERT_EQ(ec, emailkit::imap_client::types::imap_errors::imap_bad);
                 EXPECT_EQ(r.inbox_list.size(), 0);
                 test_ran = true;
                 ctx.stop();

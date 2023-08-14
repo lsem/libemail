@@ -63,6 +63,8 @@ struct imap_response_line_t {
     bool first_token_is(std::string_view s) const { return tokens.size() > 0 && tokens[0] == s; }
 
     bool is_ok_response() const { return tokens.size() >= 2 && tokens[1] == "OK"; }
+    bool is_no_response() const { return tokens.size() >= 2 && tokens[1] == "NO"; }
+    bool is_bad_response() const { return tokens.size() >= 2 && tokens[1] == "BAD"; }
 
     bool maybe_tagged_reply() const {
         return !is_command_continiation_request() && !is_untagged_reply() && tokens.size() > 1;
