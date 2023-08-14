@@ -6,4 +6,5 @@ target_link_libraries(emailkit_global
     PUBLIC
     async_kit
     emailkit::log
-    llvm_expected)
+    llvm_expected
+    tl::expected)

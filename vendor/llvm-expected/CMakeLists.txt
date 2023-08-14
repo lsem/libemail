@@ -1,2 +1,0 @@
-add_library(llvm_expected INTERFACE)
-target_include_directories(llvm_expected INTERFACE include/)

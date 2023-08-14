@@ -53,7 +53,7 @@ Uri::Uri() : hasAuthority_(false), port_(0) {}
 //   *this = maybeUri.value();
 // }
 
-llvm::Expected<Uri> Uri::tryFromString(std::string str) noexcept {
+tl::expected<Uri, std::error_code> Uri::tryFromString(std::string str) noexcept {
   Uri result;
 
   static const std::regex uriRegex(
@@ -65,7 +65,8 @@ llvm::Expected<Uri> Uri::tryFromString(std::string str) noexcept {
 
   std::smatch match;
   if (!std::regex_match(str, match, uriRegex)) {
-    return llvm::createStringError("invlaid URI");
+    //return llvm::createStringError("invlaid URI");
+    return tl::unexpected(make_error_code(std::errc::invalid_argument));
   }
 
   result.scheme_ = submatch(match, 1);
@@ -98,7 +99,8 @@ llvm::Expected<Uri> Uri::tryFromString(std::string str) noexcept {
             authority.second,
             authorityMatch,
             authorityRegex)) {
-      return llvm::createStringError("INVALID_URI_AUTHORITY");
+      //return llvm::createStringError("INVALID_URI_AUTHORITY");
+      return tl::unexpected(make_error_code(std::errc::bad_message));
     }
 
     std::string port(authorityMatch[4].first, authorityMatch[4].second);
@@ -106,10 +108,12 @@ llvm::Expected<Uri> Uri::tryFromString(std::string str) noexcept {
       try {
         result.port_ =  std::stoi(port);
       } catch (std::invalid_argument const&) {
-        return llvm::createStringError("INVALID_URI_PORT");
+        //return llvm::createStringError("INVALID_URI_PORT");
+        return tl::unexpected(make_error_code(std::errc::bad_file_descriptor));
       }
       catch (std::out_of_range const&) {
-        return llvm::createStringError("INVALID_URI_PORT");
+        //return llvm::createStringError("INVALID_URI_PORT");
+        return tl::unexpected(make_error_code(std::errc::bad_address));
       }
     }
 

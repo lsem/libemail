@@ -239,7 +239,7 @@ void imap_parsing_test() {
     for (auto& s : samples) {
         auto parsed_line_or_err = imap_parser::parse_list_response_line(s);
         if (!parsed_line_or_err) {
-            log_error("failed parsing line: '{}': {}", s, parsed_line_or_err.takeError());
+            log_error("failed parsing line: '{}': {}", s, parsed_line_or_err.error());
         }
         auto& parsed_line = *parsed_line_or_err;
 

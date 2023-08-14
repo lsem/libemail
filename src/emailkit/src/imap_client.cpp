@@ -318,9 +318,8 @@ class imap_client_impl_t : public imap_client_t {
                         auto parsed_line_or_err =
                             imap_parser::parse_list_response_line(unwrapped_line);
                         if (!parsed_line_or_err) {
-                            auto err = parsed_line_or_err.takeError();
-                            log_error("failed parsing line: '{}': {}", unwrapped_line, err);
-                            llvm::consumeError(std::move(err));
+                            log_error("failed parsing line: '{}': {}", unwrapped_line,
+                                      parsed_line_or_err.error());
                             // TODO: I would rather liked to have strict mode to break it and
                             // control it from settings. Can be helpful for QA.
                             continue;

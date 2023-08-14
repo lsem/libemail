@@ -84,13 +84,15 @@ std::string base64_naive_encode(const std::string& s) {
     return res;
 }
 
-llvm::Expected<std::string> decode_imap_utf7(std::string s) {
+expected<std::string> decode_imap_utf7(std::string s) {
     // https://datatracker.ietf.org/doc/html/rfc3501#section-5.1.3
     // https://datatracker.ietf.org/doc/html/rfc2152
     // https://crawshaw.io/blog/utf7
 
     if (s.empty() || s[0] != '&') {
-        return llvm::createStringError("not valid imap-utf7 encoded input");
+        // return llvm::createStringError("not valid imap-utf7 encoded input");
+        log_error("not valid imap-utf7 encoded input: '{}'", s);
+        return unexpected(make_error_code(std::errc::io_error));
     }
 
     for (auto& c : s) {
@@ -120,9 +122,13 @@ llvm::Expected<std::string> decode_imap_utf7(std::string s) {
         if (ret == UTF7_OK) {
             break;
         } else if (ret == UTF7_INCOMPLETE) {
-            return llvm::createStringError("incomplete input");
+            //return llvm::createStringError("incomplete input");
+            log_error("incomplete input");
+            return unexpected(make_error_code(std::errc::io_error));
         } else if (ret == UTF7_INVALID) {
-            return llvm::createStringError("invalid utf7 input");
+            //return llvm::createStringError("invalid utf7 input");
+            log_error("invalid utf7 input");
+            return unexpected(make_error_code(std::errc::io_error));
         } else {
             utf8_codec::append_codepoint(res, ret);
         }

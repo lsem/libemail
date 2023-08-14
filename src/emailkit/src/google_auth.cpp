@@ -1,3 +1,4 @@
+#include <emailkit/global.hpp>
 #include "google_auth.hpp"
 #include <fmt/format.h>
 #include <asio/ts/internet.hpp>
@@ -17,7 +18,6 @@
 
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
-#include <llvm_expected.hpp>
 
 namespace emailkit {
 
@@ -37,11 +37,12 @@ bool launch_system_browser(std::string uri) {
 #endif
 }
 
-llvm::Expected<auth_data_t> parase_google_oauth20_json(std::string j) {
+expected<auth_data_t> parase_google_oauth20_json(std::string j) {
     rapidjson::Document d;
     d.Parse(j.c_str());
     if (d.HasParseError()) {
-        return llvm::createStringError(fmt::format("JSON parse error: '{}'", j));
+        log_error("JSON parse error: '{}'", j);
+        return unexpected(make_error_code(std::errc::io_error));
     }
 
     auto as_str_or = [&d](const char* key, std::string _default) -> std::string {
@@ -487,7 +488,8 @@ class google_auth_t_impl : public google_auth_t,
         // for (auto& s : scopes) {
         // s = encode_uri_component(s);
         //}
-        //const auto scopes_encoded = encode_uri_component(fmt::format("{}", fmt::join(scopes, " ")));
+        // const auto scopes_encoded = encode_uri_component(fmt::format("{}", fmt::join(scopes, "
+        // ")));
         const auto scopes_encoded = fmt::format("{}", fmt::join(scopes, " "));
 
         m_callback = std::move(cb);
@@ -517,11 +519,7 @@ class google_auth_t_impl : public google_auth_t,
 
                 auto uri_or_err = folly::Uri::tryFromString(complete_uri);
                 if (!uri_or_err) {
-                    auto err = uri_or_err.takeError();
-                    std::stringstream ss;
-                    ss << err;
-                    log_error("failed parsing uri: {}", ss.str());
-                    log_debug("failed parsing uri: '{}'", complete_uri);
+                    log_error("failed parsing uri '{}': {}", complete_uri, uri_or_err.error());
                     cb({}, http_srv::reply::stock_reply(http_srv::reply::internal_server_error));
                     return;
                 }

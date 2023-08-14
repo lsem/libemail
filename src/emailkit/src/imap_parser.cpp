@@ -149,7 +149,7 @@ void emplace_unique(std::vector<std::string>& v, std::string_view tok) {
 
 }  // namespace
 
-Expected<list_response_t> parse_list_response_line(std::string_view input) {
+expected<list_response_t> parse_list_response_line(std::string_view input) {
     list_response_t parsed_line;
 
     bool list_matched =
@@ -219,7 +219,8 @@ Expected<list_response_t> parse_list_response_line(std::string_view input) {
                       });
 
     if (!list_matched) {
-        return llvm::createStringError("list not matched");
+        //return llvm::createStringError("list not matched");
+        return unexpected(make_error_code(std::errc::io_error));
     }
 
     return parsed_line;

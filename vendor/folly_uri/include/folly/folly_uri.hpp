@@ -20,7 +20,8 @@
 #include <string>
 #include <vector>
 
-#include <llvm_expected.hpp>
+#include <system_error>
+#include <tl/expected.hpp>
 
 namespace folly {
 /**
@@ -61,7 +62,7 @@ class Uri {
    *
    * On failure, returns UriFormatError.
    */
-  static llvm::Expected<Uri> tryFromString(std::string str) noexcept;
+  static tl::expected<Uri, std::error_code> tryFromString(std::string str) noexcept;
 
   const std::string& scheme() const { return scheme_; }
   const std::string& username() const { return username_; }

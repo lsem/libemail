@@ -3,14 +3,19 @@
 #include <asio/io_context.hpp>
 #include <async_kit/async_callback.hpp>
 #include <emailkit/log.hpp>
-#include <llvm_expected.hpp>
 #include <memory>
 #include <system_error>
 #include <type_traits>
+#include <tl/expected.hpp>
 
 using std::shared_ptr;
 
-using llvm::Expected;
+template<class T>
+using expected = tl::expected<T, std::error_code>;
+using unexpected = tl::unexpected<std::error_code>;
+
+
+//class expected : public tl::expected<
 
 namespace asynckit = lsem::async_kit;
 
@@ -61,8 +66,3 @@ void call_cb(async_callback<T>& cb, std::error_code ec) {
     };
 
 DEFINE_FMT_FORMATTER(std::error_code, "{}:{}", arg.category().name(), arg.message());
-
-namespace details {
-std::string to_string(const llvm::Error& e);
-}
-DEFINE_FMT_FORMATTER(llvm::Error, "{}", details::to_string(arg));

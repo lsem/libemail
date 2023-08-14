@@ -22,7 +22,7 @@ std::vector<std::string> decode_mailbox_path_from_list_response(const list_respo
             if (emailkit::utils::can_be_utf7_encoded_text(tok)) {
                 auto utf8_or_err = emailkit::utils::decode_imap_utf7(std::string(tok));
                 if (!utf8_or_err) {
-                    log_error("failed parsing token: '{}': {}", tok, utf8_or_err.takeError());
+                    log_error("failed parsing token: '{}': {}", tok, utf8_or_err.error());
                     continue;
                 }
                 decoded_path_tokens.emplace_back(std::move(*utf8_or_err));
