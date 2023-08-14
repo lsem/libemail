@@ -716,10 +716,102 @@ TEST(imap_client_test, list_command_NO_response) {
     EXPECT_TRUE(test_ran);
 }
 
-// TODO: empty request test.
-// request: 'A2 list "" ""\r\n'
-// response: '* LIST (\Noselect) "/" "/"\r\n'
-//           'A2 OK Success\r\n'
+TEST(imap_client_test, list_command_single_line_response) {
+    asio::io_context ctx;
+
+    // Example 1 from RFC.
+
+    bool test_ran = false;
+
+    fake_imap_server srv{ctx, "localhost", "9934"};
+    ASSERT_FALSE(srv.start());
+
+    srv.reply_once(
+        [&](std::error_code ec, std::tuple<std::string, async_callback<std::string>> line_and_cb) {
+            auto& [line, cb] = line_and_cb;
+
+            auto maybe_cmd = parse_imap_command(line);
+            ASSERT_TRUE(maybe_cmd);
+            auto& cmd = *maybe_cmd;
+
+            ASSERT_GT(cmd.tokens.size(), 3);
+
+            const std::string response = fmt::format(
+                "* LIST (\\Noselect) \".\" #news.\r\n"
+                "{} OK LIST completed\r\n",
+                cmd.tokens[0]);
+            cb({}, response);
+        });
+
+    auto client = make_imap_client(ctx);
+    client->async_connect("localhost", "9934", [&](std::error_code ec) {
+        ASSERT_FALSE(ec);
+
+        client->async_execute_command(
+            emailkit::imap_client::imap_commands::list_t{.reference_name = "#news.comp.mail.misc",
+                                                         .mailbox_name = ""},
+            [&](std::error_code ec, emailkit::imap_client::types::list_response_t r) {
+                ASSERT_FALSE(ec);
+                ASSERT_EQ(r.inbox_list.size(), 1);
+                EXPECT_THAT(r.inbox_list[0].flags, ElementsAre("\\Noselect"));
+                EXPECT_THAT(r.inbox_list[0].inbox_path, ElementsAre("#news"));
+                test_ran = true;
+                ctx.stop();
+            });
+    });
+
+    ctx.run_for(std::chrono::seconds(1));
+    EXPECT_TRUE(test_ran);
+}
+
+TEST(imap_client_test, list_command_rfc_example_2) {
+    asio::io_context ctx;
+
+    // Example 2 from RFC.
+
+    bool test_ran = false;
+
+    fake_imap_server srv{ctx, "localhost", "9934"};
+    ASSERT_FALSE(srv.start());
+
+    srv.reply_once(
+        [&](std::error_code ec, std::tuple<std::string, async_callback<std::string>> line_and_cb) {
+            auto& [line, cb] = line_and_cb;
+
+            auto maybe_cmd = parse_imap_command(line);
+            ASSERT_TRUE(maybe_cmd);
+            auto& cmd = *maybe_cmd;
+
+            ASSERT_GT(cmd.tokens.size(), 3);
+
+            const std::string response = fmt::format(
+                "* LIST (\\Noselect) \"/\" \"\"\r\n"
+                "{} OK LIST completed\r\n",
+                cmd.tokens[0]);
+            cb({}, response);
+        });
+
+    auto client = make_imap_client(ctx);
+    client->async_connect("localhost", "9934", [&](std::error_code ec) {
+        ASSERT_FALSE(ec);
+
+        client->async_execute_command(
+            emailkit::imap_client::imap_commands::list_t{},
+            [&](std::error_code ec, emailkit::imap_client::types::list_response_t r) {
+                ASSERT_FALSE(ec);
+                ASSERT_EQ(r.inbox_list.size(), 1);
+                EXPECT_THAT(r.inbox_list[0].flags, ElementsAre("\\Noselect"));
+                EXPECT_THAT(r.inbox_list[0].inbox_path, ElementsAre());
+                test_ran = true;
+                ctx.stop();
+            });
+    });
+
+    ctx.run_for(std::chrono::seconds(1));
+    EXPECT_TRUE(test_ran);
+}
+
+// TODO: unexpected tag from server.
 
 TEST(imap_client_test, list_command_BAD_response) {
     asio::io_context ctx;
