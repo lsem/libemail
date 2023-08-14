@@ -14,6 +14,8 @@ std::vector<std::string> decode_mailbox_path_from_list_response(const list_respo
             log_warning("we can't split multichar hierarchy delimiters, skipping");
             return {};
         }
+
+        log_debug("r.hierarchy_delimiter[0]: '{}'", r.hierarchy_delimiter[0]);
         auto tokens = emailkit::utils::split_views(r.mailbox, r.hierarchy_delimiter[0]);
 
         for (auto& tok : tokens) {

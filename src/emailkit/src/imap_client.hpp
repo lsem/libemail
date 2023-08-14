@@ -32,8 +32,8 @@ struct auth_error_details_t {
 };
 
 namespace imap_commands {
-struct namespace_ {};
-struct list_ {};
+struct namespace_t {};
+struct list_t {};
 }  // namespace imap_commands
 
 class imap_client_t {
@@ -51,8 +51,8 @@ class imap_client_t {
     // virtual void async_authenticate(oauthbearer_creds_t creds,
     //                                 async_callback<auth_error_details_t> cb) {}
 
-    virtual void async_execute_command(imap_commands::namespace_, async_callback<void> cb) = 0;
-    virtual void async_execute_command(imap_commands::list_,
+    virtual void async_execute_command(imap_commands::namespace_t, async_callback<void> cb) = 0;
+    virtual void async_execute_command(imap_commands::list_t,
                                        async_callback<types::list_response_t> cb) = 0;
 
     // TODO: state change API (logical states + disconnected/failed)

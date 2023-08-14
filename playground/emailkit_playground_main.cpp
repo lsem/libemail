@@ -91,7 +91,7 @@ void gmail_auth_test() {
                         log_info("authenticated to gimap");
 
                         imap_client->async_execute_command(
-                            imap_client::imap_commands::namespace_{}, [&](std::error_code ec) {
+                            imap_client::imap_commands::namespace_t{}, [&](std::error_code ec) {
                                 if (ec) {
                                     log_error("failed executing ns command: {}", ec);
                                     return;
@@ -100,7 +100,7 @@ void gmail_auth_test() {
                                 log_info("executed namespace command");
 
                                 imap_client->async_execute_command(
-                                    imap_client::imap_commands::list_{},
+                                    imap_client::imap_commands::list_t{},
                                     [&](std::error_code ec,
                                         imap_client::types::list_response_t response) {
                                         if (ec) {

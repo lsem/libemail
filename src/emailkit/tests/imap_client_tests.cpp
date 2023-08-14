@@ -1,4 +1,6 @@
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
 #include <emailkit/imap_client.hpp>
 #include <emailkit/utils.hpp>
 
@@ -10,6 +12,7 @@
 
 using namespace emailkit;
 using namespace emailkit::imap_client;
+using namespace testing;
 
 const std::string gmail_imap_oauth2_success =
     "* OK Gimap ready for requests from 45.12.24.19 n18mb10782105ltg\r\n* CAPABILITY IMAP4rev1 "
@@ -265,6 +268,16 @@ struct imap_command_t {
 };
 
 std::optional<imap_command_t> parse_imap_command(std::string s) {
+    if (s.size() < 2) {
+        log_error("imap command cannot be less than 2 chars (crlf)");
+        return {};
+    }
+    if (s[s.size() - 2] != '\r' || s[s.size() - 1] != '\n') {
+        log_error("no crlf in command");
+        return {};
+    }
+    s.resize(s.size() - 2);  // trim crlf
+
     auto tokens = utils::split(s, ' ');
     if (tokens.size() < 2) {
         log_error("invalid imap command: {}", s);
@@ -437,6 +450,210 @@ TEST(imap_client_test, imap_xoauth_failure_no_challange_test) {
                 ASSERT_NE(ec,
                           make_error_code(lsem::async_kit::errors::async_callback_err::not_called));
                 EXPECT_EQ(details.summary, "");
+                test_ran = true;
+                ctx.stop();
+            });
+    });
+
+    ctx.run_for(std::chrono::seconds(1));
+    EXPECT_TRUE(test_ran);
+}
+
+TEST(imap_client_test, list_command_basic_test) {
+    asio::io_context ctx;
+
+    bool test_ran = false;
+
+    fake_imap_server srv{ctx, "localhost", "9934"};
+    ASSERT_FALSE(srv.start());
+
+    srv.reply_once([&](std::error_code ec,
+                       std::tuple<std::string, async_callback<std::string>> line_and_cb) {
+        auto& [line, cb] = line_and_cb;
+
+        auto maybe_cmd = parse_imap_command(line);
+        ASSERT_TRUE(maybe_cmd);
+        auto& cmd = *maybe_cmd;
+
+        // TODO: check that cmd.tokens[0] is valid tag, check that two commands in a row have
+        // uniqu tags.
+
+        ASSERT_GT(cmd.tokens.size(), 3);
+        EXPECT_EQ(cmd.tokens[1], "list");
+        EXPECT_EQ(cmd.tokens[2], R"("")");   // "" this thing called reference name
+        EXPECT_EQ(cmd.tokens[3], R"("*")");  // "" mailbox name with possible wildcards
+
+        // clang-format off
+    std::string response = 
+        R"(* LIST (\HasNoChildren) "/" "INBOX")""\r\n"
+        R"(* LIST (\A1 \A2) "/" "INBOX")""\r\n"
+        R"(* LIST (\AnyFlag \AnierFlag) "/" "[Gmail]")""\r\n"
+        R"(* LIST (\HasChildren \Noselect) "/" "[Gmail]")""\r\n"
+        R"(* LIST (\Flagged \HasNoChildren) "/" "[Gmail]/&BAYENw- &BDcEVgRABD4ERwQ6BD4ETg-")""\r\n"
+        R"(* LIST (\HasNoChildren \Important) "/" "[Gmail]/&BBIEMAQ2BDsEOAQyBD4-")""\r\n"
+        R"(* LIST (\HasNoChildren \Trash) "/" "[Gmail]/&BBoEPgRIBDgEOg-")""\r\n"
+        R"(* LIST (\HasNoChildren \Sent) "/" "[Gmail]/&BB0EMAQ0BFYEQQQ7BDAEPQRW-")""\r\n"
+        R"(* LIST (\HasNoChildren \Junk) "/" "[Gmail]/&BCEEPwQwBDw-")""\r\n"
+        R"(* LIST (\All \HasNoChildren) "/" "[Gmail]/&BCMEQQRP- &BD8EPgRIBEIEMA-")""\r\n"
+        R"(* LIST (\Drafts \HasNoChildren) "/" "[Gmail]/&BCcENQRABD0ENQRCBDoEOA-")""\r\n";
+        // clang-format on
+
+        response += fmt::format("{} OK Success\r\n", cmd.tokens[0]) + "\r\n";
+
+        cb({}, response);
+    });
+
+    auto client = make_imap_client(ctx);
+    client->async_connect("localhost", "9934", [&](std::error_code ec) {
+        ASSERT_FALSE(ec);
+
+        client->async_execute_command(
+            emailkit::imap_client::imap_commands::list_t{},
+            [&](std::error_code ec, emailkit::imap_client::types::list_response_t r) {
+                ASSERT_FALSE(ec);
+                EXPECT_EQ(r.inbox_list.size(), 11);
+
+                EXPECT_THAT(r.inbox_list[0].flags, ElementsAre("\\HasNoChildren"));
+                EXPECT_THAT(r.inbox_list[0].inbox_path, ElementsAre("INBOX"));
+
+                EXPECT_THAT(r.inbox_list[1].flags, ElementsAre("\\A1", "\\A2"));
+                EXPECT_THAT(r.inbox_list[1].inbox_path, ElementsAre("INBOX"));
+
+                EXPECT_THAT(r.inbox_list[2].flags, ElementsAre("\\AnyFlag", "\\AnierFlag"));
+                EXPECT_THAT(r.inbox_list[2].inbox_path, ElementsAre("[Gmail]"));
+
+                EXPECT_THAT(r.inbox_list[3].inbox_path, ElementsAre("[Gmail]"));
+                EXPECT_THAT(r.inbox_list[3].flags, ElementsAre("\\HasChildren", "\\Noselect"));
+
+                EXPECT_THAT(r.inbox_list[4].flags, ElementsAre("\\Flagged", "\\HasNoChildren"));
+                EXPECT_THAT(r.inbox_list[4].inbox_path, ElementsAre("[Gmail]", "Із зірочкою"));
+
+                EXPECT_THAT(r.inbox_list[5].flags, ElementsAre("\\HasNoChildren", "\\Important"));
+                EXPECT_THAT(r.inbox_list[5].inbox_path, ElementsAre("[Gmail]", "Важливо"));
+
+                EXPECT_THAT(r.inbox_list[6].flags, ElementsAre("\\HasNoChildren", "\\Trash"));
+                EXPECT_THAT(r.inbox_list[6].inbox_path, ElementsAre("[Gmail]", "Кошик"));
+
+                EXPECT_THAT(r.inbox_list[7].flags, ElementsAre("\\HasNoChildren", "\\Sent"));
+                EXPECT_THAT(r.inbox_list[7].inbox_path, ElementsAre("[Gmail]", "Надіслані"));
+
+                EXPECT_THAT(r.inbox_list[8].flags, ElementsAre("\\HasNoChildren", "\\Junk"));
+                EXPECT_THAT(r.inbox_list[8].inbox_path, ElementsAre("[Gmail]", "Спам"));
+
+                EXPECT_THAT(r.inbox_list[9].flags, ElementsAre("\\All", "\\HasNoChildren"));
+                EXPECT_THAT(r.inbox_list[9].inbox_path, ElementsAre("[Gmail]", "Уся пошта"));
+
+                EXPECT_THAT(r.inbox_list[10].flags, ElementsAre("\\Drafts", "\\HasNoChildren"));
+                EXPECT_THAT(r.inbox_list[10].inbox_path, ElementsAre("[Gmail]", "Чернетки"));
+
+                test_ran = true;
+                ctx.stop();
+            });
+    });
+
+    ctx.run_for(std::chrono::seconds(1));
+    EXPECT_TRUE(test_ran);
+}
+
+TEST(imap_client_test, DISABLED_list_command_windows_style_delimiter) {
+    asio::io_context ctx;
+
+    bool test_ran = false;
+
+    fake_imap_server srv{ctx, "localhost", "9934"};
+    ASSERT_FALSE(srv.start());
+
+    srv.reply_once([&](std::error_code ec,
+                       std::tuple<std::string, async_callback<std::string>> line_and_cb) {
+        auto& [line, cb] = line_and_cb;
+
+        auto maybe_cmd = parse_imap_command(line);
+        ASSERT_TRUE(maybe_cmd);
+        auto& cmd = *maybe_cmd;
+
+        // TODO: check that cmd.tokens[0] is valid tag, check that two commands in a row have
+        // uniqu tags.
+
+        ASSERT_GT(cmd.tokens.size(), 3);
+        EXPECT_EQ(cmd.tokens[1], "list");
+        EXPECT_EQ(cmd.tokens[2], R"("")");   // "" this thing called reference name
+        EXPECT_EQ(cmd.tokens[3], R"("*")");  // "" mailbox name with possible wildcards
+
+        // clang-format off
+    std::string response = 
+        R"(* LIST (\Flagged \HasNoChildren) "\" "[Gmail]\&BAYENw- &BDcEVgRABD4ERwQ6BD4ETg-")""\r\n";
+        // clang-format on
+
+        response += fmt::format("{} OK Success\r\n", cmd.tokens[0]) + "\r\n";
+
+        cb({}, response);
+    });
+
+    auto client = make_imap_client(ctx);
+    client->async_connect("localhost", "9934", [&](std::error_code ec) {
+        ASSERT_FALSE(ec);
+
+        client->async_execute_command(
+            emailkit::imap_client::imap_commands::list_t{},
+            [&](std::error_code ec, emailkit::imap_client::types::list_response_t r) {
+                ASSERT_FALSE(ec);
+                EXPECT_EQ(r.inbox_list.size(), 1);
+
+                EXPECT_THAT(r.inbox_list[0].flags, ElementsAre("\\Flagged", "\\HasNoChildren"));
+                EXPECT_THAT(r.inbox_list[0].inbox_path, ElementsAre("[Gmail]", "Із зірочкою"));
+                test_ran = true;
+                ctx.stop();
+            });
+    });
+
+    ctx.run_for(std::chrono::seconds(1));
+    EXPECT_TRUE(test_ran);
+}
+
+TEST(imap_client_test, list_command_invalid_response) {
+    asio::io_context ctx;
+
+    bool test_ran = false;
+
+    fake_imap_server srv{ctx, "localhost", "9934"};
+    ASSERT_FALSE(srv.start());
+
+    srv.reply_once(
+        [&](std::error_code ec, std::tuple<std::string, async_callback<std::string>> line_and_cb) {
+            auto& [line, cb] = line_and_cb;
+
+            auto maybe_cmd = parse_imap_command(line);
+            ASSERT_TRUE(maybe_cmd);
+            auto& cmd = *maybe_cmd;
+
+            // TODO: check that cmd.tokens[0] is valid tag, check that two commands in a row have
+            // uniqu tags.
+
+            ASSERT_GT(cmd.tokens.size(), 3);
+            EXPECT_EQ(cmd.tokens[1], "list");
+            EXPECT_EQ(cmd.tokens[2], R"("")");   // "" this thing called reference name
+            EXPECT_EQ(cmd.tokens[3], R"("*")");  // "" mailbox name with possible wildcards
+
+            // clang-format off
+    std::string response = 
+    // No delimiter in response, bad grammar.
+        R"(* LIST (\Flagged \HasNoChildren) [Gmail]/&BAYENw- &BDcEVgRABD4ERwQ6BD4ETg-")""\r\n";
+            // clang-format on
+
+            response += fmt::format("{} OK Success\r\n", cmd.tokens[0]) + "\r\n";
+
+            cb({}, response);
+        });
+
+    auto client = make_imap_client(ctx);
+    client->async_connect("localhost", "9934", [&](std::error_code ec) {
+        ASSERT_FALSE(ec);
+
+        client->async_execute_command(
+            emailkit::imap_client::imap_commands::list_t{},
+            [&](std::error_code ec, emailkit::imap_client::types::list_response_t r) {
+                ASSERT_FALSE(ec); // ERROR IGNORED!
+                EXPECT_EQ(r.inbox_list.size(), 0);
                 test_ran = true;
                 ctx.stop();
             });

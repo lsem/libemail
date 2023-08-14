@@ -282,7 +282,7 @@ class imap_client_impl_t : public imap_client_t {
             });
     }
 
-    virtual void async_execute_command(imap_commands::namespace_,
+    virtual void async_execute_command(imap_commands::namespace_t,
                                        async_callback<void> cb) override {
         // TODO: ensure connected and authenticated?
         async_execute_simple_command(
@@ -293,13 +293,15 @@ class imap_client_impl_t : public imap_client_t {
             });
     }
 
-    virtual void async_execute_command(imap_commands::list_,
+    virtual void async_execute_command(imap_commands::list_t,
                                        async_callback<types::list_response_t> cb) override {
         // https://datatracker.ietf.org/doc/html/rfc3501#section-6.3.8
+        // TODO: laternatively we can use parser all the way down instead of this.
         async_execute_simple_command(
             fmt::format("list \"\" \"*\""),
             [cb = std::move(cb)](std::error_code ec, imap_response_t response) mutable {
                 if (ec) {
+                    log_error("async_execute_simple_command failed: {}", ec);
                     cb(ec, {});
                     return;
                 }
@@ -316,8 +318,9 @@ class imap_client_impl_t : public imap_client_t {
                         auto parsed_line_or_err =
                             imap_parser::parse_list_response_line(unwrapped_line);
                         if (!parsed_line_or_err) {
-                            log_error("failed parsing line: '{}': {}", unwrapped_line,
-                                      parsed_line_or_err.takeError());
+                            auto err = parsed_line_or_err.takeError();
+                            log_error("failed parsing line: '{}': {}", unwrapped_line, err);
+                            llvm::consumeError(std::move(err));
                             // TODO: I would rather liked to have strict mode to break it and
                             // control it from settings. Can be helpful for QA.
                             continue;
@@ -368,9 +371,11 @@ class imap_client_impl_t : public imap_client_t {
             } else if (l.is_untagged_reply()) {
                 // continue receiving lines
                 async_receive_response(socket, std::move(r), std::move(cb));
+                return;
             } else {
                 log_error("unexpected line from server: {}", l);
                 cb(make_error_code(std::errc::bad_message), std::move(r));
+                return;
             }
         });
     }
