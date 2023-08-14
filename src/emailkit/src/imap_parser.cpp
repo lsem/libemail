@@ -156,7 +156,6 @@ expected<list_response_t> parse_list_response_line(std::string_view input) {
         false;  // flag tells that among all mailbox alternatives exactly LIST matched
 
     bool flags_list_done = false;
-    int dquote_count = 0;
 
     apg_invoke_parser(IMAP_PARSER_APG_IMPL_MAILBOX_DATA, input,
                       {
@@ -166,12 +165,22 @@ expected<list_response_t> parse_list_response_line(std::string_view input) {
                                list_matched = true;
                            }},
 
+                          {IMAP_PARSER_APG_IMPL_OPEN_BRACE,
+                           [&](std::string_view tok) {
+                               log_debug("IMAP_PARSER_APG_IMPL_OPEN_BRACE: '{}'", tok);
+                           }},
+                          {IMAP_PARSER_APG_IMPL_CLOSE_BRACE,
+                           [&](std::string_view tok) {
+                               log_debug("IMAP_PARSER_APG_IMPL_CLOSE_BRACE: '{}'", tok);
+                               flags_list_done = true;
+                           }},
+
                           {IMAP_PARSER_APG_IMPL_DQUOTE,
                            [&](std::string_view tok) {
-                               if (flags_list_done) {
-                                   log_debug("DQUOTE: '{}'", tok);
-                                   dquote_count++;
-                               }
+                            //    if (flags_list_done) {
+                            //        log_debug("DQUOTE: '{}'", tok);
+                            //        dquote_count++;
+                            //    }
                            }},
 
                           {IMAP_PARSER_APG_IMPL_MBX_LIST_FLAGS,
@@ -183,7 +192,8 @@ expected<list_response_t> parse_list_response_line(std::string_view input) {
                           {IMAP_PARSER_APG_IMPL_QUOTED_CHAR,
                            [&](std::string_view tok) {
                                // log_debug("IMAP_PARSER_APG_IMPL_QUOTED_CHAR: '{}'", tok);
-                               if (flags_list_done && dquote_count == 1) {
+                               //if (flags_list_done && dquote_count == 1) {
+                                if (flags_list_done && parsed_line.hierarchy_delimiter.empty()) {
                                    parsed_line.hierarchy_delimiter = tok;
                                    // log_warning("this is our delimiter");
                                }
@@ -219,7 +229,7 @@ expected<list_response_t> parse_list_response_line(std::string_view input) {
                       });
 
     if (!list_matched) {
-        //return llvm::createStringError("list not matched");
+        // return llvm::createStringError("list not matched");
         return unexpected(make_error_code(std::errc::io_error));
     }
 

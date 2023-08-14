@@ -311,7 +311,10 @@ mailbox-data    =  "FLAGS" SP flag-list / "LIST" SP mailbox-list /
                    "STATUS" SP mailbox SP "(" [status-att-list] ")" /
                    number SP "EXISTS" / number SP "RECENT"
 
-mailbox-list    = "(" [mbx-list-flags] ")" SP
+open-brace       = "("
+close-brace      = ")"
+
+mailbox-list    = open-brace [mbx-list-flags] close-brace SP
                    (DQUOTE QUOTED-CHAR DQUOTE / nil) SP mailbox
 
 mbx-list-flags  = *(mbx-list-oflag SP) mbx-list-sflag *(SP mbx-list-oflag)
