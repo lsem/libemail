@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <variant>
 #include <vector>
 
 #include <emailkit/global.hpp>
@@ -8,7 +9,9 @@
 namespace emailkit::imap_client::types {
 
 struct list_response_entry_t {
-    std::vector<std::string> inbox_path;
+    std::string mailbox_raw;
+    std::vector<std::string> inbox_path;  // TODO: why it is called inbox path but not mailbox path?
+                                          // we should have called it mailbox_path_parts
     std::vector<std::string> flags;
 };
 

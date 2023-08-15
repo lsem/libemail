@@ -966,3 +966,6 @@ TEST(imap_client_test, list_command_BAD_response) {
 }
 
 // TODO: test for when server responds with * during authentication.
+
+// sending command 'A3 select [Gmail]\r\n'
+// TODO: 'A3 NO [NONEXISTENT] Unknown Mailbox: [Gmail] (Failure)\r\n'

@@ -36,7 +36,11 @@ struct namespace_t {};
 
 struct list_t {
     std::string reference_name;
-    std::string mailbox_name; // with possible wildcards.
+    std::string mailbox_name;  // with possible wildcards.
+};
+
+struct select_t {
+    std::string mailbox_name;
 };
 }  // namespace imap_commands
 
@@ -58,6 +62,7 @@ class imap_client_t {
     virtual void async_execute_command(imap_commands::namespace_t, async_callback<void> cb) = 0;
     virtual void async_execute_command(imap_commands::list_t,
                                        async_callback<types::list_response_t> cb) = 0;
+    virtual void async_execute_command(imap_commands::select_t, async_callback<void> cb) = 0;
 
     // TODO: state change API (logical states + disconnected/failed)
 };

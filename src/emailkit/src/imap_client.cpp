@@ -338,6 +338,7 @@ class imap_client_impl_t : public imap_client_t {
                                   parsed_line.hierarchy_delimiter);
 
                         command_result.inbox_list.emplace_back(types::list_response_entry_t{
+                            .mailbox_raw = parsed_line.mailbox,
                             .inbox_path =
                                 imap_parser::utils::decode_mailbox_path_from_list_response(
                                     parsed_line),
@@ -362,6 +363,24 @@ class imap_client_impl_t : public imap_client_t {
 
                 log_warning("no lines from LIST command");
                 cb(make_error_code(std::errc::no_message_available), {});
+            });
+    }
+
+    virtual void async_execute_command(imap_commands::select_t cmd,
+                                       async_callback<void> cb) override {
+        async_execute_simple_command(
+            fmt::format("select {}", cmd.mailbox_name),
+            [cb = std::move(cb)](std::error_code ec, imap_response_t response) mutable {
+                if (ec) {
+                    log_error("async_execute_simple_command failed: {}", ec);
+                    cb(ec);
+                    return;
+                }
+
+                log_debug("response:");
+                for (auto& l : response.lines) {
+                    log_debug("{}", l);
+                }
             });
     }
 

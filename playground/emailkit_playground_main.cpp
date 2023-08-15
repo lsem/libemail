@@ -47,79 +47,89 @@ void gmail_auth_test() {
     // We are requesting authentication for our app (represented by app_creds) for scoped needed for
     // our application.
     auto google_auth = emailkit::make_google_auth(ctx, "localhost", "8089");
-    google_auth->async_handle_auth(
-        app_creds, scopes, [&](std::error_code ec, auth_data_t auth_data) {
+    google_auth->async_handle_auth(app_creds, scopes, [&](std::error_code ec, auth_data_t auth_data) {
+        if (ec) {
+            log_error("async_handle_auth failed: {}", ec);
+            return;
+        }
+
+        log_info("received creds: {}", auth_data);
+
+        log_debug("connecting to GMail IMAP endpoint..");
+
+        imap_client->async_connect("imap.gmail.com", "993", [&, auth_data](std::error_code ec) {
             if (ec) {
-                log_error("async_handle_auth failed: {}", ec);
+                log_error("failed connecting Gmail IMAP: {}", ec);
                 return;
             }
 
-            log_info("received creds: {}", auth_data);
+            log_info("connected GMail IMAP, authenticating via SASL");
 
-            log_debug("connecting to GMail IMAP endpoint..");
+            // TODO: why user is not provided from google auth?
+            const std::string user = "liubomyr.semkiv.test2@gmail.com";
 
-            imap_client->async_connect("imap.gmail.com", "993", [&, auth_data](std::error_code ec) {
-                if (ec) {
-                    log_error("failed connecting Gmail IMAP: {}", ec);
-                    return;
-                }
+            // imap_client->async_obtain_capabilities(
+            //     [&, user, auth_data](std::error_code ec, std::vector<std::string> caps) {
+            //         if (ec) {
+            //             log_error("failed otaining capabilities: {}", ec);
+            //             return;
+            //         }
 
-                log_info("connected GMail IMAP, authenticating via SASL");
+            imap_client->async_authenticate(
+                {.user_email = user, .oauth_token = auth_data.access_token},
+                [&](std::error_code ec, emailkit::imap_client::auth_error_details_t err_details) {
+                    if (ec) {
+                        log_error("async_authenticate failed: {}{}", ec,
+                                  err_details.summary.empty()
+                                      ? ""
+                                      : fmt::format(", summary: {})", err_details.summary));
+                        return;
+                    }
 
-                // TODO: why user is not provided from google auth?
-                const std::string user = "liubomyr.semkiv.test2@gmail.com";
+                    log_info("authenticated to gimap");
 
-                // imap_client->async_obtain_capabilities(
-                //     [&, user, auth_data](std::error_code ec, std::vector<std::string> caps) {
-                //         if (ec) {
-                //             log_error("failed otaining capabilities: {}", ec);
-                //             return;
-                //         }
+                    imap_client->async_execute_command(
+                        imap_client::imap_commands::namespace_t{}, [&](std::error_code ec) {
+                            if (ec) {
+                                log_error("failed executing ns command: {}", ec);
+                                return;
+                            }
 
-                imap_client->async_authenticate(
-                    {.user_email = user, .oauth_token = auth_data.access_token},
-                    [&](std::error_code ec,
-                        emailkit::imap_client::auth_error_details_t err_details) {
-                        if (ec) {
-                            log_error("async_authenticate failed: {}{}", ec,
-                                      err_details.summary.empty()
-                                          ? ""
-                                          : fmt::format(", summary: {})", err_details.summary));
-                            return;
-                        }
+                            log_info("executed namespace command");
 
-                        log_info("authenticated to gimap");
+                            imap_client->async_execute_command(
+                                imap_client::imap_commands::list_t{.reference_name = "",
+                                                                   .mailbox_name = "*"},
+                                [&](std::error_code ec,
+                                    imap_client::types::list_response_t response) {
+                                    if (ec) {
+                                        log_error("failed exeucting list command: {}", ec);
+                                        return;
+                                    }
 
-                        imap_client->async_execute_command(
-                            imap_client::imap_commands::namespace_t{}, [&](std::error_code ec) {
-                                if (ec) {
-                                    log_error("failed executing ns command: {}", ec);
-                                    return;
-                                }
+                                    log_info("executed list command:\n{}",
+                                             fmt::join(response.inbox_list, "\n"));
+                                    // for (auto& entry : response.inbox_list) {
+                                    //     log_info("    {}", entry);
+                                    // }
 
-                                log_info("executed namespace command");
+                                    imap_client->async_execute_command(
+                                        imap_client::imap_commands::select_t{.mailbox_name =
+                                                                                 "\"INBOX\""},
 
-                                imap_client->async_execute_command(
-                                    imap_client::imap_commands::list_t{.reference_name = "\"",
-                                                                       .mailbox_name = "*"},
-                                    [&](std::error_code ec,
-                                        imap_client::types::list_response_t response) {
-                                        if (ec) {
-                                            log_error("failed exeucting list command: {}", ec);
-                                            return;
-                                        }
-
-                                        log_info("executed list command:\n{}",
-                                                 fmt::join(response.inbox_list, "\n"));
-                                        // for (auto& entry : response.inbox_list) {
-                                        //     log_info("    {}", entry);
-                                        // }
-                                    });
-                            });
-                    });
-                // });
-            });
+                                        // imap_client::imap_commands::select_t{.mailbox_name =
+                                        //                                          "\"[Gmail]/&BCcENQRABD0ENQRCBDoEOA-\""},
+                                        [&](std::error_code ec) {
+                                            if (ec) {
+                                                log_error("gmail command failed: {}", ec);
+                                            }
+                                        });
+                                });
+                        });
+                });
         });
+        // });
+    });
 
     ctx.run();
 }
@@ -253,8 +263,23 @@ void imap_parsing_test() {
     }
 }
 
+void select_paser_test() {
+    const std::string select_command_result =
+        "* FLAGS (\\Answered \\Flagged \\Draft \\Deleted \\Seen $NotPhishing $Phishing)\r\n"
+        "* OK [PERMANENTFLAGS (\\Answered \\Flagged \\Draft \\Deleted \\Seen $NotPhishing "
+        "$Phishing \\*)] Flags permitted.\r\n"
+        "* OK [UIDVALIDITY 1] UIDs valid.\r\n"
+        "* 9 EXISTS\r\n"
+        "* 0 RECENT\r\n"
+        "* OK [UIDNEXT 10] Predicted next UID.\r\n"
+        "* OK [HIGHESTMODSEQ 1909]\r\n"
+        "A3 OK [READ-WRITE] INBOX selected. (Success)\r\n";
+    imap_parser::parse_mailbox_data(select_command_result);
+}
+
 int main() {
-    gmail_auth_test();
+    // gmail_auth_test();
     // imap_parsing_test();
     // parsing_list_flags_test();
+    select_paser_test();
 }

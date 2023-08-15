@@ -6,6 +6,7 @@
 
 #include "utils.hpp"
 
+#include <ast.h>     // apg70
 #include <parser.h>  // apg70
 #include <utilities.h>
 #include "imap_parser_apg_impl.h"  // grammar generated for apg70
@@ -177,10 +178,10 @@ expected<list_response_t> parse_list_response_line(std::string_view input) {
 
                           {IMAP_PARSER_APG_IMPL_DQUOTE,
                            [&](std::string_view tok) {
-                            //    if (flags_list_done) {
-                            //        log_debug("DQUOTE: '{}'", tok);
-                            //        dquote_count++;
-                            //    }
+                               //    if (flags_list_done) {
+                               //        log_debug("DQUOTE: '{}'", tok);
+                               //        dquote_count++;
+                               //    }
                            }},
 
                           {IMAP_PARSER_APG_IMPL_MBX_LIST_FLAGS,
@@ -192,8 +193,8 @@ expected<list_response_t> parse_list_response_line(std::string_view input) {
                           {IMAP_PARSER_APG_IMPL_QUOTED_CHAR,
                            [&](std::string_view tok) {
                                // log_debug("IMAP_PARSER_APG_IMPL_QUOTED_CHAR: '{}'", tok);
-                               //if (flags_list_done && dquote_count == 1) {
-                                if (flags_list_done && parsed_line.hierarchy_delimiter.empty()) {
+                               // if (flags_list_done && dquote_count == 1) {
+                               if (flags_list_done && parsed_line.hierarchy_delimiter.empty()) {
                                    parsed_line.hierarchy_delimiter = tok;
                                    // log_warning("this is our delimiter");
                                }
@@ -267,52 +268,115 @@ void parse_flags_list(std::string_view input) {
                       });
 }
 
-void parse_mailbox_data(std::string_view input) {
-    // 6.3.8 LIST Command https://datatracker.ietf.org/doc/html/rfc3501#section-6.3.8
-    // 7.2.2 LIST Response (https://datatracker.ietf.org/doc/html/rfc3501#section-7.2.2)
-    // Related grammar rules: mailbox-data, mailbox-list, mailbox-data, mbx-list-flags,
-    // mbx-list-sflag
+static aint ast_mailbox_data_cb(ast_data* spData) {
+    if (spData->uiState == ID_AST_POST) {
+        // increment the A node count
+        // my_data* spMyData = (my_data*)spData->vpUserData;
+        // spMyData->uiCountA++;
+    }
+    return ID_AST_OK;
+}
 
-    struct local_state {
-        // std::vector<std::string>
+static aint ast_flag_list_cb(ast_data* spData) {
+    if (spData->uiState == ID_AST_POST) {
+        // increment the A node count
+        // my_data* spMyData = (my_data*)spData->vpUserData;
+        // spMyData->uiCountA++;
+    }
+    return ID_AST_OK;
+}
+
+static aint ast_flag_cb(ast_data* spData) {
+    if (spData->uiState == ID_AST_POST) {
+        // increment the A node count
+        // my_data* spMyData = (my_data*)spData->vpUserData;
+        // spMyData->uiCountA++;
+    }
+    return ID_AST_OK;
+}
+
+// static aint ast_oflag_cb(ast_data* spData) {
+//     if (spData->uiState == ID_AST_POST) {
+//         // increment the A node count
+//         // my_data* spMyData = (my_data*)spData->vpUserData;
+//         // spMyData->uiCountA++;
+//     }
+//     return ID_AST_OK;
+// }
+
+expected<mailbox_data_t> parse_mailbox_data(std::string_view input_text) {
+    parser_state apg_parser_state;
+    parser_config apg_parser_config;
+    exception apg_exception;
+    void* parser = nullptr;
+    void* ast = NULL;
+    void* vpTrace = nullptr;
+
+    std::vector<uint8_t> input_text_data(input_text.size());
+    for (size_t i = 0; i < input_text.size(); ++i) {
+        input_text_data[i] = input_text[i];
+    }
+
+    struct apg_invoke_context {
+        // registered callbacks for which we set parsers C-callbacks.
+        std::vector<fu2::function_view<void(std::string_view)>> callbacks_map{
+            RULE_COUNT_IMAP_PARSER_APG_IMPL};
     };
 
-    apg_invoke_parser(IMAP_PARSER_APG_IMPL_MAILBOX_DATA, input,
-                      {
-                          {IMAP_PARSER_APG_IMPL_MBX_LIST_FLAGS,
-                           [](std::string_view tok) {
-                               log_debug("IMAP_PARSER_APG_IMPL_MBX_LIST_FLAGS handler: '{}'", tok);
-                           }},
-                          {IMAP_PARSER_APG_IMPL_MBX_LIST_OFLAG,
-                           [](std::string_view tok) {
-                               log_debug("IMAP_PARSER_APG_IMPL_MBX_LIST_OFLAG handler: '{}'", tok);
-                           }},
-                          {IMAP_PARSER_APG_IMPL_MBX_LIST_SFLAG,
-                           [](std::string_view tok) {
-                               log_debug("IMAP_PARSER_APG_IMPL_MBX_LIST_SFLAG handler: '{}'", tok);
-                           }},
-                          {IMAP_PARSER_APG_IMPL_FLAG_EXTENSION,
-                           [](std::string_view tok) {
-                               log_debug("IMAP_PARSER_APG_IMPL_FLAG_EXTENSION handler: '{}'", tok);
-                           }},
-                          {IMAP_PARSER_APG_IMPL_MAILBOX,
-                           [](std::string_view tok) {
-                               log_debug("IMAP_PARSER_APG_IMPL_MAILBOX handler: '{}'", tok);
-                           }},
-                          {IMAP_PARSER_APG_IMPL_QUOTED_CHAR,
-                           [](std::string_view tok) {
-                               log_debug("IMAP_PARSER_APG_IMPL_QUOTED_CHAR handler: '{}'", tok);
-                           }},
-                          {IMAP_PARSER_APG_IMPL_NIL,
-                           [](std::string_view tok) {
-                               log_debug("IMAP_PARSER_APG_IMPL_NIL handler: '{}'", tok);
-                           }},
-                          {IMAP_PARSER_APG_IMPL_ATOM_CHAR,
-                           [](std::string_view tok) {
-                               log_debug("IMAP_PARSER_APG_IMPL_ATOM_CHAR handler: '{}'", tok);
-                           }},
+    apg_invoke_context ctx;
 
-                      });
-}  // namespace emailkit
+    // XCTOR macros sets kind of label (setjmp) that can be jumped to. So in case exception occurs
+    // in APG it will jump back (longjmp) to this label but this time apg_exception.try_ will be set
+    // to FALSE.
+    XCTOR(apg_exception);
+    if (apg_exception.try_) {
+        log_debug("constructing APG parser object");
+        parser = ::vpParserCtor(&apg_exception, vpImapParserApgImplInit);
+        log_debug("constructing APG parser object -- done");
+
+        log_debug("constructing APG AST object");
+        ast = vpAstCtor(parser);
+        log_debug("constructing APG AST object -- done");
+
+        // vAstSetRuleCallback(, )
+
+        apg_parser_config.acpInput = input_text_data.data();
+        apg_parser_config.uiInputLength = input_text_data.size();
+        apg_parser_config.uiStartRule = IMAP_PARSER_APG_IMPL_RESPONSE;
+        apg_parser_config.bParseSubString = APG_FALSE;
+        apg_parser_config.uiLookBehindLength = 0;
+        apg_parser_config.vpUserData = &ctx;
+
+        ::vAstSetRuleCallback(ast, IMAP_PARSER_APG_IMPL_MAILBOX_DATA, &ast_mailbox_data_cb);
+        ::vAstSetRuleCallback(ast, IMAP_PARSER_APG_IMPL_FLAG_LIST, &ast_flag_list_cb);
+        ::vAstSetRuleCallback(ast, IMAP_PARSER_APG_IMPL_FLAG, &ast_flag_cb);
+        
+        // ::vAstSetRuleCallback(ast, IMAP_PARSER_APG_IMPL_, &ast_flag_list_cb); // number, rect.
+        // vAstSetRuleCallback(vpAst, uiParserRuleLookup(vpParser, "C" ), uiAstC);
+
+        log_debug("invoking APG parser");
+        ::vParserParse(parser, &apg_parser_config, &apg_parser_state);
+        if (!apg_parser_state.uiSuccess) {
+            log_error("invoking APG parser -- error; parser state: {}",
+                      format_apg_parser_state(apg_parser_state));
+        } else {
+            log_debug("invoking APG parser -- done");
+
+            // translate the AST
+            log_debug("translating AST");
+            ::vAstTranslate(ast, NULL);
+            log_debug("translating AST -- done");
+
+            log_debug("dumping the AST to XML");
+            bUtilAstToXml(ast, "u", NULL);
+            log_debug("dumping the AST to XML -- done");
+        }
+
+    } else {
+        log_error("APG EXCEPTION: {}", format_apg_exception(apg_exception));
+    }
+
+    return recent_mailbox_data_t{};
+}
 
 }  // namespace emailkit::imap_parser
