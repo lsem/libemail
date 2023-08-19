@@ -419,13 +419,19 @@ ANY-TEXT-CHAR-EXCEPT-SB    = %x1-9 / %xb-c / %xe-5c / %x5e-7f
 
 resp-text-code-alert = "ALERT"
 resp-text-code-permanent-flags = "PERMANENTFLAGS" SP "(" [flag-perm *(SP flag-perm)] ")"
+resp-text-code-uidvalidity = "UIDVALIDITY" SP nz-number
+resp-text-code-unseen = "UNSEEN" SP nz-number
+resp-text-code-uid-next = "UIDNEXT" SP nz-number
+resp-text-code-read-write = "READ-WRITE"
+resp-text-code-read-only = "READ-ONLY"
+resp-text-code-try-create = "TRYCREATE"
 resp-text-code  = resp-text-code-alert /
                   "BADCHARSET" [SP "(" astring *(SP astring) ")" ] /
                   capability-data / "PARSE" /
                    resp-text-code-permanent-flags /
-                  "READ-ONLY" / "READ-WRITE" / "TRYCREATE" /
-                  "UIDNEXT" SP nz-number / "UIDVALIDITY" SP nz-number /
-                  "UNSEEN" SP nz-number /
+                  resp-text-code-read-only / resp-text-code-read-write / resp-text-code-try-create /
+                  resp-text-code-uid-next / resp-text-code-uidvalidity /
+                  resp-text-code-unseen /
                   atom [SP 1*ANY-TEXT-CHAR-EXCEPT-SB]
 
 search          = "SEARCH" [SP "CHARSET" SP astring] 1*(SP search-key)

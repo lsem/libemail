@@ -358,35 +358,8 @@ void apg_invoke_parser__ast(uint32_t starting_rule,
         log_debug("constructing APG AST object -- done");
 
         for (auto rule : rules) {
-            // ctx.callbacks_map[rule] = callback_ref;
             ::vAstSetRuleCallback(
-                ast, rule, +[](ast_data* ast_data_ptr) -> aint {
-                    // auto* invoke_ctx =
-                    // static_cast<apg_invoke_context*>(ast_data_ptr->vpUserData);
-                    if (ast_data_ptr->uiState == ID_AST_POST) {
-                        // auto& callbacks_map = invoke_ctx->callbacks_map;
-
-                        // if (ast_data_ptr->uiIndex >= callbacks_map.size()) {
-                        //     log_error(
-                        //         "FATAL: something went wrong. uiRuleIndex: {}, callback map size:
-                        //         "
-                        //         "{}",
-                        //         ast_data_ptr->uiIndex, callbacks_map.size());
-                        //     return ID_AST_SKIP;
-                        // }
-
-                        // if (callbacks_map[ast_data_ptr->uiIndex]) {
-                        //     const char* match_begin =
-                        //         reinterpret_cast<const char*>(ast_data_ptr->acpString) +
-                        //         ast_data_ptr->uiPhraseOffset;
-
-                        //     std::string_view match_sv{match_begin, ast_data_ptr->uiPhraseLength};
-                        //     callbacks_map[ast_data_ptr->uiIndex](match_sv);
-                        // }
-                    }
-
-                    return ID_AST_OK;
-                });
+                ast, rule, +[](ast_data* ast_data_ptr) -> aint { return ID_AST_OK; });
         }
 
         apg_parser_config.acpInput = input_text_data.data();
@@ -457,12 +430,19 @@ void apg_invoke_parser__ast(uint32_t starting_rule,
 
 }  // namespace
 
-expected<mailbox_data_t> parse_mailbox_data(std::string_view input_text) {
-    std::vector<std::string> permanent_flags;
+expected<select_response_data> parse_select_response(std::string_view input_text) {
+    select_response_data parsing_result;
+
+    std::vector<int> current_path;
+
+    auto current_path_is = [&current_path](std::initializer_list<int> l) {
+        return std::equal(current_path.begin(), current_path.end(), l.begin(), l.end());
+    };
 
     apg_invoke_parser__ast(
         IMAP_PARSER_APG_IMPL_RESPONSE, input_text,
         {
+            // clang-format off
             IMAP_PARSER_APG_IMPL_MAILBOX_DATA,
             IMAP_PARSER_APG_IMPL_FLAG_LIST,
             IMAP_PARSER_APG_IMPL_FLAG,
@@ -476,56 +456,93 @@ expected<mailbox_data_t> parse_mailbox_data(std::string_view input_text) {
             IMAP_PARSER_APG_IMPL_OK,
             IMAP_PARSER_APG_IMPL_NO,
             IMAP_PARSER_APG_IMPL_BAD,
+            IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE_UIDVALIDITY,
+            IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE_UNSEEN,
+            IMAP_PARSER_APG_IMPL_NZ_NUMBER,
+            IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE_UID_NEXT,
+            IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE_READ_WRITE,
+            IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE_READ_ONLY,
+            IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE_TRY_CREATE,
         },
+        // clang-format on
         [&](const ast_record* begin, const ast_record* end) {
-            // So, response for SELECT command is combination of weird records. There could be
-            // multiple lines of mailbox-data and multiple lines of resp-cond-state.
-            // mailbox-data itself is variant of different stuff which however cannot be
-            // returned from LIST command. SELECT_RESPONSE = VECTOR<VARIANT< RESP_COND_STATE,
-            // MAILBOX_DATA >>
-
-            bool parsing_permanent_flags = false;
-
             constexpr size_t INDENT_WIDTH = 4;
             size_t indent = 0;
             for (auto it = begin; it != end; ++it) {
                 if (it->uiState == ID_AST_PRE) {
+                    current_path.emplace_back(it->uiIndex);
+
                     std::string_view match_text{input_text.data() + it->uiPhraseOffset,
                                                 it->uiPhraseLength};
 
+                    if (current_path_is({IMAP_PARSER_APG_IMPL_MAILBOX_DATA,
+                                         IMAP_PARSER_APG_IMPL_FLAG_LIST,
+                                         IMAP_PARSER_APG_IMPL_FLAG})) {
+                        parsing_result.flags.emplace_back(match_text);
+                    } else if (current_path_is({IMAP_PARSER_APG_IMPL_RESP_COND_STATE,
+                                                IMAP_PARSER_APG_IMPL_RESP_TEXT,
+                                                IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE,
+                                                IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE_PERMANENT_FLAGS,
+                                                IMAP_PARSER_APG_IMPL_FLAG})) {
+                        parsing_result.permanent_flags.emplace_back(match_text);
+                    } else if (current_path_is({IMAP_PARSER_APG_IMPL_RESP_COND_STATE,
+                                                IMAP_PARSER_APG_IMPL_RESP_TEXT,
+                                                IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE,
+                                                IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE_UIDVALIDITY,
+                                                IMAP_PARSER_APG_IMPL_NZ_NUMBER})) {
+                        parsing_result.uid_validity = std::stoi(std::string{match_text});
+                    } else if (current_path_is({IMAP_PARSER_APG_IMPL_RESP_COND_STATE,
+                                                IMAP_PARSER_APG_IMPL_RESP_TEXT,
+                                                IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE,
+                                                IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE_UNSEEN,
+                                                IMAP_PARSER_APG_IMPL_NZ_NUMBER})) {
+                        parsing_result.unseen = std::stoi(std::string{match_text});
+                    } else if (current_path_is({IMAP_PARSER_APG_IMPL_RESP_COND_STATE,
+                                                IMAP_PARSER_APG_IMPL_RESP_TEXT,
+                                                IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE,
+                                                IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE_UID_NEXT,
+                                                IMAP_PARSER_APG_IMPL_NZ_NUMBER})) {
+                        parsing_result.uid_next = std::stoi(std::string{match_text});
+                    } else if (current_path_is({IMAP_PARSER_APG_IMPL_RESP_COND_STATE,
+                                                IMAP_PARSER_APG_IMPL_RESP_TEXT,
+                                                IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE,
+                                                IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE_READ_ONLY})) {
+                        parsing_result.read_write_mode = read_write_mode_t::read_only;
+                    } else if (current_path_is({IMAP_PARSER_APG_IMPL_RESP_COND_STATE,
+                                                IMAP_PARSER_APG_IMPL_RESP_TEXT,
+                                                IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE,
+                                                IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE_READ_WRITE})) {
+                        parsing_result.read_write_mode = read_write_mode_t::read_write;
+                    } else if (current_path_is({IMAP_PARSER_APG_IMPL_RESP_COND_STATE,
+                                                IMAP_PARSER_APG_IMPL_RESP_TEXT,
+                                                IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE,
+                                                IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE_TRY_CREATE})) {
+                        parsing_result.read_write_mode = read_write_mode_t::try_create;
+                    } else if (current_path_is({IMAP_PARSER_APG_IMPL_MAILBOX_DATA,
+                                                IMAP_PARSER_APG_IMPL_MAILBOX_DATA_RECENT,
+                                                IMAP_PARSER_APG_IMPL_NUMBER})) {
+                        parsing_result.recents = std::stoi(std::string{match_text});
+                    } else if (current_path_is({IMAP_PARSER_APG_IMPL_MAILBOX_DATA,
+                                                IMAP_PARSER_APG_IMPL_MAILBOX_DATA_EXISTS,
+                                                IMAP_PARSER_APG_IMPL_NUMBER})) {
+                        parsing_result.exists = std::stoi(std::string{match_text});
+                    }
+
                     indent += INDENT_WIDTH;
 
-                    if (it->uiIndex == IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE_PERMANENT_FLAGS) {
-                        log_debug("permanent flags started");
-                        parsing_permanent_flags = true;
-                    }
-
-                    if (it->uiIndex == IMAP_PARSER_APG_IMPL_FLAG) {
-                        if (parsing_permanent_flags) {
-                            permanent_flags.emplace_back(match_text);
-                        } else {
-                            // if (mailbox-data-flags) {
-                            // current_mailbox_data.flags.emplace_back(...) }
-                        }
-                    }
-
-                    log_debug("{}PRE: {} ('{}') (offset: {})", std::string(indent, ' '), it->cpName,
-                              match_text, it->uiPhraseOffset);
+                    // log_debug("{}PRE: {} ('{}') (offset: {})", std::string(indent, ' '),
+                    // it->cpName,
+                    //           match_text, it->uiPhraseOffset);
                 } else {
+                    current_path.pop_back();
                     assert(it->uiState == ID_AST_POST);
-                    log_debug("{}POST: {}", std::string(indent, ' '), it->cpName);
+                    // log_debug("{}POST: {}", std::string(indent, ' '), it->cpName);
                     indent -= INDENT_WIDTH;
-
-                    if (it->uiIndex == IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE_PERMANENT_FLAGS) {
-                        parsing_permanent_flags = false;
-                    }
                 }
             }
         });
 
-    log_debug("permanent flags: {}", permanent_flags);
-
-    return recent_mailbox_data_t{};
+    return parsing_result;
 }
 
 }  // namespace emailkit::imap_parser
