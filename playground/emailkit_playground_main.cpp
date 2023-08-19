@@ -46,7 +46,7 @@ void gmail_auth_test() {
 
     // We are requesting authentication for our app (represented by app_creds) for scoped needed for
     // our application.
-    auto google_auth = emailkit::make_google_auth(ctx, "localhost", "8089");
+    auto google_auth = emailkit::make_google_auth(ctx, "127.0.0.1", "8089");
     google_auth->async_handle_auth(app_creds, scopes, [&](std::error_code ec, auth_data_t auth_data) {
         if (ec) {
             log_error("async_handle_auth failed: {}", ec);
@@ -278,8 +278,8 @@ void select_paser_test() {
 }
 
 int main() {
-    // gmail_auth_test();
+     gmail_auth_test();
     // imap_parsing_test();
     // parsing_list_flags_test();
-    select_paser_test();
+    //select_paser_test();
 }
