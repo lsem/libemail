@@ -278,8 +278,8 @@ void select_paser_test() {
 }
 
 int main() {
-     gmail_auth_test();
+    // gmail_auth_test();
     // imap_parsing_test();
     // parsing_list_flags_test();
-    //select_paser_test();
+    select_paser_test();
 }

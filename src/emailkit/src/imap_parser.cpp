@@ -304,19 +304,19 @@ static aint ast_flag_cb(ast_data* spData) {
 //     return ID_AST_OK;
 // }
 
-expected<mailbox_data_t> parse_mailbox_data(std::string_view input_text) {
-    parser_state apg_parser_state;
-    parser_config apg_parser_config;
-    exception apg_exception;
-    void* parser = nullptr;
-    void* ast = NULL;
-    void* vpTrace = nullptr;
+namespace {
 
-    std::vector<uint8_t> input_text_data(input_text.size());
-    for (size_t i = 0; i < input_text.size(); ++i) {
-        input_text_data[i] = input_text[i];
-    }
+struct rule_and_callback__ast {
+    rule_and_callback__ast(aint rule, fu2::function_view<void(std::string_view)> cb_ref)
+        : rule(rule), cb_ref(cb_ref) {}
 
+    aint rule;
+    fu2::function_view<void(std::string_view)> cb_ref;  // non-owning callback
+};
+
+void apg_invoke_parser__ast(uint32_t starting_rule,
+                            std::string_view input_text,
+                            std::initializer_list<rule_and_callback__ast> cbs) {
     struct apg_invoke_context {
         // registered callbacks for which we set parsers C-callbacks.
         std::vector<fu2::function_view<void(std::string_view)>> callbacks_map{
@@ -324,35 +324,75 @@ expected<mailbox_data_t> parse_mailbox_data(std::string_view input_text) {
     };
 
     apg_invoke_context ctx;
+    log_debug("started parsing: '{}'", input_text);
 
-    // XCTOR macros sets kind of label (setjmp) that can be jumped to. So in case exception occurs
-    // in APG it will jump back (longjmp) to this label but this time apg_exception.try_ will be set
-    // to FALSE.
+    //////////////////////////////////////////////////////////////////////////////////////////////////
+    // WARNING: since apg uses longjmp we should take care of c++ destructors and make sure that our
+    // objects lifetimes reside after try/catch of apg.
+    // Block for C++ resources that need to have destructors.
+    //////////////////////////////////////////////////////////////////////////////////////////////////
+    std::vector<uint8_t> input_text_data(input_text.size());
+    for (size_t i = 0; i < input_text.size(); ++i) {
+        input_text_data[i] = input_text[i];
+    }
+    //////////////////////////////////////////////////////////////////
+
+    parser_state apg_parser_state;
+    parser_config apg_parser_config;
+    exception apg_exception;
+    void* parser = nullptr;
+    void* vpTrace = nullptr;
+    void* ast = NULL;
+
     XCTOR(apg_exception);
     if (apg_exception.try_) {
+        log_debug("APG TRY section begin");
+
         log_debug("constructing APG parser object");
         parser = ::vpParserCtor(&apg_exception, vpImapParserApgImplInit);
         log_debug("constructing APG parser object -- done");
 
         log_debug("constructing APG AST object");
-        ast = vpAstCtor(parser);
+        ast = ::vpAstCtor(parser);
         log_debug("constructing APG AST object -- done");
 
-        // vAstSetRuleCallback(, )
+        for (auto& [rule, callback_ref] : cbs) {
+            ctx.callbacks_map[rule] = callback_ref;
+            ::vAstSetRuleCallback(
+                ast, rule, +[](ast_data* ast_data_ptr) -> aint {
+                    auto* invoke_ctx = static_cast<apg_invoke_context*>(ast_data_ptr->vpUserData);
+                    if (ast_data_ptr->uiState == ID_AST_POST) {
+                        auto& callbacks_map = invoke_ctx->callbacks_map;
+
+                        if (ast_data_ptr->uiIndex >= callbacks_map.size()) {
+                            log_error(
+                                "FATAL: something went wrong. uiRuleIndex: {}, callback map size: "
+                                "{}",
+                                ast_data_ptr->uiIndex, callbacks_map.size());
+                            return ID_AST_SKIP;
+                        }
+
+                        if (callbacks_map[ast_data_ptr->uiIndex]) {
+                            const char* match_begin =
+                                reinterpret_cast<const char*>(ast_data_ptr->acpString) +
+                                ast_data_ptr->uiPhraseOffset;
+
+                            std::string_view match_sv{match_begin, ast_data_ptr->uiPhraseLength};
+                            callbacks_map[ast_data_ptr->uiIndex](match_sv);
+                        }
+                    }
+
+                    return ID_AST_OK;
+                });
+        }
 
         apg_parser_config.acpInput = input_text_data.data();
         apg_parser_config.uiInputLength = input_text_data.size();
-        apg_parser_config.uiStartRule = IMAP_PARSER_APG_IMPL_RESPONSE;
+        apg_parser_config.uiStartRule = starting_rule;
         apg_parser_config.bParseSubString = APG_FALSE;
         apg_parser_config.uiLookBehindLength = 0;
-        apg_parser_config.vpUserData = &ctx;
-
-        ::vAstSetRuleCallback(ast, IMAP_PARSER_APG_IMPL_MAILBOX_DATA, &ast_mailbox_data_cb);
-        ::vAstSetRuleCallback(ast, IMAP_PARSER_APG_IMPL_FLAG_LIST, &ast_flag_list_cb);
-        ::vAstSetRuleCallback(ast, IMAP_PARSER_APG_IMPL_FLAG, &ast_flag_cb);
-        
-        // ::vAstSetRuleCallback(ast, IMAP_PARSER_APG_IMPL_, &ast_flag_list_cb); // number, rect.
-        // vAstSetRuleCallback(vpAst, uiParserRuleLookup(vpParser, "C" ), uiAstC);
+        apg_parser_config.vpUserData =
+            NULL;  // not used for AST, instead passed to translate function
 
         log_debug("invoking APG parser");
         ::vParserParse(parser, &apg_parser_config, &apg_parser_state);
@@ -364,17 +404,70 @@ expected<mailbox_data_t> parse_mailbox_data(std::string_view input_text) {
 
             // translate the AST
             log_debug("translating AST");
-            ::vAstTranslate(ast, NULL);
+            ::vAstTranslate(ast, &ctx);
             log_debug("translating AST -- done");
 
             log_debug("dumping the AST to XML");
-            bUtilAstToXml(ast, "u", NULL);
+            ::bUtilAstToXml(ast, "u", NULL);
             log_debug("dumping the AST to XML -- done");
+            ast_info info;
+            // get the AST
+            vAstInfo(ast, &info);
+
+            size_t indent = 0;
+            ast_record* ast_records_begin = info.spRecords;
+            ast_record* ast_reconds_end = ast_records_begin + info.uiRecordCount;
+            for (auto r = ast_records_begin; r != ast_reconds_end; ++r) {
+                if (r->uiState == ID_AST_PRE) {
+                    indent += 2;
+
+                    std::string_view match_text{input_text.data() + r->uiPhraseOffset,
+                                                r->uiPhraseLength};
+                    log_debug("{}PRE: {} == '{}' (offset: {})", std::string(indent, ' '), r->cpName,
+                              match_text, r->uiPhraseOffset);
+                } else {
+                    assert(r->uiState == ID_AST_POST);
+                    log_debug("{}POST: {}", std::string(indent, ' '), r->cpName);
+                    indent -= 2;
+                }
+            }
         }
 
+        log_debug("APG TRY section end");
     } else {
         log_error("APG EXCEPTION: {}", format_apg_exception(apg_exception));
     }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // WARNING: scope guarding technique is specifically not used to emphasize that we want to have
+    // our parser return at the end of the function.
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////
+    if (ast) {
+        ::vAstDtor(ast);
+    }
+
+    if (parser) {
+        ::vParserDtor(parser);
+    }
+}
+
+}  // namespace
+
+expected<mailbox_data_t> parse_mailbox_data(std::string_view input_text) {
+    apg_invoke_parser__ast(
+        IMAP_PARSER_APG_IMPL_RESPONSE, input_text,
+        {
+            {IMAP_PARSER_APG_IMPL_MAILBOX_DATA,
+             [&](std::string_view tok) {
+                 log_debug("IMAP_PARSER_APG_IMPL_MAILBOX_DATA: '{}'", tok);
+             }},
+            {IMAP_PARSER_APG_IMPL_FLAG_LIST,
+             [&](std::string_view tok) { log_debug("IMAP_PARSER_APG_IMPL_FLAG_LIST: '{}'", tok); }},
+
+            {IMAP_PARSER_APG_IMPL_FLAG,
+             [&](std::string_view tok) { log_debug("IMAP_PARSER_APG_IMPL_FLAG: '{}'", tok); }},
+
+        });
 
     return recent_mailbox_data_t{};
 }
