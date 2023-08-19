@@ -404,7 +404,10 @@ resp-cond-auth  = ("OK" / "PREAUTH") SP resp-text
 
 resp-cond-bye   = "BYE" SP resp-text
 
-resp-cond-state = ("OK" / "NO" / "BAD") SP resp-text
+OK = "OK"
+NO = "NO"
+BAD = "BAD"
+resp-cond-state = (OK / NO / BAD) SP resp-text
                     ; Status condition
 
 resp-specials   = "]"
@@ -414,11 +417,12 @@ resp-text       = ["[" resp-text-code "]" SP] text
 ; ADDED: any TEXT-CHAR except "]"
 ANY-TEXT-CHAR-EXCEPT-SB    = %x1-9 / %xb-c / %xe-5c / %x5e-7f
 
-resp-text-code  = "ALERT" /
+resp-text-code-alert = "ALERT"
+resp-text-code-permanent-flags = "PERMANENTFLAGS" SP "(" [flag-perm *(SP flag-perm)] ")"
+resp-text-code  = resp-text-code-alert /
                   "BADCHARSET" [SP "(" astring *(SP astring) ")" ] /
                   capability-data / "PARSE" /
-                  "PERMANENTFLAGS" SP "("
-                  [flag-perm *(SP flag-perm)] ")" /
+                   resp-text-code-permanent-flags /
                   "READ-ONLY" / "READ-WRITE" / "TRYCREATE" /
                   "UIDNEXT" SP nz-number / "UIDVALIDITY" SP nz-number /
                   "UNSEEN" SP nz-number /

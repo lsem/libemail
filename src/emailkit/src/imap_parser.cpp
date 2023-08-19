@@ -315,8 +315,9 @@ struct rule_and_callback__ast {
 };
 
 void apg_invoke_parser__ast(uint32_t starting_rule,
-                                std::string_view input_text,
-                                std::initializer_list<rule_and_callback__ast> cbs) {
+                            std::string_view input_text,
+                            std::initializer_list<rule_and_callback__ast> cbs,
+                            fu2::function_view<void(const ast_record*, const ast_record*)> ast_cb) {
     struct apg_invoke_context {
         // registered callbacks for which we set parsers C-callbacks.
         std::vector<fu2::function_view<void(std::string_view)>> callbacks_map{
@@ -416,20 +417,22 @@ void apg_invoke_parser__ast(uint32_t starting_rule,
             size_t indent = 0;
             constexpr size_t INDENT_WIDTH = 4;
 
-            for (auto r = info.spRecords; r != info.spRecords + info.uiRecordCount; ++r) {
-                if (r->uiState == ID_AST_PRE) {
-                    indent += INDENT_WIDTH;
+            ast_cb(&(info.spRecords[0]), &(info.spRecords[info.uiRecordCount]));
+            // for (auto r = info.spRecords; r != info.spRecords + info.uiRecordCount; ++r) {
+            //     if (r->uiState == ID_AST_PRE) {
+            //         indent += INDENT_WIDTH;
 
-                    std::string_view match_text{input_text.data() + r->uiPhraseOffset,
-                                                r->uiPhraseLength};
-                    log_debug("{}PRE: {} ('{}') (offset: {})", std::string(indent, ' '), r->cpName,
-                              match_text, r->uiPhraseOffset);
-                } else {
-                    assert(r->uiState == ID_AST_POST);
-                    log_debug("{}POST: {}", std::string(indent, ' '), r->cpName);
-                    indent -= INDENT_WIDTH;
-                }
-            }
+            //         std::string_view match_text{input_text.data() + r->uiPhraseOffset,
+            //                                     r->uiPhraseLength};
+            //         log_debug("{}PRE: {} ('{}') (offset: {})", std::string(indent, ' '),
+            //         r->cpName,
+            //                   match_text, r->uiPhraseOffset);
+            //     } else {
+            //         assert(r->uiState == ID_AST_POST);
+            //         log_debug("{}POST: {}", std::string(indent, ' '), r->cpName);
+            //         indent -= INDENT_WIDTH;
+            //     }
+            // }
         }
 
         log_debug("APG TRY section end");
@@ -448,7 +451,6 @@ void apg_invoke_parser__ast(uint32_t starting_rule,
     if (parser) {
         ::vParserDtor(parser);
     }
-
 }
 
 }  // namespace
@@ -474,6 +476,14 @@ expected<mailbox_data_t> parse_mailbox_data(std::string_view input_text) {
 
             {IMAP_PARSER_APG_IMPL_RESP_TEXT,
              [&](std::string_view tok) { log_debug("IMAP_PARSER_APG_IMPL_RESP_TEXT: '{}'", tok); }},
+            {IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE,
+             [&](std::string_view tok) {
+                 log_debug("IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE: '{}'", tok);
+             }},
+            {IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE_PERMANENT_FLAGS,
+             [&](std::string_view tok) {
+                 log_debug("IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE_PERMANENT_FLAGS: '{}'", tok);
+             }},
 
             {IMAP_PARSER_APG_IMPL_MAILBOX_DATA_EXISTS,
              [&](std::string_view tok) {
@@ -486,6 +496,38 @@ expected<mailbox_data_t> parse_mailbox_data(std::string_view input_text) {
 
             {IMAP_PARSER_APG_IMPL_NUMBER,
              [&](std::string_view tok) { log_debug("IMAP_PARSER_APG_IMPL_NUMBER: '{}'", tok); }},
+
+            {IMAP_PARSER_APG_IMPL_OK,
+             [&](std::string_view tok) { log_debug("IMAP_PARSER_APG_IMPL_OK: '{}'", tok); }},
+            {IMAP_PARSER_APG_IMPL_NO,
+             [&](std::string_view tok) { log_debug("IMAP_PARSER_APG_IMPL_OK: '{}'", tok); }},
+            {IMAP_PARSER_APG_IMPL_BAD,
+             [&](std::string_view tok) { log_debug("IMAP_PARSER_APG_IMPL_OK: '{}'", tok); }},
+
+        },
+        [&](const ast_record* begin, const ast_record* end) {
+            // So, response for SELECT command is combination of weird records. There could be
+            // multiple lines of mailbox-data and multiple lines of resp-cond-state.
+            // mailbox-data itself is variant of different stuff which however cannot be returned
+            // from LIST command.
+            // SELECT_RESPONSE = VECTOR<VARIANT< RESP_COND_STATE, MAILBOX_DATA >>
+
+            constexpr size_t INDENT_WIDTH = 4;
+            size_t indent = 0;
+            for (auto it = begin; it != end; ++it) {
+                if (it->uiState == ID_AST_PRE) {
+                    indent += INDENT_WIDTH;
+
+                    std::string_view match_text{input_text.data() + it->uiPhraseOffset,
+                                                it->uiPhraseLength};
+                    log_debug("{}PRE: {} ('{}') (offset: {})", std::string(indent, ' '), it->cpName,
+                              match_text, it->uiPhraseOffset);
+                } else {
+                    assert(it->uiState == ID_AST_POST);
+                    log_debug("{}POST: {}", std::string(indent, ' '), it->cpName);
+                    indent -= INDENT_WIDTH;
+                }
+            }
         });
 
     return recent_mailbox_data_t{};
