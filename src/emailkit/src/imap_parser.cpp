@@ -315,8 +315,8 @@ struct rule_and_callback__ast {
 };
 
 void apg_invoke_parser__ast(uint32_t starting_rule,
-                            std::string_view input_text,
-                            std::initializer_list<rule_and_callback__ast> cbs) {
+                                std::string_view input_text,
+                                std::initializer_list<rule_and_callback__ast> cbs) {
     struct apg_invoke_context {
         // registered callbacks for which we set parsers C-callbacks.
         std::vector<fu2::function_view<void(std::string_view)>> callbacks_map{
@@ -407,28 +407,27 @@ void apg_invoke_parser__ast(uint32_t starting_rule,
             ::vAstTranslate(ast, &ctx);
             log_debug("translating AST -- done");
 
-            log_debug("dumping the AST to XML");
-            ::bUtilAstToXml(ast, "u", NULL);
-            log_debug("dumping the AST to XML -- done");
-            ast_info info;
-            // get the AST
-            vAstInfo(ast, &info);
+            // log_debug("dumping the AST to XML");
+            // ::bUtilAstToXml(ast, "u", NULL);
+            // log_debug("dumping the AST to XML -- done");
 
+            ast_info info;
+            ::vAstInfo(ast, &info);
             size_t indent = 0;
-            ast_record* ast_records_begin = info.spRecords;
-            ast_record* ast_reconds_end = ast_records_begin + info.uiRecordCount;
-            for (auto r = ast_records_begin; r != ast_reconds_end; ++r) {
+            constexpr size_t INDENT_WIDTH = 4;
+
+            for (auto r = info.spRecords; r != info.spRecords + info.uiRecordCount; ++r) {
                 if (r->uiState == ID_AST_PRE) {
-                    indent += 2;
+                    indent += INDENT_WIDTH;
 
                     std::string_view match_text{input_text.data() + r->uiPhraseOffset,
                                                 r->uiPhraseLength};
-                    log_debug("{}PRE: {} == '{}' (offset: {})", std::string(indent, ' '), r->cpName,
+                    log_debug("{}PRE: {} ('{}') (offset: {})", std::string(indent, ' '), r->cpName,
                               match_text, r->uiPhraseOffset);
                 } else {
                     assert(r->uiState == ID_AST_POST);
                     log_debug("{}POST: {}", std::string(indent, ' '), r->cpName);
-                    indent -= 2;
+                    indent -= INDENT_WIDTH;
                 }
             }
         }
@@ -449,6 +448,7 @@ void apg_invoke_parser__ast(uint32_t starting_rule,
     if (parser) {
         ::vParserDtor(parser);
     }
+
 }
 
 }  // namespace
@@ -467,6 +467,25 @@ expected<mailbox_data_t> parse_mailbox_data(std::string_view input_text) {
             {IMAP_PARSER_APG_IMPL_FLAG,
              [&](std::string_view tok) { log_debug("IMAP_PARSER_APG_IMPL_FLAG: '{}'", tok); }},
 
+            {IMAP_PARSER_APG_IMPL_RESP_COND_STATE,
+             [&](std::string_view tok) {
+                 log_debug("IMAP_PARSER_APG_IMPL_RESP_COND_STATE: '{}'", tok);
+             }},
+
+            {IMAP_PARSER_APG_IMPL_RESP_TEXT,
+             [&](std::string_view tok) { log_debug("IMAP_PARSER_APG_IMPL_RESP_TEXT: '{}'", tok); }},
+
+            {IMAP_PARSER_APG_IMPL_MAILBOX_DATA_EXISTS,
+             [&](std::string_view tok) {
+                 log_debug("IMAP_PARSER_APG_IMPL_MAILBOX_DATA_EXISTS: '{}'", tok);
+             }},
+            {IMAP_PARSER_APG_IMPL_MAILBOX_DATA_RECENT,
+             [&](std::string_view tok) {
+                 log_debug("IMAP_PARSER_APG_IMPL_MAILBOX_DATA_RECENT: '{}'", tok);
+             }},
+
+            {IMAP_PARSER_APG_IMPL_NUMBER,
+             [&](std::string_view tok) { log_debug("IMAP_PARSER_APG_IMPL_NUMBER: '{}'", tok); }},
         });
 
     return recent_mailbox_data_t{};

@@ -306,10 +306,13 @@ mailbox         = "INBOX" / astring
                     ;  Refer to section 5.1 for further
                     ; semantic details of mailbox names.
 
+mailbox-data-exists = number SP "EXISTS"
+mailbox-data-recent = number SP "RECENT"
+
 mailbox-data    =  "FLAGS" SP flag-list / "LIST" SP mailbox-list /
                    "LSUB" SP mailbox-list / "SEARCH" *(SP nz-number) /
                    "STATUS" SP mailbox SP "(" [status-att-list] ")" /
-                   number SP "EXISTS" / number SP "RECENT"
+                   mailbox-data-exists / mailbox-data-recent
 
 open-brace       = "("
 close-brace      = ")"

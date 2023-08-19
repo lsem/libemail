@@ -1,10 +1,8 @@
 find_package(OpenSSL REQUIRED)
 
 # emailkit
-file(GLOB_RECURSE HPP_FILES  CONFIGURE_DEPENDS "*.hpp")
-file(GLOB_RECURSE CPP_FILES  CONFIGURE_DEPENDS "*.cpp")
-list(FILTER HPP_FILES EXCLUDE REGEX "_tests\\.hpp")
-list(FILTER CPP_FILES EXCLUDE REGEX "_tests\\.cpp")
+file(GLOB_RECURSE HPP_FILES  CONFIGURE_DEPENDS "src/*.hpp")
+file(GLOB_RECURSE CPP_FILES  CONFIGURE_DEPENDS "src/*.cpp")
 
 set (IMAP_PARSER_SRC "src/imap_parser_apg_impl.h" "src/imap_parser_apg_impl.c")
 
