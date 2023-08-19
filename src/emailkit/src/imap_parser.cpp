@@ -316,12 +316,12 @@ struct rule_and_callback__ast {
 
 void apg_invoke_parser__ast(uint32_t starting_rule,
                             std::string_view input_text,
-                            std::initializer_list<rule_and_callback__ast> cbs,
+                            std::initializer_list<aint> rules,
                             fu2::function_view<void(const ast_record*, const ast_record*)> ast_cb) {
     struct apg_invoke_context {
         // registered callbacks for which we set parsers C-callbacks.
-        std::vector<fu2::function_view<void(std::string_view)>> callbacks_map{
-            RULE_COUNT_IMAP_PARSER_APG_IMPL};
+        // std::vector<fu2::function_view<void(std::string_view)>> callbacks_map{
+        //     RULE_COUNT_IMAP_PARSER_APG_IMPL};
     };
 
     apg_invoke_context ctx;
@@ -357,30 +357,32 @@ void apg_invoke_parser__ast(uint32_t starting_rule,
         ast = ::vpAstCtor(parser);
         log_debug("constructing APG AST object -- done");
 
-        for (auto& [rule, callback_ref] : cbs) {
-            ctx.callbacks_map[rule] = callback_ref;
+        for (auto rule : rules) {
+            // ctx.callbacks_map[rule] = callback_ref;
             ::vAstSetRuleCallback(
                 ast, rule, +[](ast_data* ast_data_ptr) -> aint {
-                    auto* invoke_ctx = static_cast<apg_invoke_context*>(ast_data_ptr->vpUserData);
+                    // auto* invoke_ctx =
+                    // static_cast<apg_invoke_context*>(ast_data_ptr->vpUserData);
                     if (ast_data_ptr->uiState == ID_AST_POST) {
-                        auto& callbacks_map = invoke_ctx->callbacks_map;
+                        // auto& callbacks_map = invoke_ctx->callbacks_map;
 
-                        if (ast_data_ptr->uiIndex >= callbacks_map.size()) {
-                            log_error(
-                                "FATAL: something went wrong. uiRuleIndex: {}, callback map size: "
-                                "{}",
-                                ast_data_ptr->uiIndex, callbacks_map.size());
-                            return ID_AST_SKIP;
-                        }
+                        // if (ast_data_ptr->uiIndex >= callbacks_map.size()) {
+                        //     log_error(
+                        //         "FATAL: something went wrong. uiRuleIndex: {}, callback map size:
+                        //         "
+                        //         "{}",
+                        //         ast_data_ptr->uiIndex, callbacks_map.size());
+                        //     return ID_AST_SKIP;
+                        // }
 
-                        if (callbacks_map[ast_data_ptr->uiIndex]) {
-                            const char* match_begin =
-                                reinterpret_cast<const char*>(ast_data_ptr->acpString) +
-                                ast_data_ptr->uiPhraseOffset;
+                        // if (callbacks_map[ast_data_ptr->uiIndex]) {
+                        //     const char* match_begin =
+                        //         reinterpret_cast<const char*>(ast_data_ptr->acpString) +
+                        //         ast_data_ptr->uiPhraseOffset;
 
-                            std::string_view match_sv{match_begin, ast_data_ptr->uiPhraseLength};
-                            callbacks_map[ast_data_ptr->uiIndex](match_sv);
-                        }
+                        //     std::string_view match_sv{match_begin, ast_data_ptr->uiPhraseLength};
+                        //     callbacks_map[ast_data_ptr->uiIndex](match_sv);
+                        // }
                     }
 
                     return ID_AST_OK;
@@ -456,79 +458,72 @@ void apg_invoke_parser__ast(uint32_t starting_rule,
 }  // namespace
 
 expected<mailbox_data_t> parse_mailbox_data(std::string_view input_text) {
+    std::vector<std::string> permanent_flags;
+
     apg_invoke_parser__ast(
         IMAP_PARSER_APG_IMPL_RESPONSE, input_text,
         {
-            {IMAP_PARSER_APG_IMPL_MAILBOX_DATA,
-             [&](std::string_view tok) {
-                 log_debug("IMAP_PARSER_APG_IMPL_MAILBOX_DATA: '{}'", tok);
-             }},
-            {IMAP_PARSER_APG_IMPL_FLAG_LIST,
-             [&](std::string_view tok) { log_debug("IMAP_PARSER_APG_IMPL_FLAG_LIST: '{}'", tok); }},
-
-            {IMAP_PARSER_APG_IMPL_FLAG,
-             [&](std::string_view tok) { log_debug("IMAP_PARSER_APG_IMPL_FLAG: '{}'", tok); }},
-
-            {IMAP_PARSER_APG_IMPL_RESP_COND_STATE,
-             [&](std::string_view tok) {
-                 log_debug("IMAP_PARSER_APG_IMPL_RESP_COND_STATE: '{}'", tok);
-             }},
-
-            {IMAP_PARSER_APG_IMPL_RESP_TEXT,
-             [&](std::string_view tok) { log_debug("IMAP_PARSER_APG_IMPL_RESP_TEXT: '{}'", tok); }},
-            {IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE,
-             [&](std::string_view tok) {
-                 log_debug("IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE: '{}'", tok);
-             }},
-            {IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE_PERMANENT_FLAGS,
-             [&](std::string_view tok) {
-                 log_debug("IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE_PERMANENT_FLAGS: '{}'", tok);
-             }},
-
-            {IMAP_PARSER_APG_IMPL_MAILBOX_DATA_EXISTS,
-             [&](std::string_view tok) {
-                 log_debug("IMAP_PARSER_APG_IMPL_MAILBOX_DATA_EXISTS: '{}'", tok);
-             }},
-            {IMAP_PARSER_APG_IMPL_MAILBOX_DATA_RECENT,
-             [&](std::string_view tok) {
-                 log_debug("IMAP_PARSER_APG_IMPL_MAILBOX_DATA_RECENT: '{}'", tok);
-             }},
-
-            {IMAP_PARSER_APG_IMPL_NUMBER,
-             [&](std::string_view tok) { log_debug("IMAP_PARSER_APG_IMPL_NUMBER: '{}'", tok); }},
-
-            {IMAP_PARSER_APG_IMPL_OK,
-             [&](std::string_view tok) { log_debug("IMAP_PARSER_APG_IMPL_OK: '{}'", tok); }},
-            {IMAP_PARSER_APG_IMPL_NO,
-             [&](std::string_view tok) { log_debug("IMAP_PARSER_APG_IMPL_OK: '{}'", tok); }},
-            {IMAP_PARSER_APG_IMPL_BAD,
-             [&](std::string_view tok) { log_debug("IMAP_PARSER_APG_IMPL_OK: '{}'", tok); }},
-
+            IMAP_PARSER_APG_IMPL_MAILBOX_DATA,
+            IMAP_PARSER_APG_IMPL_FLAG_LIST,
+            IMAP_PARSER_APG_IMPL_FLAG,
+            IMAP_PARSER_APG_IMPL_RESP_COND_STATE,
+            IMAP_PARSER_APG_IMPL_RESP_TEXT,
+            IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE,
+            IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE_PERMANENT_FLAGS,
+            IMAP_PARSER_APG_IMPL_MAILBOX_DATA_EXISTS,
+            IMAP_PARSER_APG_IMPL_MAILBOX_DATA_RECENT,
+            IMAP_PARSER_APG_IMPL_NUMBER,
+            IMAP_PARSER_APG_IMPL_OK,
+            IMAP_PARSER_APG_IMPL_NO,
+            IMAP_PARSER_APG_IMPL_BAD,
         },
         [&](const ast_record* begin, const ast_record* end) {
             // So, response for SELECT command is combination of weird records. There could be
             // multiple lines of mailbox-data and multiple lines of resp-cond-state.
-            // mailbox-data itself is variant of different stuff which however cannot be returned
-            // from LIST command.
-            // SELECT_RESPONSE = VECTOR<VARIANT< RESP_COND_STATE, MAILBOX_DATA >>
+            // mailbox-data itself is variant of different stuff which however cannot be
+            // returned from LIST command. SELECT_RESPONSE = VECTOR<VARIANT< RESP_COND_STATE,
+            // MAILBOX_DATA >>
+
+            bool parsing_permanent_flags = false;
 
             constexpr size_t INDENT_WIDTH = 4;
             size_t indent = 0;
             for (auto it = begin; it != end; ++it) {
                 if (it->uiState == ID_AST_PRE) {
-                    indent += INDENT_WIDTH;
-
                     std::string_view match_text{input_text.data() + it->uiPhraseOffset,
                                                 it->uiPhraseLength};
+
+                    indent += INDENT_WIDTH;
+
+                    if (it->uiIndex == IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE_PERMANENT_FLAGS) {
+                        log_debug("permanent flags started");
+                        parsing_permanent_flags = true;
+                    }
+
+                    if (it->uiIndex == IMAP_PARSER_APG_IMPL_FLAG) {
+                        if (parsing_permanent_flags) {
+                            permanent_flags.emplace_back(match_text);
+                        } else {
+                            // if (mailbox-data-flags) {
+                            // current_mailbox_data.flags.emplace_back(...) }
+                        }
+                    }
+
                     log_debug("{}PRE: {} ('{}') (offset: {})", std::string(indent, ' '), it->cpName,
                               match_text, it->uiPhraseOffset);
                 } else {
                     assert(it->uiState == ID_AST_POST);
                     log_debug("{}POST: {}", std::string(indent, ' '), it->cpName);
                     indent -= INDENT_WIDTH;
+
+                    if (it->uiIndex == IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE_PERMANENT_FLAGS) {
+                        parsing_permanent_flags = false;
+                    }
                 }
             }
         });
+
+    log_debug("permanent flags: {}", permanent_flags);
 
     return recent_mailbox_data_t{};
 }
