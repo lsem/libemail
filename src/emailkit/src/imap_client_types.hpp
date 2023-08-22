@@ -19,6 +19,10 @@ struct list_response_t {
     std::vector<list_response_entry_t> inbox_list;
 };
 
+struct select_response_t {
+    // ..
+};
+
 enum class imap_errors {
     // no 0
     imap_bad = 1,

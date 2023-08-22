@@ -42,6 +42,11 @@ struct list_t {
 struct select_t {
     std::string mailbox_name;
 };
+
+struct fetch_t {
+    // ..
+};
+
 }  // namespace imap_commands
 
 class imap_client_t {

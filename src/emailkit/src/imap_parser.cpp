@@ -430,8 +430,8 @@ void apg_invoke_parser__ast(uint32_t starting_rule,
 
 }  // namespace
 
-expected<select_response_data> parse_select_response(std::string_view input_text) {
-    select_response_data parsing_result;
+expected<select_response_data_t> parse_select_response(std::string_view input_text) {
+    select_response_data_t parsing_result;
 
     std::vector<int> current_path;
 

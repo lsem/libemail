@@ -20,7 +20,7 @@ enum class read_write_mode_t {
     try_create,
 };
 
-struct select_response_data {
+struct select_response_data_t {
     int recents = 0;
     int exists = 0;
     int uid_validity = 0;
