@@ -1,6 +1,7 @@
 # https://www.scivision.dev/cmake-external-project-autotools/
 # https://chromium.googlesource.com/external/github.com/grpc/grpc/+/HEAD/examples/cpp/helloworld/cmake_externalproject/CMakeLists.txt
 # https://github.com/smfrpc/smf/blob/master/CMakeLists.txt.in
+# https://stackoverflow.com/questions/55708589/how-to-pass-an-environment-variable-to-externalproject-add-configure-command
 
 include(ExternalProject)
 
@@ -21,12 +22,13 @@ ExternalProject_Add(libffi
 )
 
 # TODO: bootstrap meson also from internet.
+# https://mesonbuild.com/Getting-meson.html
 find_program(meson_cmd meson REQUIRED)
 ExternalProject_Add(libglib
     GIT_REPOSITORY  https://github.com/GNOME/glib.git
     GIT_TAG         2.76.4
     UPDATE_DISCONNECTED true
-    CONFIGURE_HANDLED_BY_BUILD # cmake must support this even though we don't need it.
+    CONFIGURE_HANDLED_BY_BUILD true# cmake must support this even though we don't need it.
     CONFIGURE_COMMAND
         ${meson_cmd} setup
                     --prefix ${superbuild_prefix}
@@ -46,4 +48,18 @@ ExternalProject_Add(libglib
         ${meson_cmd} install -C _build    
     DEPENDS
         libffi
+)
+
+ExternalProject_Add(libgmime
+    URL
+    https://github.com/lsem/gmime/releases/download/3.2.13-with-fixes/gmime-3.2.13--with-fixes.tar.gz
+    UPDATE_DISCONNECTED
+        true
+    CONFIGURE_COMMAND
+        # TODO: make env setting portable
+        env PKG_CONFIG_PATH=${pkg_config_path} <SOURCE_DIR>/configure --prefix=${superbuild_prefix}
+        BUILD_COMMAND ${make_cmd} -j4
+        INSTALL_COMMAND ${make_cmd} -j4 install    
+    DEPENDS
+        libglib    
 )
