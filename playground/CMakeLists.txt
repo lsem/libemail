@@ -5,7 +5,9 @@ target_link_libraries(emailkit_playground
         emailkit::http_srv
         pthread
         folly::uri
-        b64::b64)
+        b64::b64
+        gmime::gmime
+        glib::glib)
 
 target_compile_options(emailkit_playground PRIVATE "-fsanitize=address")
 target_link_options(emailkit_playground PRIVATE "-fsanitize=address")

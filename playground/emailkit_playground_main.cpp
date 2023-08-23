@@ -13,6 +13,8 @@
 #include <folly/folly_uri.hpp>
 #include <iostream>
 
+#include <gmime/gmime.h>
+
 using namespace emailkit;
 
 // https://gist.github.com/karanth/8420579

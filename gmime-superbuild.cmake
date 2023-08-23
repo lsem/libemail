@@ -62,17 +62,33 @@ ExternalProject_Add(libglib
     DEPENDS
         libffi meson
 )
+add_library(glib::glib INTERFACE IMPORTED GLOBAL)
+target_include_directories(glib::glib
+    INTERFACE
+        ${superbuild_prefix}/include/glib-2.0/
+        ${libdir_abs_path}/glib-2.0/include
+)
+#set(gmime_libname ${CMAKE_STATIC_LIBRARY_PREFIX}gmime-3.0${CMAKE_STATIC_LIBRARY_SUFFIX})
+#target_link_libraries(gmime::gmime INTERFACE "${libdir_abs_path}/${gmime_libname}")
+
 
 ExternalProject_Add(libgmime
     URL
     https://github.com/lsem/gmime/releases/download/3.2.13-with-fixes/gmime-3.2.13--with-fixes.tar.gz
-    UPDATE_DISCONNECTED
-        true
+    UPDATE_DISCONNECTED true
     CONFIGURE_COMMAND
         # TODO: make env setting portable
         env PKG_CONFIG_PATH=${pkg_config_path} <SOURCE_DIR>/configure --prefix=${superbuild_prefix} --libdir=${libdir_abs_path}
         BUILD_COMMAND ${make_cmd} -j4
         INSTALL_COMMAND ${make_cmd} -j4 install    
     DEPENDS
-        libglib    
+        libglib
 )
+add_library(gmime::gmime INTERFACE IMPORTED GLOBAL)
+target_include_directories(gmime::gmime
+    INTERFACE
+        ${superbuild_prefix}/include/gmime-3.0        
+)
+set(gmime_libname ${CMAKE_STATIC_LIBRARY_PREFIX}gmime-3.0${CMAKE_STATIC_LIBRARY_SUFFIX})
+target_link_libraries(gmime::gmime INTERFACE "${libdir_abs_path}/${gmime_libname}")
+add_dependencies(gmime::gmime glib::glib)
