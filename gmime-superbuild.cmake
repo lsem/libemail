@@ -4,6 +4,7 @@ cmake_minimum_required(VERSION 3.16)
 # https://chromium.googlesource.com/external/github.com/grpc/grpc/+/HEAD/examples/cpp/helloworld/cmake_externalproject/CMakeLists.txt
 # https://github.com/smfrpc/smf/blob/master/CMakeLists.txt.in
 # https://stackoverflow.com/questions/55708589/how-to-pass-an-environment-variable-to-externalproject-add-configure-command
+# https://gitlab.kitware.com/cmake/cmake/-/issues/15052
 
 include(ExternalProject)
 include(GNUInstallDirs)
@@ -15,6 +16,7 @@ set(pkg_config_path ${libdir_abs_path}/pkgconfig)
 
 find_program(make_cmd NAMES gmake make mingw32-make REQUIRED)
 
+########################################################################
 # libFFI
 ExternalProject_Add(libffi
     URL     https://github.com/libffi/libffi/releases/download/v3.4.4/libffi-3.4.4.tar.gz
@@ -26,6 +28,7 @@ ExternalProject_Add(libffi
     # BUILD_BYPRODUCTS ${my_LIBRARY} # for ninja only
 )
 
+########################################################################
 # Meson build system, needed for glib (https://mesonbuild.com/Getting-meson.html)
 ExternalProject_Add(meson
     URL https://github.com/mesonbuild/meson/releases/download/1.2.1/meson-1.2.1.tar.gz
@@ -36,7 +39,13 @@ ExternalProject_Add(meson
 )
 set(meson_cmd "${CMAKE_BINARY_DIR}/meson-prefix/src/meson/meson.py")
 
-ExternalProject_Add(libglib
+# https://cmake.org/pipermail/cmake/2015-February/059891.html
+
+########################################################################
+# GLib
+set(glib_include_directory1 ${superbuild_prefix}/include/glib-2.0/)
+set(glib_include_directory2 ${libdir_abs_path}/glib-2.0/include)
+ExternalProject_Add(external_glib
     GIT_REPOSITORY  https://github.com/GNOME/glib.git
     GIT_TAG         2.76.4
     UPDATE_DISCONNECTED true
@@ -62,33 +71,36 @@ ExternalProject_Add(libglib
     DEPENDS
         libffi meson
 )
-add_library(glib::glib INTERFACE IMPORTED GLOBAL)
-target_include_directories(glib::glib
-    INTERFACE
-        ${superbuild_prefix}/include/glib-2.0/
-        ${libdir_abs_path}/glib-2.0/include
-)
-#set(gmime_libname ${CMAKE_STATIC_LIBRARY_PREFIX}gmime-3.0${CMAKE_STATIC_LIBRARY_SUFFIX})
-#target_link_libraries(gmime::gmime INTERFACE "${libdir_abs_path}/${gmime_libname}")
+add_library(glib INTERFACE)
+add_dependencies(glib external_glib)
+target_link_directories(glib INTERFACE ${libdir_abs_path})
+target_link_libraries(glib INTERFACE libglib-2.0.dylib)
+target_include_directories(glib INTERFACE ${glib_include_directory1} ${glib_include_directory2})
+add_library(glib::glib ALIAS glib)
 
-
-ExternalProject_Add(libgmime
+########################################################################
+# GMime
+set(gmime_libname ${CMAKE_SHARED_LIBRARY_PREFIX}gmime-3.0${CMAKE_SHARED_LIBRARY_SUFFIX})
+set(gmime_include_directory ${superbuild_prefix}/include/gmime-3.0)
+ExternalProject_Add(external_gmime
     URL
-    https://github.com/lsem/gmime/releases/download/3.2.13-with-fixes/gmime-3.2.13--with-fixes.tar.gz
-    UPDATE_DISCONNECTED true
+        https://github.com/lsem/gmime/releases/download/3.2.13-with-fixes/gmime-3.2.13--with-fixes.tar.gz
+    UPDATE_DISCONNECTED
+        true
     CONFIGURE_COMMAND
         # TODO: make env setting portable
         env PKG_CONFIG_PATH=${pkg_config_path} <SOURCE_DIR>/configure --prefix=${superbuild_prefix} --libdir=${libdir_abs_path}
-        BUILD_COMMAND ${make_cmd} -j4
-        INSTALL_COMMAND ${make_cmd} -j4 install    
+    BUILD_COMMAND
+        ${make_cmd} -j4
+    INSTALL_COMMAND
+        ${make_cmd} -j4 install
     DEPENDS
-        libglib
+        external_glib
 )
-add_library(gmime::gmime INTERFACE IMPORTED GLOBAL)
-target_include_directories(gmime::gmime
-    INTERFACE
-        ${superbuild_prefix}/include/gmime-3.0        
-)
-set(gmime_libname ${CMAKE_STATIC_LIBRARY_PREFIX}gmime-3.0${CMAKE_STATIC_LIBRARY_SUFFIX})
-target_link_libraries(gmime::gmime INTERFACE "${libdir_abs_path}/${gmime_libname}")
-add_dependencies(gmime::gmime glib::glib)
+#https://github.com/cbm-fles/flesnet/blob/master/CMakeLists.txt
+add_library(gmime INTERFACE)
+add_dependencies(gmime external_gmime)
+target_link_directories(gmime INTERFACE ${libdir_abs_path})
+target_link_libraries(gmime INTERFACE  glib::glib ${gmime_libname})
+target_include_directories(gmime INTERFACE ${gmime_include_directory})
+add_library(gmime::gmime ALIAS gmime)
