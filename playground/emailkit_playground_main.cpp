@@ -298,4 +298,7 @@ int main() {
     // imap_parsing_test();
     // parsing_list_flags_test();
     select_paser_test();
+
+    GMimeMessage *message;
+    message->addrlists;
 }

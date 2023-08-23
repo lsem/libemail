@@ -5,6 +5,7 @@ cmake_minimum_required(VERSION 3.16)
 # https://github.com/smfrpc/smf/blob/master/CMakeLists.txt.in
 # https://stackoverflow.com/questions/55708589/how-to-pass-an-environment-variable-to-externalproject-add-configure-command
 # https://gitlab.kitware.com/cmake/cmake/-/issues/15052
+# https://cmake.org/pipermail/cmake/2015-February/059891.html
 
 include(ExternalProject)
 include(GNUInstallDirs)
@@ -39,10 +40,9 @@ ExternalProject_Add(meson
 )
 set(meson_cmd "${CMAKE_BINARY_DIR}/meson-prefix/src/meson/meson.py")
 
-# https://cmake.org/pipermail/cmake/2015-February/059891.html
-
 ########################################################################
 # GLib
+set(glib_libname ${CMAKE_SHARED_LIBRARY_PREFIX}glib-2.0${CMAKE_SHARED_LIBRARY_SUFFIX})
 set(glib_include_directory1 ${superbuild_prefix}/include/glib-2.0/)
 set(glib_include_directory2 ${libdir_abs_path}/glib-2.0/include)
 ExternalProject_Add(external_glib
@@ -74,7 +74,7 @@ ExternalProject_Add(external_glib
 add_library(glib INTERFACE)
 add_dependencies(glib external_glib)
 target_link_directories(glib INTERFACE ${libdir_abs_path})
-target_link_libraries(glib INTERFACE libglib-2.0.dylib)
+target_link_libraries(glib INTERFACE ${glib_libname})
 target_include_directories(glib INTERFACE ${glib_include_directory1} ${glib_include_directory2})
 add_library(glib::glib ALIAS glib)
 
@@ -104,3 +104,9 @@ target_link_directories(gmime INTERFACE ${libdir_abs_path})
 target_link_libraries(gmime INTERFACE  glib::glib ${gmime_libname})
 target_include_directories(gmime INTERFACE ${gmime_include_directory})
 add_library(gmime::gmime ALIAS gmime)
+
+# gio/                    libffi.dylib@           libglib-2.0.dylib@      libgmodule-2.0.0.dylib* libgthread-2.0.dylib@   libpcre2-8.0.dylib*
+# girepository-1.0/       libffi.la*              libgmime-3.0.0.dylib*   libgmodule-2.0.dylib@   libpcre2-16.0.dylib*    libpcre2-8.dylib@
+# glib-2.0/               libgio-2.0.0.dylib*     libgmime-3.0.a          libgobject-2.0.0.dylib* libpcre2-16.dylib@      libpcre2-posix.3.dylib*
+# libffi.8.dylib*         libgio-2.0.dylib@       libgmime-3.0.dylib@     libgobject-2.0.dylib@   libpcre2-32.0.dylib*    libpcre2-posix.dylib@
+# libffi.a                libglib-2.0.0.dylib*    libgmime-3.0.la*        libgthread-2.0.0.dylib* libpcre2-32.dylib@      pkgconfig/
