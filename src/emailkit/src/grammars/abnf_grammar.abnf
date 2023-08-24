@@ -353,12 +353,17 @@ msg-att         = "(" (msg-att-dynamic / msg-att-static)
 msg-att-dynamic = "FLAGS" SP "(" [flag-fetch *(SP flag-fetch)] ")"
                     ; MAY change for a message
 
-msg-att-static  = "ENVELOPE" SP envelope / "INTERNALDATE" SP date-time /
-                  "RFC822" [".HEADER" / ".TEXT"] SP nstring /
-                  "RFC822.SIZE" SP number /
-                  "BODY" ["STRUCTURE"] SP body /
+msg-att-static-internaldate = "INTERNALDATE" SP date-time
+msg-att-static-rfc822-header-text = "RFC822" [".HEADER" / ".TEXT"] SP nstring
+msg-att-static-rfc822-size = "RFC822.SIZE" SP number
+msg-att-static-rfc822-body-structure = "BODY" ["STRUCTURE"] SP body
+msg-att-static-uid = "UID" SP uniqueid
+msg-att-static  = "ENVELOPE" SP envelope / msg-att-static-internaldate /
+                  msg-att-static-rfc822-header-text /
+                  msg-att-static-rfc822-size /
+                  msg-att-static-rfc822-body-structure /
                   "BODY" section ["<" number ">"] SP nstring /
-                  "UID" SP uniqueid
+                  msg-att-static-uid
                     ; MUST NOT change for a message
 
 nil             = "NIL"

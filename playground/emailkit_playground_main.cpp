@@ -61,7 +61,7 @@ void gmail_fetch_some_messages(imap_client::imap_client_t& client) {
                             imap_client::imap_commands::fetch_t{
                                 .sequence_set = "1:3",
                                 .data_item_names_or_macro =
-                                    imap_client::imap_commands::fetch_macro::fast},
+                                    imap_client::imap_commands::fetch_macro::full},
                             [&](std::error_code ec, imap_client::types::fetch_response_t r) {
                                 if (ec) {
                                     log_error("fetch command failed: {}", ec);

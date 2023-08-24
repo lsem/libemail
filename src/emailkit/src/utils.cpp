@@ -18,6 +18,10 @@ std::string replace_control_chars(const std::string& s) {
             r += "\\n";
         } else if (c == 0x01) {
             r += "^A";
+        } else if (c == '\\') {
+            r += "\\\\";
+        } else if (c == '"') {
+            r += "\\\"";
         } else {
             r += c;
         }
@@ -122,11 +126,11 @@ expected<std::string> decode_imap_utf7(std::string s) {
         if (ret == UTF7_OK) {
             break;
         } else if (ret == UTF7_INCOMPLETE) {
-            //return llvm::createStringError("incomplete input");
+            // return llvm::createStringError("incomplete input");
             log_error("incomplete input");
             return unexpected(make_error_code(std::errc::io_error));
         } else if (ret == UTF7_INVALID) {
-            //return llvm::createStringError("invalid utf7 input");
+            // return llvm::createStringError("invalid utf7 input");
             log_error("invalid utf7 input");
             return unexpected(make_error_code(std::errc::io_error));
         } else {

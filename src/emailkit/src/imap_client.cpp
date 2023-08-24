@@ -326,7 +326,8 @@ class imap_client_impl_t : public imap_client_t {
                             return;
                         }
 
-                        log_debug("{} command finished, text is: '{}'", tag, response);
+                        log_debug("{} command finished, text is: '{}'", tag,
+                                  utils::escape_ctrl(response));
                         cb({}, std::move(response));
                     });
             });

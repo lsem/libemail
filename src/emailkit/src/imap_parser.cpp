@@ -546,6 +546,16 @@ expected<message_data_t> parse_message_data(std::string_view input_text) {
             IMAP_PARSER_APG_IMPL_MSG_ATT,
             IMAP_PARSER_APG_IMPL_MSG_ATT_DYNAMIC,
             IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC,
+            IMAP_PARSER_APG_IMPL_ENVELOPE,
+            IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_INTERNALDATE,
+            IMAP_PARSER_APG_IMPL_DATE_TIME,
+            IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_RFC822_HEADER_TEXT,
+            IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_RFC822_SIZE,
+            IMAP_PARSER_APG_IMPL_NUMBER,
+            IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_RFC822_BODY_STRUCTURE,
+            IMAP_PARSER_APG_IMPL_BODY,
+            IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_UID,
+            IMAP_PARSER_APG_IMPL_UNIQUEID,
         },
         // clang-format on
         [&](const ast_record* begin, const ast_record* end) {
@@ -575,7 +585,50 @@ expected<message_data_t> parse_message_data(std::string_view input_text) {
                                                 IMAP_PARSER_APG_IMPL_MSG_ATT,
                                                 IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC})) {
                         log_debug("static attribute: '{}'", match_text);
+                    } else if (current_path_is({IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
+                                                IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
+                                                IMAP_PARSER_APG_IMPL_MSG_ATT,
+                                                IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC,
+                                                IMAP_PARSER_APG_IMPL_ENVELOPE})) {
+                        log_debug("envelope: '{}'", match_text);
+                    } else if (current_path_is({IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
+                                                IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
+                                                IMAP_PARSER_APG_IMPL_MSG_ATT,
+                                                IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC,
+                                                IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_INTERNALDATE,
+                                                IMAP_PARSER_APG_IMPL_DATE_TIME})) {
+                        log_debug("internaldate/datetime: '{}'", match_text);
+                    } else if (current_path_is(
+                                   {IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
+                                    IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
+                                    IMAP_PARSER_APG_IMPL_MSG_ATT,
+                                    IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC,
+                                    IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_RFC822_HEADER_TEXT})) {
+                        log_debug("rfc822-header/text: '{}'", match_text);
+                    } else if (current_path_is({IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
+                                                IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
+                                                IMAP_PARSER_APG_IMPL_MSG_ATT,
+                                                IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC,
+                                                IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_RFC822_SIZE,
+                                                IMAP_PARSER_APG_IMPL_NUMBER})) {
+                        log_debug("rfc822-size: '{}'", match_text);
+                    } else if (current_path_is(
+                                   {IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
+                                    IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
+                                    IMAP_PARSER_APG_IMPL_MSG_ATT,
+                                    IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC,
+                                    IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_RFC822_BODY_STRUCTURE,
+                                    IMAP_PARSER_APG_IMPL_BODY})) {
+                        log_debug("body: '{}'", match_text);
+                    } else if (current_path_is({IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
+                                                IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
+                                                IMAP_PARSER_APG_IMPL_MSG_ATT,
+                                                IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC,
+                                                IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_UID,
+                                                IMAP_PARSER_APG_IMPL_UNIQUEID})) {
+                        log_debug("uid: '{}'", match_text);
                     }
+
                 } else {
                     current_path.pop_back();
                 }
