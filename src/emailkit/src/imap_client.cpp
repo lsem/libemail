@@ -283,6 +283,32 @@ class imap_client_impl_t : public imap_client_t {
             });
     }
 
+    virtual void async_execute_raw_command(std::string command, async_callback<std::string> cb) {
+        const auto tag = next_tag();
+        m_imap_socket->async_send_command(
+            fmt::format("{} {}\r\n", tag, command),
+            [this, tag, cb = std::move(cb)](std::error_code ec) mutable {
+                if (ec) {
+                    log_error("failed sending namespace command: {}", ec);
+                    cb(ec, {});
+                    return;
+                }
+
+                async_receive_response_until_tagged_line(
+                    *m_imap_socket, tag, ""s,
+                    [this, tag, cb = std::move(cb)](std::error_code ec,
+                                                    std::string response) mutable {
+                        if (ec) {
+                            cb(ec, std::move(response));
+                            return;
+                        }
+
+                        log_debug("{} command finished, text is: '{}'", tag, response);
+                        cb({}, std::move(response));
+                    });
+            });
+    }
+
     virtual void async_execute_command(imap_commands::namespace_t,
                                        async_callback<void> cb) override {
         // TODO: ensure connected and authenticated?
@@ -431,6 +457,57 @@ class imap_client_impl_t : public imap_client_t {
 
                 cb({}, std::move(select_resp));
             });
+    }
+
+    virtual void async_execute_command(imap_commands::fetch_t cmd,
+                                       async_callback<types::fetch_response_t> cb) override {
+        async_execute_raw_command(
+            fmt::format("fetch {} {}", cmd.sequence_set,
+                        std::get<std::string>(cmd.data_item_names_or_macro)),
+            [cb = std::move(cb)](std::error_code ec, std::string imap_resp) mutable {
+                if (ec) {
+                    log_error("async_execute_simple_command failed: {}", ec);
+                    cb(ec, {});
+                    return;
+                }
+
+                cb(make_error_code(std::errc::io_error), {});
+            });
+    }
+
+    // read input line by line until tagged line received. Returns raw, unparsed bytes.
+    void async_receive_response_until_tagged_line(imap_socket_t& socket,
+                                                  std::string tag,
+                                                  std::string curr_response,
+                                                  async_callback<std::string> cb) {
+        socket.async_receive_raw_line([this, &socket, tag = std::move(tag), cb = std::move(cb),
+                                       curr_response = std::move(curr_response)](
+                                          std::error_code ec, std::string line) mutable {
+            if (ec) {
+                log_error("failed receiving next raw line: {}", ec);
+                cb(ec, {});
+                return;
+            }
+
+            log_debug("received raw line");
+
+            // check if line is tagged response (TODO: do it right, with parser or make sure it is
+            // correct according to the grammar)
+            bool stop_reading = false;
+            if (line.rfind(tag, 0) == 0) {
+                log_debug("got tagged reply, stop reading..");
+                stop_reading = true;
+            }
+
+            curr_response += std::move(line);
+
+            if (stop_reading) {
+                cb({}, std::move(curr_response));
+            } else {
+                async_receive_response_until_tagged_line(socket, std::move(tag),
+                                                         std::move(curr_response), std::move(cb));
+            }
+        });
     }
 
     void async_receive_response(imap_socket_t& socket,

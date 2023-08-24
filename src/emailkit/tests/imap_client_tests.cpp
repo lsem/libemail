@@ -1063,7 +1063,7 @@ TEST(imap_client_test, select_command_invalid_response_basic_test) {
             auto& cmd = *maybe_cmd;
 
             // TODO: check that cmd.tokens[0] is valid tag, check that two commands in a row have
-            // uniqu tags.
+            // unique tags.
 
             ASSERT_GT(cmd.tokens.size(), 2);
             EXPECT_EQ(cmd.tokens[1], "select");
@@ -1104,3 +1104,68 @@ TEST(imap_client_test, select_command_invalid_response_basic_test) {
     ctx.run_for(std::chrono::seconds(1));
     EXPECT_TRUE(test_ran);
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//  fetch command
+
+TEST(imap_client_test, fetch_command_basic_test) {
+    asio::io_context ctx;
+
+    bool test_ran = false;
+
+    fake_imap_server srv{ctx, "localhost", "9934"};
+    ASSERT_FALSE(srv.start());
+
+    srv.reply_once(
+        [&](std::error_code ec, std::tuple<std::string, async_callback<std::string>> line_and_cb) {
+            auto& [line, cb] = line_and_cb;
+
+            auto maybe_cmd = parse_imap_command(line);
+            ASSERT_TRUE(maybe_cmd);
+            auto& cmd = *maybe_cmd;
+
+            // TODO: check that cmd.tokens[0] is valid tag, check that two commands in a row have
+            // uniqu tags.
+
+            ASSERT_GT(cmd.tokens.size(), 2);
+            EXPECT_EQ(cmd.tokens[1], "select");
+            EXPECT_EQ(cmd.tokens[2], "\"INBOX\"");
+
+            // clang-format off
+            const std::string response = fmt::format(
+                "* FLAGS (\\Answered \\Flagged \\Draft \\Deleted \\Seen $NotPhishing $Phishing)\r\n"
+                "* OK [PERMANENTFLAGS (\\Answered \\Flagged \\Draft \\Deleted \\Seen $NotPhishing "
+                "$Phishing \\*)] Flags permitted.\r\n"
+                "* OK [UIDVALIDITY 1] UIDs valid.\r\n"
+                "* 9 EXISTS\r\n"
+                "* 19 EXISTS\r\n"
+                "* 0 RECENT\r\n"
+                "* OK [UNSEEN 3] Unseen count.\r\n"
+                "* OK [UIDNEXT 10] Predicted next UID.\r\n"
+                "* OK [HIGHESTMODSEQ 1909]\r\n" // Note, this ignored by parser (TODO: implement)
+                "{} OK [READ-WRITE] INBOX selected. (Success)\r\n", cmd.tokens[0]);
+            // clang-format on
+
+            cb({}, response);
+        });
+
+    auto client = make_imap_client(ctx);
+    client->async_connect("localhost", "9934", [&](std::error_code ec) {
+        ASSERT_FALSE(ec);
+
+        client->async_execute_command(
+            emailkit::imap_client::imap_commands::fetch_t{.sequence_set = "1:4",
+                                                          .data_item_names_or_macro = ""s},
+            [&](std::error_code ec, emailkit::imap_client::types::fetch_response_t r) {
+                ASSERT_FALSE(ec);
+
+                test_ran = true;
+                ctx.stop();
+            });
+    });
+
+    ctx.run_for(std::chrono::seconds(1));
+    EXPECT_TRUE(test_ran);
+}
+
+

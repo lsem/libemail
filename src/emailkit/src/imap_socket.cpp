@@ -129,6 +129,58 @@ class imap_client_impl_t : public imap_socket_t, std::enable_shared_from_this<im
             });
     }
 
+    virtual void async_receive_raw_line(async_callback<std::string> cb) override {
+        asio::async_read_until(
+            m_socket, m_recv_buff, "\r\n",
+            [this, cb = std::move(cb)](std::error_code ec, size_t bytes_transferred) mutable {
+                if (ec) {
+                    log_error("async_read_until failed: {}", ec);
+                    cb(ec, {});
+                    return;
+                }
+
+                log_debug("bytes_transferred: {}, stream size: {}", bytes_transferred,
+                          m_recv_buff.size());
+
+                // TODO: ensure that stripping the line of \r\n is good idea. ABNF parses may not
+                // like it and we may want to do it on upper level or have as parameter!
+
+                const auto& buff_data = m_recv_buff.data();
+
+                if (buff_data.size() < bytes_transferred) {
+                    log_error("buff_data.size={} while bytes_transferred={}", buff_data.size(),
+                              bytes_transferred);
+                    cb(ec, {});
+                    return;
+                }
+
+                const char* data_ptr = static_cast<const char*>(buff_data.data());
+
+#ifndef NDEBUG
+                if (m_opt_dump_stream_to_file) {
+                    std::ofstream fs{"imap_socket_dump.bin", std::ios_base::out |
+                                                                 std::ios_base::app |
+                                                                 std::ios_base::binary};
+                    fs.write(data_ptr, bytes_transferred);
+                    if (!fs.good()) {
+                        log_warning("dump failed");
+                    }
+                }
+#endif
+
+                std::string received_data{data_ptr, bytes_transferred};
+                if (received_data.size() < 2 || received_data[received_data.size() - 2] != '\r' ||
+                    received_data[received_data.size() - 1] != '\n') {
+                    log_error("received not a line, no \\r\\n");
+                    cb(make_error_code(std::errc::io_error), {});
+                    return;
+                }
+
+                m_recv_buff.consume(bytes_transferred);
+                cb({}, std::move(received_data));
+            });
+    }
+
     virtual void async_send_command(std::string command, async_callback<void> cb) override {
         if (!m_connected) {
             log_error("not connected");
