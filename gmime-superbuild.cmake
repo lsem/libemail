@@ -104,9 +104,3 @@ target_link_directories(gmime INTERFACE ${libdir_abs_path})
 target_link_libraries(gmime INTERFACE  glib::glib ${gmime_libname})
 target_include_directories(gmime INTERFACE ${gmime_include_directory})
 add_library(gmime::gmime ALIAS gmime)
-
-# gio/                    libffi.dylib@           libglib-2.0.dylib@      libgmodule-2.0.0.dylib* libgthread-2.0.dylib@   libpcre2-8.0.dylib*
-# girepository-1.0/       libffi.la*              libgmime-3.0.0.dylib*   libgmodule-2.0.dylib@   libpcre2-16.0.dylib*    libpcre2-8.dylib@
-# glib-2.0/               libgio-2.0.0.dylib*     libgmime-3.0.a          libgobject-2.0.0.dylib* libpcre2-16.dylib@      libpcre2-posix.3.dylib*
-# libffi.8.dylib*         libgio-2.0.dylib@       libgmime-3.0.dylib@     libgobject-2.0.dylib@   libpcre2-32.0.dylib*    libpcre2-posix.dylib@
-# libffi.a                libglib-2.0.0.dylib*    libgmime-3.0.la*        libgthread-2.0.0.dylib* libpcre2-32.dylib@      pkgconfig/

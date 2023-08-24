@@ -265,40 +265,8 @@ void imap_parsing_test() {
     }
 }
 
-void select_paser_test() {
-    const std::string select_command_result =
-        "* FLAGS (\\Answered \\Flagged \\Draft \\Deleted \\Seen $NotPhishing $Phishing)\r\n"
-        "* OK [PERMANENTFLAGS (\\Answered \\Flagged \\Draft \\Deleted \\Seen $NotPhishing "
-        "$Phishing \\*)] Flags permitted.\r\n"
-        "* OK [UIDVALIDITY 1] UIDs valid.\r\n"
-        "* 9 EXISTS\r\n"
-        "* 0 RECENT\r\n"
-        "* OK [UNSEEN 3] Unseen count.\r\n"
-        "* OK [UIDNEXT 10] Predicted next UID.\r\n"
-        "* OK [HIGHESTMODSEQ 1909]\r\n"
-        "A3 OK [READ-WRITE] INBOX selected. (Success)\r\n";
-    auto result_or_err = imap_parser::parse_select_response(select_command_result);
-    if (!result_or_err) {
-        log_error("failed parsing error: {}", result_or_err.error());
-        return;
-    }
-    auto& result = *result_or_err;
-
-    log_info(
-        "select_response_data(recents: {}, exists: {}, uid_validity: {}, unseen: {}, uid_next: {}, "
-        "flags: {}, "
-        "permanent_flags: {}), read_write_mode: {}",
-        result.recents, result.exists, result.uid_validity,
-        (result.unseen.has_value() ? result.unseen.value() : -1), result.uid_next, result.flags,
-        result.permanent_flags, static_cast<int>(result.read_write_mode));
-}
-
 int main() {
     // gmail_auth_test();
     // imap_parsing_test();
     // parsing_list_flags_test();
-    select_paser_test();
-
-    GMimeMessage *message;
-    message->addrlists;
 }
