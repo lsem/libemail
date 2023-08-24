@@ -343,7 +343,9 @@ media-subtype   = string
 media-text      = DQUOTE "TEXT" DQUOTE SP media-subtype
                     ; Defined in [MIME-IMT]
 
-message-data    = nz-number SP ("EXPUNGE" / ("FETCH" SP msg-att))
+expunge-message-data = "EXPUNGE"
+fetch-message-data = ("FETCH" SP msg-att)
+message-data    = nz-number SP (expunge-message-data / fetch-message-data)
 
 msg-att         = "(" (msg-att-dynamic / msg-att-static)
                    *(SP (msg-att-dynamic / msg-att-static)) ")"

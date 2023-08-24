@@ -528,4 +528,65 @@ expected<std::vector<mailbox_data_t>> parse_mailbox_data_records(std::string_vie
     return parsed_records;
 }
 
+expected<message_data_t> parse_message_data(std::string_view input_text) {
+    message_data_t result;
+
+    std::vector<int> current_path;
+
+    auto current_path_is = [&current_path](std::initializer_list<int> l) {
+        return std::equal(current_path.begin(), current_path.end(), l.begin(), l.end());
+    };
+
+    auto ec = apg_invoke_parser__ast(
+        IMAP_PARSER_APG_IMPL_RESPONSE, input_text,
+        {
+            IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
+            IMAP_PARSER_APG_IMPL_NZ_NUMBER,
+            IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
+            IMAP_PARSER_APG_IMPL_MSG_ATT,
+            IMAP_PARSER_APG_IMPL_MSG_ATT_DYNAMIC,
+            IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC,
+        },
+        // clang-format on
+        [&](const ast_record* begin, const ast_record* end) {
+            constexpr size_t INDENT_WIDTH = 4;
+            size_t indent = 0;
+            for (auto it = begin; it != end; ++it) {
+                if (it->uiState == ID_AST_PRE) {
+                    std::string_view match_text{input_text.data() + it->uiPhraseOffset,
+                                                it->uiPhraseLength};
+
+                    current_path.emplace_back(it->uiIndex);
+
+                    if (current_path_is(
+                            {IMAP_PARSER_APG_IMPL_MESSAGE_DATA, IMAP_PARSER_APG_IMPL_NZ_NUMBER})) {
+                        log_debug("number: {}", match_text);
+                    } else if (current_path_is({IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
+                                                IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
+                                                IMAP_PARSER_APG_IMPL_MSG_ATT})) {
+                        log_debug("fetch message data coming..");
+                    } else if (current_path_is({IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
+                                                IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
+                                                IMAP_PARSER_APG_IMPL_MSG_ATT,
+                                                IMAP_PARSER_APG_IMPL_MSG_ATT_DYNAMIC})) {
+                        log_debug("dynamic attribute: '{}'", match_text);
+                    } else if (current_path_is({IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
+                                                IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
+                                                IMAP_PARSER_APG_IMPL_MSG_ATT,
+                                                IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC})) {
+                        log_debug("static attribute: '{}'", match_text);
+                    }
+                } else {
+                    current_path.pop_back();
+                }
+            }
+        });
+
+    if (ec) {
+        return unexpected(ec);
+    }
+
+    return result;
+}
+
 }  // namespace emailkit::imap_parser

@@ -49,6 +49,13 @@ using mailbox_data_t = std::variant<flags_mailbox_data_t,
                                     read_only_resp_text_code_t,
                                     try_create_resp_text_code_t>;
 
+
+// Corresponds to message-data in the Grammar.
+struct message_data_t {
+    
+};
+
+
 namespace utils {
 std::vector<std::string> decode_mailbox_path_from_list_response(const list_response_t& r);
 }

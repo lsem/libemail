@@ -43,17 +43,23 @@ struct select_t {
     std::string mailbox_name;
 };
 
+// fetch           = "FETCH" SP sequence-set SP ("ALL" / "FULL" / "FAST" /
+//                   fetch-att / "(" fetch-att *(SP fetch-att) ")")
 // https://datatracker.ietf.org/doc/html/rfc3501#section-6.4.5
+// TODO: each command must have its own builder command. To ensure that we build correct requests
+// we can double check by parsing our requests with format grammar without any interpretation of the
+// results.
+enum class fetch_macro { all, full, fast };
 struct fetch_t {
     // 2,4:7,9,12:* -> 2,4,5,6,7,9,12,13,14,15 -- for mailbox of size 15.
     std::string sequence_set;
 
     // message data item names or macro
-    using message_data_item_name_t = std::string;
-    using macro_t = std::string;
 
-    std::variant<std::vector<message_data_item_name_t>, macro_t> data_item_names_or_macro;
+    std::variant<std::vector<std::string>, fetch_macro> data_item_names_or_macro;
 };
+
+std::string encode_cmd(const fetch_t& cmd);
 
 }  // namespace imap_commands
 

@@ -17,7 +17,7 @@ TEST(imap_parser_test, basic_test) {
         "* 0 RECENT\r\n"
         "* OK [UNSEEN 3] Unseen count.\r\n"
         "* OK [UIDNEXT 10] Predicted next UID.\r\n"
-        "* OK [HIGHESTMODSEQ 1909]\r\n" // Note, this ignored by parser (TODO: implement)
+        "* OK [HIGHESTMODSEQ 1909]\r\n"  // Note, this ignored by parser (TODO: implement)
         "A3 OK [READ-ONLY] INBOX selected. (Success)\r\n";
     "A3 OK [READ-WRITE] INBOX selected. (Success)\r\n";  // Note, this is not seen by parser (TODO:
                                                          // separate test)
@@ -131,4 +131,16 @@ TEST(imap_parser_test, DISABLED_uid_validity_isolated__zero_number) {
 
     auto records_or_err = imap_parser::parse_mailbox_data_records(select_command_result);
     ASSERT_FALSE(records_or_err);
+}
+
+TEST(imap_parser_test, parse_message_data_basic_test) {
+    // clang-format off
+    const std::string fetch_result =
+        "* 1 FETCH (FLAGS (\\Seen) INTERNALDATE \"05-Aug-2023 11:53:31 +0000\" RFC822.SIZE 5152)\r\n"
+        "* 2 FETCH (FLAGS (\\Seen) INTERNALDATE \"05-Aug-2023 11:54:59 +0000\" RFC822.SIZE 13754)\r\n"
+        "* 3 FETCH (FLAGS (\\Seen) INTERNALDATE \"06-Aug-2023 07:23:31 +0000\" RFC822.SIZE 13756)\r\n"
+        "A4 OK Success\r\n";
+    // clang-format on
+    auto message_data_or_err = imap_parser::parse_message_data(fetch_result);
+    ASSERT_TRUE(message_data_or_err);
 }

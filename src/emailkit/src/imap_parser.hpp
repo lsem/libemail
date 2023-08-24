@@ -7,6 +7,9 @@
 namespace emailkit::imap_parser {
 
 expected<list_response_t> parse_list_response_line(std::string_view input);
+
 expected<std::vector<mailbox_data_t>> parse_mailbox_data_records(std::string_view input_text);
+
+expected<message_data_t> parse_message_data(std::string_view input_text);
 
 }  // namespace emailkit::imap_parser

@@ -12,6 +12,29 @@
 
 namespace emailkit::imap_client {
 
+namespace imap_commands {
+std::string encode_cmd(const fetch_t& cmd) {
+    const auto second_arg =
+        std::visit(overload{[&](fetch_macro m) -> std::string {
+                                switch (m) {
+                                    case fetch_macro::all:
+                                        return "ALL";
+                                    case fetch_macro::fast:
+                                        return "FAST";
+                                    case fetch_macro::full:
+                                        return "FULL";
+                                    default:
+                                        return "<INVALID>";
+                                }
+                            },
+                            [&](const std::vector<std::string>& attrs) { return ""s; }},
+                   cmd.data_item_names_or_macro);
+
+    return fmt::format("fetch {} {}", cmd.sequence_set, second_arg);
+}
+
+}  // namespace imap_commands
+
 namespace {
 class imap_client_impl_t : public imap_client_t {
    public:
@@ -462,8 +485,7 @@ class imap_client_impl_t : public imap_client_t {
     virtual void async_execute_command(imap_commands::fetch_t cmd,
                                        async_callback<types::fetch_response_t> cb) override {
         async_execute_raw_command(
-            fmt::format("fetch {} {}", cmd.sequence_set,
-                        std::get<std::string>(cmd.data_item_names_or_macro)),
+            encode_cmd(cmd),
             [cb = std::move(cb)](std::error_code ec, std::string imap_resp) mutable {
                 if (ec) {
                     log_error("async_execute_simple_command failed: {}", ec);

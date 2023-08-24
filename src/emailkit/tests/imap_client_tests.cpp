@@ -1154,8 +1154,9 @@ TEST(imap_client_test, fetch_command_basic_test) {
         ASSERT_FALSE(ec);
 
         client->async_execute_command(
-            emailkit::imap_client::imap_commands::fetch_t{.sequence_set = "1:4",
-                                                          .data_item_names_or_macro = ""s},
+            emailkit::imap_client::imap_commands::fetch_t{
+                .sequence_set = "1:4",
+                .data_item_names_or_macro = imap_client::imap_commands::fetch_macro::fast},
             [&](std::error_code ec, emailkit::imap_client::types::fetch_response_t r) {
                 ASSERT_FALSE(ec);
 
@@ -1167,5 +1168,3 @@ TEST(imap_client_test, fetch_command_basic_test) {
     ctx.run_for(std::chrono::seconds(1));
     EXPECT_TRUE(test_ran);
 }
-
-
