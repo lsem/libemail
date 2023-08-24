@@ -224,10 +224,6 @@ void base64_encode_decode_test() {
              utils::base64_naive_encode(utils::base64_naive_decode(example_test)));
 }
 
-void parsing_list_flags_test() {
-    imap_parser::parse_flags_list(R"imap(\AnyFlag \AnierFlag)imap");
-}
-
 void imap_parsing_test() {
     const std::vector<std::string> samples = {
         R"(LIST (\HasNoChildren) "/" "INBOX")",
