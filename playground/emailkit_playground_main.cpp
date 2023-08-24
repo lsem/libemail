@@ -121,16 +121,23 @@ void gmail_auth_test() {
 
                                         // imap_client::imap_commands::select_t{.mailbox_name =
                                         //                                          "\"[Gmail]/&BCcENQRABD0ENQRCBDoEOA-\""},
-                                        [&](std::error_code ec) {
+                                        [&](std::error_code ec,
+                                            imap_client::types::select_response_t r) {
                                             if (ec) {
                                                 log_error("gmail command failed: {}", ec);
+                                                return;
                                             }
+
+                                            log_info(
+                                                "unseen number in mailbox is: {}, and recent "
+                                                "number is: {}, in total there is {} emails in the "
+                                                "box.",
+                                                r.opt_unseen.value_or(0), r.recents, r.exists);
                                         });
                                 });
                         });
                 });
         });
-        // });
     });
 
     ctx.run();
@@ -262,7 +269,7 @@ void imap_parsing_test() {
 }
 
 int main() {
-    // gmail_auth_test();
+    gmail_auth_test();
     // imap_parsing_test();
     // parsing_list_flags_test();
 }

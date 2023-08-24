@@ -246,6 +246,7 @@ class imap_client_impl_t : public imap_client_t {
     }
 
     struct imap_response_t {
+        std::string raw_response_bytes;
         std::vector<imap_response_line_t> lines;
         std::string tag;
     };
@@ -367,20 +368,68 @@ class imap_client_impl_t : public imap_client_t {
     }
 
     virtual void async_execute_command(imap_commands::select_t cmd,
-                                       async_callback<void> cb) override {
+                                       async_callback<types::select_response_t> cb) override {
         async_execute_simple_command(
             fmt::format("select {}", cmd.mailbox_name),
-            [cb = std::move(cb)](std::error_code ec, imap_response_t response) mutable {
+            [cb = std::move(cb)](std::error_code ec, imap_response_t imap_resp) mutable {
                 if (ec) {
                     log_error("async_execute_simple_command failed: {}", ec);
-                    cb(ec);
+                    cb(ec, {});
                     return;
                 }
 
-                log_debug("response:");
-                for (auto& l : response.lines) {
-                    log_debug("{}", l);
+                // Parsing response
+                types::select_response_t select_resp;
+                auto records_or_err =
+                    imap_parser::parse_mailbox_data_records(imap_resp.raw_response_bytes);
+                if (!records_or_err) {
+                    // TODO: this needs to be somehow delivered to develoers alongside with logs for
+                    // anallysis.
+                    log_error("failed parsing imap response");
+                    cb(records_or_err.error(), {});
+                    return;
                 }
+                auto& records = *records_or_err;
+                for (auto& rec : records) {
+                    std::visit(overload{[&](const imap_parser::flags_mailbox_data_t& v) {
+                                            select_resp.flags = std::move(v.flags_vec);
+                                        },
+                                        [&](const imap_parser::permanent_flags_mailbox_data_t& v) {
+                                            select_resp.permanent_flags = std::move(v.flags_vec);
+                                        },
+                                        [&](const imap_parser::uidvalidity_data_t& v) {
+                                            select_resp.uid_validity = v.value;
+                                        },
+                                        [&](const imap_parser::exists_mailbox_data_t& v) {
+                                            select_resp.exists = v.value;
+                                        },
+                                        [&](const imap_parser::recent_mailbox_data_t& v) {
+                                            select_resp.recents = v.value;
+                                        },
+                                        [&](const imap_parser::unseen_resp_text_code_t& v) {
+                                            select_resp.opt_unseen = v.value;
+                                        },
+                                        [&](const imap_parser::uidnext_resp_text_code_t& v) {
+                                            select_resp.uid_next = v.value;
+                                        },
+                                        [&](const imap_parser::read_write_resp_text_code_t& v) {
+                                            select_resp.read_write_mode =
+                                                types::read_write_mode_t::read_write;
+                                        },
+                                        [&](const imap_parser::read_only_resp_text_code_t& v) {
+                                            select_resp.read_write_mode =
+                                                types::read_write_mode_t::read_only;
+                                        },
+                                        [&](const imap_parser::try_create_resp_text_code_t& v) {
+                                            select_resp.read_write_mode =
+                                                types::read_write_mode_t::try_create;
+                                        }},
+                               rec);
+                }
+
+                // TODO: validate?
+
+                cb({}, std::move(select_resp));
             });
     }
 
@@ -396,6 +445,7 @@ class imap_client_impl_t : public imap_client_t {
                 return;
             }
 
+            r.raw_response_bytes += line.line;
             r.lines.emplace_back(std::move(line));
             const auto& l = r.lines.back();
 

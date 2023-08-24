@@ -5,17 +5,16 @@
 #include <emailkit/log.hpp>
 #include <memory>
 #include <system_error>
-#include <type_traits>
 #include <tl/expected.hpp>
+#include <type_traits>
 
 using std::shared_ptr;
 
-template<class T>
+template <class T>
 using expected = tl::expected<T, std::error_code>;
 using unexpected = tl::unexpected<std::error_code>;
 
-
-//class expected : public tl::expected<
+// class expected : public tl::expected<
 
 namespace asynckit = lsem::async_kit;
 
@@ -39,6 +38,15 @@ void call_cb(async_callback<T>& cb, std::error_code ec) {
     }
 }
 }  // namespace details
+
+
+template <typename... Ts>
+struct overload : Ts... {
+    using Ts::operator()...;
+};
+template <class... Ts>
+overload(Ts...)->overload<Ts...>;
+
 
 #define PROPAGATE_ERROR_VIA_CB(ec, Message, Cb) \
     do {                                        \

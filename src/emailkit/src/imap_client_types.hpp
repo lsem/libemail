@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
@@ -8,6 +9,8 @@
 
 namespace emailkit::imap_client::types {
 
+////////////////////////////////////////////////////////////////////////////////////////////////
+// list_response_t
 struct list_response_entry_t {
     std::string mailbox_raw;
     std::vector<std::string> inbox_path;  // TODO: why it is called inbox path but not mailbox path?
@@ -19,10 +22,28 @@ struct list_response_t {
     std::vector<list_response_entry_t> inbox_list;
 };
 
-struct select_response_t {
-    // ..
+////////////////////////////////////////////////////////////////////////////////////////////////
+// select_response_t
+enum class read_write_mode_t {
+    na,  // not available.
+    read_write,
+    read_only,
+    try_create,
 };
 
+struct select_response_t {
+    uint32_t recents{};
+    uint32_t exists{};
+    uint32_t uid_validity{};
+    std::optional<uint32_t> opt_unseen;
+    uint32_t uid_next{};
+    std::vector<std::string> flags;
+    std::vector<std::string> permanent_flags;
+    read_write_mode_t read_write_mode = read_write_mode_t::na;
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////
+// imap_errors
 enum class imap_errors {
     // no 0
     imap_bad = 1,
