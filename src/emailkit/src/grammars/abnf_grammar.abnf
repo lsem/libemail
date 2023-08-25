@@ -572,4 +572,4 @@ zone            = ("+" / "-") 4DIGIT
                     ; The Universal Time zone is "+0000".                                                                              
 
 
-TEST-RULE = "a"
+TEST-RULE = "aa"
