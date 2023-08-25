@@ -344,7 +344,7 @@ media-text      = DQUOTE "TEXT" DQUOTE SP media-subtype
                     ; Defined in [MIME-IMT]
 
 expunge-message-data = "EXPUNGE"
-fetch-message-data = ("FETCH" SP msg-att)
+fetch-message-data = "FETCH" SP msg-att
 message-data    = nz-number SP (expunge-message-data / fetch-message-data)
 
 msg-att         = "(" (msg-att-dynamic / msg-att-static)
@@ -570,3 +570,6 @@ zone            = ("+" / "-") 4DIGIT
                     ; Universal Time).  Subtracting the timezone
                     ; from the given time will give the UT form.
                     ; The Universal Time zone is "+0000".                                                                              
+
+
+TEST-RULE = "a"

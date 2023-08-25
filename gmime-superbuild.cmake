@@ -43,6 +43,7 @@ set(meson_cmd "${CMAKE_BINARY_DIR}/meson-prefix/src/meson/meson.py")
 ########################################################################
 # GLib
 set(glib_libname ${CMAKE_SHARED_LIBRARY_PREFIX}glib-2.0${CMAKE_SHARED_LIBRARY_SUFFIX})
+set(gobject_libname ${CMAKE_SHARED_LIBRARY_PREFIX}gobject-2.0${CMAKE_SHARED_LIBRARY_SUFFIX})
 set(glib_include_directory1 ${superbuild_prefix}/include/glib-2.0/)
 set(glib_include_directory2 ${libdir_abs_path}/glib-2.0/include)
 ExternalProject_Add(external_glib
@@ -74,7 +75,7 @@ ExternalProject_Add(external_glib
 add_library(glib INTERFACE)
 add_dependencies(glib external_glib)
 target_link_directories(glib INTERFACE ${libdir_abs_path})
-target_link_libraries(glib INTERFACE ${glib_libname})
+target_link_libraries(glib INTERFACE ${glib_libname} ${gobject_libname})
 target_include_directories(glib INTERFACE ${glib_include_directory1} ${glib_include_directory2})
 add_library(glib::glib ALIAS glib)
 

@@ -49,7 +49,7 @@ struct select_t {
 // TODO: each command must have its own builder command. To ensure that we build correct requests
 // we can double check by parsing our requests with format grammar without any interpretation of the
 // results.
-enum class fetch_macro { all, full, fast };
+enum class fetch_macro { all, full, fast, RFC822 };
 struct fetch_t {
     // 2,4:7,9,12:* -> 2,4,5,6,7,9,12,13,14,15 -- for mailbox of size 15.
     std::string sequence_set;

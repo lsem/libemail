@@ -7857,7 +7857,7 @@ void* vpImapParserApgImplInit = (void*)&s_parser_init;
 //                     ; Defined in [MIME-IMT]
 // 
 // expunge-message-data = "EXPUNGE"
-// fetch-message-data = ("FETCH" SP msg-att)
+// fetch-message-data = "FETCH" SP msg-att
 // message-data    = nz-number SP (expunge-message-data / fetch-message-data)
 // 
 // msg-att         = "(" (msg-att-dynamic / msg-att-static)

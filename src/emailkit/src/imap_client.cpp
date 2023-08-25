@@ -23,6 +23,8 @@ std::string encode_cmd(const fetch_t& cmd) {
                                         return "FAST";
                                     case fetch_macro::full:
                                         return "FULL";
+                                    case fetch_macro::RFC822:
+                                        return "RFC822";
                                     default:
                                         return "<INVALID>";
                                 }
@@ -491,6 +493,12 @@ class imap_client_impl_t : public imap_client_t {
                 if (ec) {
                     log_error("async_execute_simple_command failed: {}", ec);
                     cb(ec, {});
+                    return;
+                }
+
+                auto message_data_or_err = imap_parser::parse_message_data(imap_resp);
+                if (!message_data_or_err) {
+                    log_error("failed parsing message data: {}", message_data_or_err.error());
                     return;
                 }
 
