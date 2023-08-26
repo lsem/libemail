@@ -290,7 +290,7 @@ list-char       = ATOM-CHAR / list-wildcards / resp-specials
 
 list-wildcards  = "%" / "*"
 
-literal         = "{" number "}" CRLF *CHAR8
+literal         = "{" number "}" CRLF (\number)CHAR8
                     ; Number represents the number of CHAR8s
 
 login           = "LOGIN" SP userid SP password
@@ -572,4 +572,4 @@ zone            = ("+" / "-") 4DIGIT
                     ; The Universal Time zone is "+0000".                                                                              
 
 
-TEST-RULE = "aa"
+;TEST-RULE = \rep*"a"
