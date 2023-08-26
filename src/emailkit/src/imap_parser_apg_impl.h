@@ -218,6 +218,11 @@
 #define IMAP_PARSER_APG_IMPL_ZONE 179
 #define RULE_COUNT_IMAP_PARSER_APG_IMPL 180
 
+// UDT ids
+#define IMAP_PARSER_APG_IMPL_U_LITERAL_DATA 1
+#define IMAP_PARSER_APG_IMPL_U_LITERAL_SIZE 0
+#define UDT_COUNT_IMAP_PARSER_APG_IMPL 2
+
 // pointer to parser initialization data
 extern void* vpImapParserApgImplInit;
 
@@ -413,6 +418,15 @@ void vImapParserApgImplRuleCallbacks(void* vpParserCtx){
     cb[IMAP_PARSER_APG_IMPL_ZONE] = NULL;
     for(ui = 0; ui < (aint)RULE_COUNT_IMAP_PARSER_APG_IMPL; ui++){
         vParserSetRuleCallback(vpParserCtx, ui, cb[ui]);
+    }
+}
+void vImapParserApgImplUdtCallbacks(void* vpParserCtx){
+    aint ui;
+    parser_callback cb[UDT_COUNT_IMAP_PARSER_APG_IMPL];
+    cb[IMAP_PARSER_APG_IMPL_U_LITERAL_DATA] = NULL;
+    cb[IMAP_PARSER_APG_IMPL_U_LITERAL_SIZE] = NULL;
+    for(ui = 0; ui < (aint)UDT_COUNT_IMAP_PARSER_APG_IMPL; ui++){
+        vParserSetUdtCallback(vpParserCtx, ui, cb[ui]);
     }
 }
 ****************************************************************/

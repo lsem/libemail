@@ -143,7 +143,7 @@ body-fld-octets = number
 
 body-fld-param  = "(" string SP string *(SP string SP string) ")" / nil
 
-body-type-1part = (body-type-basic / body-type-msg / body-type-text)
+body-type-1part = (body-type-text / body-type-basic / body-type-msg)
                   [SP body-ext-1part]
 
 body-type-basic = media-basic SP body-fields
@@ -290,11 +290,12 @@ list-char       = ATOM-CHAR / list-wildcards / resp-specials
 
 list-wildcards  = "%" / "*"
 
-literal         = "{" number "}" CRLF *CHAR8
-                    ; Number represents the number of CHAR8s
+; Number represents the number of CHAR8s
+; original declaration was: literal         = "{" number "}" CRLF *CHAR8
+; but in this naive form it is greedy and eats all intput so we use UDT
+literal         = "{" u_literal-size "}" CRLF u_literal-data
 
 login           = "LOGIN" SP userid SP password
-
 lsub            = "LSUB" SP mailbox SP list-mailbox
 
 mailbox         = "INBOX" / astring
@@ -570,6 +571,3 @@ zone            = ("+" / "-") 4DIGIT
                     ; Universal Time).  Subtracting the timezone
                     ; from the given time will give the UT form.
                     ; The Universal Time zone is "+0000".                                                                              
-
-
-TEST-RULE = "a"

@@ -59,9 +59,9 @@ void gmail_fetch_some_messages(imap_client::imap_client_t& client) {
 
                         client.async_execute_command(
                             imap_client::imap_commands::fetch_t{
-                                .sequence_set = "1:1",
+                                .sequence_set = "1:3",
                                 .data_item_names_or_macro =
-                                    imap_client::imap_commands::fetch_macro::RFC822},
+                                    imap_client::imap_commands::fetch_macro::full},
                             [&](std::error_code ec, imap_client::types::fetch_response_t r) {
                                 if (ec) {
                                     log_error("fetch command failed: {}", ec);
@@ -73,6 +73,8 @@ void gmail_fetch_some_messages(imap_client::imap_client_t& client) {
             });
     });
 }
+
+// body            = "(" (body-type-1part / (1*body SP media-subtype)) ")"
 
 // https://gist.github.com/karanth/8420579
 void gmail_auth_test() {

@@ -12,4 +12,6 @@ expected<std::vector<mailbox_data_t>> parse_mailbox_data_records(std::string_vie
 
 expected<message_data_t> parse_message_data(std::string_view input_text);
 
+void parse_lsem_body(std::string_view input_text);
+
 }  // namespace emailkit::imap_parser

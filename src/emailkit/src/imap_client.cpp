@@ -502,7 +502,9 @@ class imap_client_impl_t : public imap_client_t {
                     return;
                 }
 
-                cb(make_error_code(std::errc::io_error), {});
+                log_warning("PARSING SUCCESSFUL!");
+
+                cb({}, {});
             });
     }
 

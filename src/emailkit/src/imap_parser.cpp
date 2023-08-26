@@ -298,20 +298,117 @@ std::error_code apg_invoke_parser__ast(
         ast = ::vpAstCtor(parser);
         log_debug("constructing APG AST object -- done");
 
+        struct parser_user_data {
+            std::optional<uint32_t> literal_size_opt;
+        };
 
+        // u_literal-size rule
+        ::vParserSetUdtCallback(
+            parser, IMAP_PARSER_APG_IMPL_U_LITERAL_SIZE, +[](callback_data* spData) -> void {
+                const achar* begin = &spData->acpString[spData->uiParserOffset];
+                const achar* end = spData->acpString + spData->uiStringLength;
+
+                auto* user_data_ptr = reinterpret_cast<parser_user_data*>(spData->vpUserData);
+                if (!user_data_ptr) {
+                    log_error("logic error, no user data");
+                    return;
+                }
+
+                if (user_data_ptr->literal_size_opt.has_value()) {
+                    log_warning("overwriting previous literal size with new one");
+                }
+
+                spData->uiCallbackState = ID_NOMATCH;
+                spData->uiCallbackPhraseLength = 0;
+
+                const achar* curr = begin;
+                uint32_t value = 0;
+                while (curr != end && ::isdigit(*curr)) {
+                    value = value * 10 + (*curr - '0');
+                    ++curr;
+                }
+
+                if (curr != begin) {
+                    // have a match
+                    spData->uiCallbackState = ID_MATCH;
+                    // of length
+                    spData->uiCallbackPhraseLength = curr - begin;
+                    log_debug("matched '{}', value is: {}", std::string{begin, curr}, value);
+                    user_data_ptr->literal_size_opt = value;
+                }
+            });
+        // u_literal-data rule
+        ::vParserSetUdtCallback(
+            parser, IMAP_PARSER_APG_IMPL_U_LITERAL_DATA, +[](callback_data* spData) -> void {
+                const achar* begin = &spData->acpString[spData->uiParserOffset];
+                const achar* end = spData->acpString + spData->uiStringLength;
+
+                spData->uiCallbackState = ID_NOMATCH;
+                spData->uiCallbackPhraseLength = 0;
+
+                auto* user_data_ptr = reinterpret_cast<parser_user_data*>(spData->vpUserData);
+                if (!user_data_ptr) {
+                    log_error("logic error, no user data");
+                    return;
+                }
+                if (!user_data_ptr->literal_size_opt.has_value()) {
+                    log_warning("attmept to match data without data size hit");
+                    return;
+                }
+
+                log_debug("have pending data size: {}",
+                          user_data_ptr->literal_size_opt.value_or(0));
+
+                // log_debug("matching '{}' against u_literal-data UDT", std::string{begin, end});
+                const size_t literal_size_bytes = user_data_ptr->literal_size_opt.value_or(0);
+                if ((end - begin) < literal_size_bytes) {
+                    log_error(
+                        "not enough data bytes, literal size is {} while available only {} bytes",
+                        literal_size_bytes, end - begin);
+                    return;
+                }
+                // TODO: we still need to validate that data is OK and has no zero but it can
+                // possibly be relaxed to speed up things if needed.
+                if (!std::all_of(begin, begin + literal_size_bytes, [](unsigned char c) {
+                        return c >= 0x01 && c <= 0xff;  // see CHAR8 rule.
+                    })) {
+                    log_error("not all bytes are correct");
+                    return;
+                }
+
+                // note, since we matched CHAR8 we most probably consumed everything until the end
+                // of input allready. This is exactly the original problem with greedy matching and
+                // greedy rule.
+
+                log_debug("have match of size {}: '{}'", literal_size_bytes,
+                          std::string{begin, begin + literal_size_bytes});
+
+                spData->uiCallbackState = ID_MATCH;
+                spData->uiCallbackPhraseLength = literal_size_bytes;
+            });
+        // //::vAstSetUdtCallback(ast, IMAP_PARSER_APG_IMPL_U_LITERAL_DATA, +[](callback_data*
+        // spData)
+        //-> aint { return ID_AST_OK; });
+
+        // ::vAstSetUdtCallback(ast, IMAP_PARSER_APG_IMPL_U_LITERAL_SIZE, +[](ast_data*
+        // ast_data_ptr) -> aint { return ID_AST_OK; });
+        // ::vAstSetUdtCallback(ast, IMAP_PARSER_APG_IMPL_U_LITERAL_DATA, +[](ast_data*
+        // ast_data_ptr) -> aint { return ID_AST_OK; });
 
         for (auto rule : rules) {
             ::vAstSetRuleCallback(
                 ast, rule, +[](ast_data* ast_data_ptr) -> aint { return ID_AST_OK; });
         }
 
+        parser_user_data parsing_user_data;
+
         apg_parser_config.acpInput = input_text_data.data();
         apg_parser_config.uiInputLength = input_text_data.size();
         apg_parser_config.uiStartRule = starting_rule;
         apg_parser_config.bParseSubString = APG_FALSE;
         apg_parser_config.uiLookBehindLength = 0;
-        apg_parser_config.vpUserData =
-            NULL;  // not used for AST, instead passed to translate function
+        apg_parser_config.vpUserData = &parsing_user_data;
+        //            NULL;  // not used for AST, instead passed to translate function
 
         log_debug("invoking APG parser");
         ::vParserParse(parser, &apg_parser_config, &apg_parser_state);
@@ -336,6 +433,7 @@ std::error_code apg_invoke_parser__ast(
             size_t indent = 0;
             constexpr size_t INDENT_WIDTH = 4;
 
+            printf("calling ast cb");
             ast_cb(&(info.spRecords[0]), &(info.spRecords[info.uiRecordCount]));
             // for (auto r = info.spRecords; r != info.spRecords + info.uiRecordCount; ++r) {
             //     if (r->uiState == ID_AST_PRE) {
@@ -534,12 +632,12 @@ expected<std::vector<mailbox_data_t>> parse_mailbox_data_records(std::string_vie
 
     return parsed_records;
 }
-            // IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
-            // IMAP_PARSER_APG_IMPL_NZ_NUMBER,
-            // IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
-            // IMAP_PARSER_APG_IMPL_MSG_ATT,
-            // IMAP_PARSER_APG_IMPL_MSG_ATT_DYNAMIC,
-            // IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC,
+// IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
+// IMAP_PARSER_APG_IMPL_NZ_NUMBER,
+// IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
+// IMAP_PARSER_APG_IMPL_MSG_ATT,
+// IMAP_PARSER_APG_IMPL_MSG_ATT_DYNAMIC,
+// IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC,
 
 expected<message_data_t> parse_message_data(std::string_view input_text) {
     message_data_t result;
@@ -555,28 +653,22 @@ expected<message_data_t> parse_message_data(std::string_view input_text) {
     auto ec = apg_invoke_parser__ast(
         IMAP_PARSER_APG_IMPL_RESPONSE, input_text,
         {
-            //IMAP_PARSER_APG_IMPL_RESPONSE,
-            IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
-            IMAP_PARSER_APG_IMPL_NZ_NUMBER,
-            IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
-            IMAP_PARSER_APG_IMPL_MSG_ATT,
-            IMAP_PARSER_APG_IMPL_MSG_ATT_DYNAMIC,
-            IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC,
+            // IMAP_PARSER_APG_IMPL_RESPONSE,
+            IMAP_PARSER_APG_IMPL_MESSAGE_DATA, IMAP_PARSER_APG_IMPL_NZ_NUMBER,
+            IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA, IMAP_PARSER_APG_IMPL_MSG_ATT,
+            IMAP_PARSER_APG_IMPL_MSG_ATT_DYNAMIC, IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC,
             // IMAP_PARSER_APG_IMPL_ENVELOPE,
             // IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_INTERNALDATE,
             // IMAP_PARSER_APG_IMPL_DATE_TIME,
             // IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_RFC822_HEADER_TEXT,
             // IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_RFC822_SIZE,
             // IMAP_PARSER_APG_IMPL_NUMBER,
-            // IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_RFC822_BODY_STRUCTURE,
-            // IMAP_PARSER_APG_IMPL_BODY,
+            IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_RFC822_BODY_STRUCTURE, IMAP_PARSER_APG_IMPL_BODY,
             // IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_UID,
             // IMAP_PARSER_APG_IMPL_UNIQUEID,
         },
         // clang-format on
         [&](const ast_record* begin, const ast_record* end) {
-
-
             constexpr size_t INDENT_WIDTH = 4;
             size_t indent = 0;
             for (auto it = begin; it != end; ++it) {
@@ -603,6 +695,13 @@ expected<message_data_t> parse_message_data(std::string_view input_text) {
                                                 IMAP_PARSER_APG_IMPL_MSG_ATT,
                                                 IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC})) {
                         log_debug("static attribute: '{}'", match_text);
+                    } else if (current_path_is(
+                                   {IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
+                                    IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
+                                    IMAP_PARSER_APG_IMPL_MSG_ATT,
+                                    IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC,
+                                    IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_RFC822_BODY_STRUCTURE})) {
+                        log_debug("body structure static attribute: '{}'", match_text);
                     }
                 } else {
                     current_path.pop_back();
@@ -619,10 +718,9 @@ expected<message_data_t> parse_message_data(std::string_view input_text) {
 
             //         current_path.emplace_back(it->uiIndex);
 
-                    
-
             //         if (current_path_is(
-            //                 {IMAP_PARSER_APG_IMPL_MESSAGE_DATA, IMAP_PARSER_APG_IMPL_NZ_NUMBER})) {
+            //                 {IMAP_PARSER_APG_IMPL_MESSAGE_DATA, IMAP_PARSER_APG_IMPL_NZ_NUMBER}))
+            //                 {
             //             log_debug("number: {}", match_text);
             //         } else if (current_path_is({IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
             //                                     IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
@@ -695,6 +793,15 @@ expected<message_data_t> parse_message_data(std::string_view input_text) {
     return result;
 }
 
+void parse_lsem_body(std::string_view input_text) {
+    auto ec = apg_invoke_parser__ast(IMAP_PARSER_APG_IMPL_LSEM_BODY, input_text,
+                                     {IMAP_PARSER_APG_IMPL_LSEM_BODY},
+                                     // clang-format on
+                                     [&](const ast_record* begin, const ast_record* end) {
+                                         // ...
+                                     });
+}
+
 // expected<message_data_t> parse_message_data(std::string_view input_text) {
 //     message_data_t result;
 
@@ -726,7 +833,8 @@ expected<message_data_t> parse_message_data(std::string_view input_text) {
 //                     current_path.emplace_back(it->uiIndex);
 
 //                     if (current_path_is(
-//                             {IMAP_PARSER_APG_IMPL_MESSAGE_DATA, IMAP_PARSER_APG_IMPL_NZ_NUMBER})) {
+//                             {IMAP_PARSER_APG_IMPL_MESSAGE_DATA, IMAP_PARSER_APG_IMPL_NZ_NUMBER}))
+//                             {
 //                         log_debug("number: {}", match_text);
 //                     } else if (current_path_is({IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
 //                                                 IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
@@ -757,4 +865,3 @@ expected<message_data_t> parse_message_data(std::string_view input_text) {
 // }
 
 }  // namespace emailkit::imap_parser
-            
