@@ -159,14 +159,22 @@ TEST(imap_parser_test, parse_message_data_fetch_full_minimal_test) {
 }
 
 TEST(imap_parser_test, parse_message_data_fetch_full_test) {
- 
     // clang-format off
     const std::string fetch_full_result =
+        "* 3 FETCH (BODY ((\"TEXT\" \"PLAIN\" (\"CHARSET\" \"UTF-8\" \"DELSP\" \"yes\" \"FORMAT\" \"flowed\") NIL NIL \"BASE64\" 1316 27)(\"TEXT\" \"HTML\" (\"CHARSET\" \"UTF-8\") NIL NIL \"QUOTED-PRINTABLE\" 6485 130) \"ALTERNATIVE\") ENVELOPE (\"Sun, 06 Aug 2023 07:23:30 GMT\" \"=?UTF-8?B?0KHQv9C+0LLRltGJ0LXQvdC90Y8g0YHQuA==?= =?UTF-8?B?0YHRgtC10LzQuCDQsdC10LfQv9C10LrQuA==?=\" ((\"Google\" NIL \"no-reply\" \"accounts.google.com\")) ((\"Google\" NIL \"no-reply\" \"accounts.google.com\")) ((\"Google\" NIL \"no-reply\" \"accounts.google.com\")) ((NIL NIL \"liubomyr.semkiv.test2\" \"gmail.com\")) NIL NIL NIL \"<wMSYaDuR1oRwRZSYEu4Nxw@notifications.google.com>\") FLAGS (\\Seen) INTERNALDATE \"06-Aug-2023 07:23:31 +0000\" RFC822.SIZE 13756)\r\n"
+        "A4 OK Success\r\n";
+    // clang-format on
+    auto message_data_or_err = imap_parser::parse_message_data(fetch_full_result);
+    ASSERT_TRUE(message_data_or_err);
+}
 
+TEST(imap_parser_test, parse_message_data_fetch_full_multiline_test) {
+    // clang-format off
+    const std::string fetch_full_result =
+"* 1 FETCH (BODY ((\"TEXT\" \"PLAIN\" (\"CHARSET\" \"UTF-8\") NIL NIL \"7BIT\" 2 1)(\"TEXT\" \"HTML\" (\"CHARSET\" \"UTF-8\") NIL NIL \"7BIT\" 27 1) \"ALTERNATIVE\") ENVELOPE (\"Sat, 5 Aug 2023 14:53:18 +0300\" \"ping\" ((\"Liubomyr\" NIL \"liubomyr.semkiv.test\" \"gmail.com\")) ((\"Liubomyr\" NIL \"liubomyr.semkiv.test\" \"gmail.com\")) ((\"Liubomyr\" NIL \"liubomyr.semkiv.test\" \"gmail.com\")) ((NIL NIL \"liubomyr.semkiv.test2\" \"gmail.com\")) NIL NIL NIL \"<CA+n06nmeSAV4S3c5JLVJK2+j-bykMviYe91BpAERzbvLCbayDQ@mail.gmail.com>\") FLAGS (\\Seen) INTERNALDATE \"05-Aug-2023 11:53:31 +0000\" RFC822.SIZE 5152)\r\n"
+"* 2 FETCH (BODY ((\"TEXT\" \"PLAIN\" (\"CHARSET\" \"UTF-8\" \"DELSP\" \"yes\" \"FORMAT\" \"flowed\") NIL NIL \"BASE64\" 1316 27)(\"TEXT\" \"HTML\" (\"CHARSET\" \"UTF-8\") NIL NIL \"QUOTED-PRINTABLE\" 6485 130) \"ALTERNATIVE\") ENVELOPE (\"Sat, 05 Aug 2023 11:54:58 GMT\" \"=?UTF-8?B?0KHQv9C+0LLRltGJ0LXQvdC90Y8g0YHQuA==?= =?UTF-8?B?0YHRgtC10LzQuCDQsdC10LfQv9C10LrQuA==?=\" ((\"Google\" NIL \"no-reply\" \"accounts.google.com\")) ((\"Google\" NIL \"no-reply\" \"accounts.google.com\")) ((\"Google\" NIL \"no-reply\" \"accounts.google.com\")) ((NIL NIL \"liubomyr.semkiv.test2\" \"gmail.com\")) NIL NIL NIL \"<ouNKs_Oyk5g8HnHk9Dn-RQ@notifications.google.com>\") FLAGS (\\Seen) INTERNALDATE \"05-Aug-2023 11:54:59 +0000\" RFC822.SIZE 13754)\r\n"
 "* 3 FETCH (BODY ((\"TEXT\" \"PLAIN\" (\"CHARSET\" \"UTF-8\" \"DELSP\" \"yes\" \"FORMAT\" \"flowed\") NIL NIL \"BASE64\" 1316 27)(\"TEXT\" \"HTML\" (\"CHARSET\" \"UTF-8\") NIL NIL \"QUOTED-PRINTABLE\" 6485 130) \"ALTERNATIVE\") ENVELOPE (\"Sun, 06 Aug 2023 07:23:30 GMT\" \"=?UTF-8?B?0KHQv9C+0LLRltGJ0LXQvdC90Y8g0YHQuA==?= =?UTF-8?B?0YHRgtC10LzQuCDQsdC10LfQv9C10LrQuA==?=\" ((\"Google\" NIL \"no-reply\" \"accounts.google.com\")) ((\"Google\" NIL \"no-reply\" \"accounts.google.com\")) ((\"Google\" NIL \"no-reply\" \"accounts.google.com\")) ((NIL NIL \"liubomyr.semkiv.test2\" \"gmail.com\")) NIL NIL NIL \"<wMSYaDuR1oRwRZSYEu4Nxw@notifications.google.com>\") FLAGS (\\Seen) INTERNALDATE \"06-Aug-2023 07:23:31 +0000\" RFC822.SIZE 13756)\r\n"
 "A4 OK Success\r\n";
-
-
     // clang-format on
     auto message_data_or_err = imap_parser::parse_message_data(fetch_full_result);
     ASSERT_TRUE(message_data_or_err);

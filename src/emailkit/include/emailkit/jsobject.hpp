@@ -53,7 +53,7 @@ class jsobject {
     // TODO: can we look up map by string view.
     jsobject& operator[](std::string key) {
         if (!this->is_object()) {
-            log_warning("creating subobject {}", key);
+            log_debug("creating subobject {}", key);
             // turn itself into object.
             *this = make_obj();
             auto& this_as_obj = this->as_object();
@@ -71,8 +71,8 @@ class jsobject {
 
     const jsobject& operator[](std::string key) const {
         if (!this->is_object()) {
-            log_warning("(2)returning empty object address, it is: {}",
-                        (void*)(g_empty_object.get()));
+            log_debug("(2)returning empty object address, it is: {}",
+                      (void*)(g_empty_object.get()));
             return *g_empty_object;
         }
         auto& o = this->as_object();
@@ -80,7 +80,7 @@ class jsobject {
         if (auto it = o.find(key); it != o.end()) {
             return it->second;
         } else {
-            log_warning("returning empty object address, it is: {}", (void*)(g_empty_object.get()));
+            log_debug("returning empty object address, it is: {}", (void*)(g_empty_object.get()));
             return *g_empty_object;
         }
     }

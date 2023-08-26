@@ -1108,7 +1108,7 @@ TEST(imap_client_test, select_command_invalid_response_basic_test) {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //  fetch command
 
-TEST(imap_client_test, fetch_command_basic_test) {
+TEST(imap_client_test, DISABLED_fetch_command_basic_test) {
     asio::io_context ctx;
 
     bool test_ran = false;

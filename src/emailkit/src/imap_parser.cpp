@@ -38,7 +38,6 @@ struct rule_and_callback {
     fu2::function_view<void(std::string_view)> cb_ref;  // non-owning callback
 };
 
-
 struct ast_parse_invoke_user_data_t {
     std::optional<uint32_t> literal_size_opt;
 };
@@ -123,7 +122,6 @@ auto udt_literal_data_callback(callback_data* spData) -> void {
     spData->uiCallbackPhraseLength = literal_size_bytes;
 }
 
-
 void apg_invoke_parser(uint32_t starting_rule,
                        std::string_view input_text,
                        std::initializer_list<rule_and_callback> cbs) {
@@ -171,7 +169,6 @@ void apg_invoke_parser(uint32_t starting_rule,
                                 &udt_literal_size_callback);
         ::vParserSetUdtCallback(parser, IMAP_PARSER_APG_IMPL_U_LITERAL_DATA,
                                 &udt_literal_data_callback);
-
 
         // Set single callback for each rule and use context for routing to user-defined callbacks.
         for (auto& [rule, callback_ref] : cbs) {
