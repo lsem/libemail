@@ -38,6 +38,92 @@ struct rule_and_callback {
     fu2::function_view<void(std::string_view)> cb_ref;  // non-owning callback
 };
 
+
+struct ast_parse_invoke_user_data_t {
+    std::optional<uint32_t> literal_size_opt;
+};
+
+auto udt_literal_size_callback(callback_data* spData) -> void {
+    const achar* begin = &spData->acpString[spData->uiParserOffset];
+    const achar* end = spData->acpString + spData->uiStringLength;
+
+    auto* user_data_ptr = reinterpret_cast<ast_parse_invoke_user_data_t*>(spData->vpUserData);
+    if (!user_data_ptr) {
+        log_error("logic error, no user data");
+        return;
+    }
+
+    if (user_data_ptr->literal_size_opt.has_value()) {
+        log_warning("overwriting previous literal size with new one");
+    }
+
+    spData->uiCallbackState = ID_NOMATCH;
+    spData->uiCallbackPhraseLength = 0;
+
+    const achar* curr = begin;
+    uint32_t value = 0;
+    while (curr != end && ::isdigit(*curr)) {
+        value = value * 10 + (*curr - '0');
+        ++curr;
+    }
+
+    if (curr != begin) {
+        // have a match
+        spData->uiCallbackState = ID_MATCH;
+        // of length
+        spData->uiCallbackPhraseLength = curr - begin;
+        log_debug("matched '{}', value is: {}", std::string{begin, curr}, value);
+        user_data_ptr->literal_size_opt = value;
+    }
+}
+
+auto udt_literal_data_callback(callback_data* spData) -> void {
+    const achar* begin = &spData->acpString[spData->uiParserOffset];
+    const achar* end = spData->acpString + spData->uiStringLength;
+
+    spData->uiCallbackState = ID_NOMATCH;
+    spData->uiCallbackPhraseLength = 0;
+
+    auto* user_data_ptr = reinterpret_cast<ast_parse_invoke_user_data_t*>(spData->vpUserData);
+    if (!user_data_ptr) {
+        log_error("logic error, no user data");
+        return;
+    }
+    if (!user_data_ptr->literal_size_opt.has_value()) {
+        log_warning("attmept to match data without data size hit");
+        return;
+    }
+
+    log_debug("have pending data size: {}", user_data_ptr->literal_size_opt.value_or(0));
+
+    // log_debug("matching '{}' against u_literal-data UDT", std::string{begin, end});
+    const size_t literal_size_bytes = user_data_ptr->literal_size_opt.value_or(0);
+    if ((end - begin) < literal_size_bytes) {
+        log_error("not enough data bytes, literal size is {} while available only {} bytes",
+                  literal_size_bytes, end - begin);
+        return;
+    }
+    // TODO: we still need to validate that data is OK and has no zero but it can
+    // possibly be relaxed to speed up things if needed.
+    if (!std::all_of(begin, begin + literal_size_bytes, [](unsigned char c) {
+            return c >= 0x01 && c <= 0xff;  // see CHAR8 rule.
+        })) {
+        log_error("not all bytes are correct");
+        return;
+    }
+
+    // note, since we matched CHAR8 we most probably consumed everything until the end
+    // of input allready. This is exactly the original problem with greedy matching and
+    // greedy rule.
+
+    log_debug("have match of size {}: '{}'", literal_size_bytes,
+              std::string{begin, begin + literal_size_bytes});
+
+    spData->uiCallbackState = ID_MATCH;
+    spData->uiCallbackPhraseLength = literal_size_bytes;
+}
+
+
 void apg_invoke_parser(uint32_t starting_rule,
                        std::string_view input_text,
                        std::initializer_list<rule_and_callback> cbs) {
@@ -80,6 +166,12 @@ void apg_invoke_parser(uint32_t starting_rule,
             vpTrace = vpTraceCtor(parser);
             vTraceConfigGen(vpTrace, NULL);
         }
+
+        ::vParserSetUdtCallback(parser, IMAP_PARSER_APG_IMPL_U_LITERAL_SIZE,
+                                &udt_literal_size_callback);
+        ::vParserSetUdtCallback(parser, IMAP_PARSER_APG_IMPL_U_LITERAL_DATA,
+                                &udt_literal_data_callback);
+
 
         // Set single callback for each rule and use context for routing to user-defined callbacks.
         for (auto& [rule, callback_ref] : cbs) {
@@ -298,109 +390,17 @@ std::error_code apg_invoke_parser__ast(
         ast = ::vpAstCtor(parser);
         log_debug("constructing APG AST object -- done");
 
-        struct parser_user_data {
-            std::optional<uint32_t> literal_size_opt;
-        };
-
-        // u_literal-size rule
-        ::vParserSetUdtCallback(
-            parser, IMAP_PARSER_APG_IMPL_U_LITERAL_SIZE, +[](callback_data* spData) -> void {
-                const achar* begin = &spData->acpString[spData->uiParserOffset];
-                const achar* end = spData->acpString + spData->uiStringLength;
-
-                auto* user_data_ptr = reinterpret_cast<parser_user_data*>(spData->vpUserData);
-                if (!user_data_ptr) {
-                    log_error("logic error, no user data");
-                    return;
-                }
-
-                if (user_data_ptr->literal_size_opt.has_value()) {
-                    log_warning("overwriting previous literal size with new one");
-                }
-
-                spData->uiCallbackState = ID_NOMATCH;
-                spData->uiCallbackPhraseLength = 0;
-
-                const achar* curr = begin;
-                uint32_t value = 0;
-                while (curr != end && ::isdigit(*curr)) {
-                    value = value * 10 + (*curr - '0');
-                    ++curr;
-                }
-
-                if (curr != begin) {
-                    // have a match
-                    spData->uiCallbackState = ID_MATCH;
-                    // of length
-                    spData->uiCallbackPhraseLength = curr - begin;
-                    log_debug("matched '{}', value is: {}", std::string{begin, curr}, value);
-                    user_data_ptr->literal_size_opt = value;
-                }
-            });
-        // u_literal-data rule
-        ::vParserSetUdtCallback(
-            parser, IMAP_PARSER_APG_IMPL_U_LITERAL_DATA, +[](callback_data* spData) -> void {
-                const achar* begin = &spData->acpString[spData->uiParserOffset];
-                const achar* end = spData->acpString + spData->uiStringLength;
-
-                spData->uiCallbackState = ID_NOMATCH;
-                spData->uiCallbackPhraseLength = 0;
-
-                auto* user_data_ptr = reinterpret_cast<parser_user_data*>(spData->vpUserData);
-                if (!user_data_ptr) {
-                    log_error("logic error, no user data");
-                    return;
-                }
-                if (!user_data_ptr->literal_size_opt.has_value()) {
-                    log_warning("attmept to match data without data size hit");
-                    return;
-                }
-
-                log_debug("have pending data size: {}",
-                          user_data_ptr->literal_size_opt.value_or(0));
-
-                // log_debug("matching '{}' against u_literal-data UDT", std::string{begin, end});
-                const size_t literal_size_bytes = user_data_ptr->literal_size_opt.value_or(0);
-                if ((end - begin) < literal_size_bytes) {
-                    log_error(
-                        "not enough data bytes, literal size is {} while available only {} bytes",
-                        literal_size_bytes, end - begin);
-                    return;
-                }
-                // TODO: we still need to validate that data is OK and has no zero but it can
-                // possibly be relaxed to speed up things if needed.
-                if (!std::all_of(begin, begin + literal_size_bytes, [](unsigned char c) {
-                        return c >= 0x01 && c <= 0xff;  // see CHAR8 rule.
-                    })) {
-                    log_error("not all bytes are correct");
-                    return;
-                }
-
-                // note, since we matched CHAR8 we most probably consumed everything until the end
-                // of input allready. This is exactly the original problem with greedy matching and
-                // greedy rule.
-
-                log_debug("have match of size {}: '{}'", literal_size_bytes,
-                          std::string{begin, begin + literal_size_bytes});
-
-                spData->uiCallbackState = ID_MATCH;
-                spData->uiCallbackPhraseLength = literal_size_bytes;
-            });
-        // //::vAstSetUdtCallback(ast, IMAP_PARSER_APG_IMPL_U_LITERAL_DATA, +[](callback_data*
-        // spData)
-        //-> aint { return ID_AST_OK; });
-
-        // ::vAstSetUdtCallback(ast, IMAP_PARSER_APG_IMPL_U_LITERAL_SIZE, +[](ast_data*
-        // ast_data_ptr) -> aint { return ID_AST_OK; });
-        // ::vAstSetUdtCallback(ast, IMAP_PARSER_APG_IMPL_U_LITERAL_DATA, +[](ast_data*
-        // ast_data_ptr) -> aint { return ID_AST_OK; });
+        ::vParserSetUdtCallback(parser, IMAP_PARSER_APG_IMPL_U_LITERAL_SIZE,
+                                &udt_literal_size_callback);
+        ::vParserSetUdtCallback(parser, IMAP_PARSER_APG_IMPL_U_LITERAL_DATA,
+                                &udt_literal_data_callback);
 
         for (auto rule : rules) {
             ::vAstSetRuleCallback(
                 ast, rule, +[](ast_data* ast_data_ptr) -> aint { return ID_AST_OK; });
         }
 
-        parser_user_data parsing_user_data;
+        ast_parse_invoke_user_data_t parsing_user_data;
 
         apg_parser_config.acpInput = input_text_data.data();
         apg_parser_config.uiInputLength = input_text_data.size();
@@ -791,15 +791,6 @@ expected<message_data_t> parse_message_data(std::string_view input_text) {
     }
 
     return result;
-}
-
-void parse_lsem_body(std::string_view input_text) {
-    auto ec = apg_invoke_parser__ast(IMAP_PARSER_APG_IMPL_LSEM_BODY, input_text,
-                                     {IMAP_PARSER_APG_IMPL_LSEM_BODY},
-                                     // clang-format on
-                                     [&](const ast_record* begin, const ast_record* end) {
-                                         // ...
-                                     });
 }
 
 // expected<message_data_t> parse_message_data(std::string_view input_text) {

@@ -216,6 +216,7 @@ TEST(imap_parser_test, parse_message_data_fetch_rfc822__smaller_size) {
     auto message_data_or_err = imap_parser::parse_message_data(fetch_rfc822_result);
     ASSERT_FALSE(message_data_or_err);
 }
+
 TEST(imap_parser_test, parse_message_data_fetch_rfc822__zero_size) {
     // clang-format off
     const std::string fetch_rfc822_result =
