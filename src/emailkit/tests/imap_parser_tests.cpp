@@ -133,7 +133,27 @@ TEST(imap_parser_test, DISABLED_uid_validity_isolated__zero_number) {
     ASSERT_FALSE(records_or_err);
 }
 
-TEST(imap_parser_test, parse_message_data_fetch_fast_test) {
+TEST(imap_parser_test, parse_message_data_records_envelope_multiple) {
+    // response for "FETCH 1:3(ENVELOPE)"
+    // clang-format off
+    const std::string response = 
+        "* 1 FETCH (ENVELOPE (\"Sat, 5 Aug 2023 14:53:18 +0300\" \"ping\" ((\"Liubomyr\" NIL \"liubomyr.semkiv.test\" \"gmail.com\")) ((\"Liubomyr\" NIL \"liubomyr.semkiv.test\" \"gmail.com\")) ((\"Liubomyr\" NIL \"liubomyr.semkiv.test\" \"gmail.com\")) ((NIL NIL \"liubomyr.semkiv.test2\" \"gmail.com\")) NIL NIL NIL \"<CA+n06nmeSAV4S3c5JLVJK2+j-bykMviYe91BpAERzbvLCbayDQ@mail.gmail.com>\"))\r\n"
+        "* 2 FETCH (ENVELOPE (\"Sat, 05 Aug 2023 11:54:58 GMT\" \"=?UTF-8?B?0KHQv9C+0LLRltGJ0LXQvdC90Y8g0YHQuA==?= =?UTF-8?B?0YHRgtC10LzQuCDQsdC10LfQv9C10LrQuA==?=\" ((\"Google\" NIL \"no-reply\" \"accounts.google.com\")) ((\"Google\" NIL \"no-reply\" \"accounts.google.com\")) ((\"Google\" NIL \"no-reply\" \"accounts.google.com\")) ((NIL NIL \"liubomyr.semkiv.test2\" \"gmail.com\")) NIL NIL NIL \"<ouNKs_Oyk5g8HnHk9Dn-RQ@notifications.google.com>\"))\r\n"
+        "* 3 FETCH (ENVELOPE (\"Sun, 06 Aug 2023 07:23:30 GMT\" \"=?UTF-8?B?0KHQv9C+0LLRltGJ0LXQvdC90Y8g0YHQuA==?= =?UTF-8?B?0YHRgtC10LzQuCDQsdC10LfQv9C10LrQuA==?=\" ((\"Google\" NIL \"no-reply\" \"accounts.google.com\")) ((\"Google\" NIL \"no-reply\" \"accounts.google.com\")) ((\"Google\" NIL \"no-reply\" \"accounts.google.com\")) ((NIL NIL \"liubomyr.semkiv.test2\" \"gmail.com\")) NIL NIL NIL \"<wMSYaDuR1oRwRZSYEu4Nxw@notifications.google.com>\"))\r\n"
+        "A4 OK Success\r\n";
+    // clang-format on
+
+    auto message_data_records_or_err = imap_parser::parse_message_data_records(response);
+    ASSERT_TRUE(message_data_records_or_err);
+    auto& message_data_records = *message_data_records_or_err;
+
+    ASSERT_EQ(message_data_records.size(), 3);
+    EXPECT_EQ(message_data_records[0].message_number, 1);
+    EXPECT_EQ(message_data_records[1].message_number, 2);
+    EXPECT_EQ(message_data_records[2].message_number, 3);
+}
+
+TEST(imap_parser_test, parse_message_data_records_fetch_fast_test) {
     // clang-format off
     const std::string fetch_fast_result =
         "* 1 FETCH (FLAGS (\\Seen) INTERNALDATE \"05-Aug-2023 11:53:31 +0000\" RFC822.SIZE 5152)\r\n"
@@ -141,34 +161,34 @@ TEST(imap_parser_test, parse_message_data_fetch_fast_test) {
         "* 3 FETCH (FLAGS (\\Seen) INTERNALDATE \"06-Aug-2023 07:23:31 +0000\" RFC822.SIZE 13756)\r\n"
         "A4 OK Success\r\n";
     // clang-format on
-    auto message_data_or_err = imap_parser::parse_message_data(fetch_fast_result);
+    auto message_data_or_err = imap_parser::parse_message_data_records(fetch_fast_result);
     ASSERT_TRUE(message_data_or_err);
 }
 
 // TODO: test for multiple full recorords.
 
-TEST(imap_parser_test, parse_message_data_fetch_full_minimal_test) {
+TEST(imap_parser_test, parse_message_data_records_fetch_full_minimal_test) {
     // clang-format off
     const std::string fetch_full_result =
         "* 1 FETCH (BODY ((\"TEXT\" \"PLAIN\" (\"CHARSET\" \"UTF-8\") NIL NIL \"7BIT\" 2 1)(\"TEXT\" \"HTML\" (\"CHARSET\" \"UTF-8\") NIL NIL \"7BIT\" 27 1) \"ALTERNATIVE\") ENVELOPE (\"Sat, 5 Aug 2023 14:53:18 +0300\" \"ping\" ((\"Liubomyr\" NIL \"liubomyr.semkiv.test\" \"gmail.com\")) ((\"Liubomyr\" NIL \"liubomyr.semkiv.test\" \"gmail.com\")) ((\"Liubomyr\" NIL \"liubomyr.semkiv.test\" \"gmail.com\")) ((NIL NIL \"liubomyr.semkiv.test2\" \"gmail.com\")) NIL NIL NIL \"<CA+n06nmeSAV4S3c5JLVJK2+j-bykMviYe91BpAERzbvLCbayDQ@mail.gmail.com>\") FLAGS (\\Seen) INTERNALDATE \"05-Aug-2023 11:53:31 +0000\" RFC822.SIZE 5152)\r\n"
         "A4 OK Success\r\n";
 
     // clang-format on
-    auto message_data_or_err = imap_parser::parse_message_data(fetch_full_result);
+    auto message_data_or_err = imap_parser::parse_message_data_records(fetch_full_result);
     ASSERT_TRUE(message_data_or_err);
 }
 
-TEST(imap_parser_test, parse_message_data_fetch_full_test) {
+TEST(imap_parser_test, parse_message_data_records_fetch_full_test) {
     // clang-format off
     const std::string fetch_full_result =
         "* 3 FETCH (BODY ((\"TEXT\" \"PLAIN\" (\"CHARSET\" \"UTF-8\" \"DELSP\" \"yes\" \"FORMAT\" \"flowed\") NIL NIL \"BASE64\" 1316 27)(\"TEXT\" \"HTML\" (\"CHARSET\" \"UTF-8\") NIL NIL \"QUOTED-PRINTABLE\" 6485 130) \"ALTERNATIVE\") ENVELOPE (\"Sun, 06 Aug 2023 07:23:30 GMT\" \"=?UTF-8?B?0KHQv9C+0LLRltGJ0LXQvdC90Y8g0YHQuA==?= =?UTF-8?B?0YHRgtC10LzQuCDQsdC10LfQv9C10LrQuA==?=\" ((\"Google\" NIL \"no-reply\" \"accounts.google.com\")) ((\"Google\" NIL \"no-reply\" \"accounts.google.com\")) ((\"Google\" NIL \"no-reply\" \"accounts.google.com\")) ((NIL NIL \"liubomyr.semkiv.test2\" \"gmail.com\")) NIL NIL NIL \"<wMSYaDuR1oRwRZSYEu4Nxw@notifications.google.com>\") FLAGS (\\Seen) INTERNALDATE \"06-Aug-2023 07:23:31 +0000\" RFC822.SIZE 13756)\r\n"
         "A4 OK Success\r\n";
     // clang-format on
-    auto message_data_or_err = imap_parser::parse_message_data(fetch_full_result);
+    auto message_data_or_err = imap_parser::parse_message_data_records(fetch_full_result);
     ASSERT_TRUE(message_data_or_err);
 }
 
-TEST(imap_parser_test, parse_message_data_fetch_full_multiline_test) {
+TEST(imap_parser_test, parse_message_data_records_fetch_full_multiline_test) {
     // clang-format off
     const std::string fetch_full_result =
 "* 1 FETCH (BODY ((\"TEXT\" \"PLAIN\" (\"CHARSET\" \"UTF-8\") NIL NIL \"7BIT\" 2 1)(\"TEXT\" \"HTML\" (\"CHARSET\" \"UTF-8\") NIL NIL \"7BIT\" 27 1) \"ALTERNATIVE\") ENVELOPE (\"Sat, 5 Aug 2023 14:53:18 +0300\" \"ping\" ((\"Liubomyr\" NIL \"liubomyr.semkiv.test\" \"gmail.com\")) ((\"Liubomyr\" NIL \"liubomyr.semkiv.test\" \"gmail.com\")) ((\"Liubomyr\" NIL \"liubomyr.semkiv.test\" \"gmail.com\")) ((NIL NIL \"liubomyr.semkiv.test2\" \"gmail.com\")) NIL NIL NIL \"<CA+n06nmeSAV4S3c5JLVJK2+j-bykMviYe91BpAERzbvLCbayDQ@mail.gmail.com>\") FLAGS (\\Seen) INTERNALDATE \"05-Aug-2023 11:53:31 +0000\" RFC822.SIZE 5152)\r\n"
@@ -176,62 +196,62 @@ TEST(imap_parser_test, parse_message_data_fetch_full_multiline_test) {
 "* 3 FETCH (BODY ((\"TEXT\" \"PLAIN\" (\"CHARSET\" \"UTF-8\" \"DELSP\" \"yes\" \"FORMAT\" \"flowed\") NIL NIL \"BASE64\" 1316 27)(\"TEXT\" \"HTML\" (\"CHARSET\" \"UTF-8\") NIL NIL \"QUOTED-PRINTABLE\" 6485 130) \"ALTERNATIVE\") ENVELOPE (\"Sun, 06 Aug 2023 07:23:30 GMT\" \"=?UTF-8?B?0KHQv9C+0LLRltGJ0LXQvdC90Y8g0YHQuA==?= =?UTF-8?B?0YHRgtC10LzQuCDQsdC10LfQv9C10LrQuA==?=\" ((\"Google\" NIL \"no-reply\" \"accounts.google.com\")) ((\"Google\" NIL \"no-reply\" \"accounts.google.com\")) ((\"Google\" NIL \"no-reply\" \"accounts.google.com\")) ((NIL NIL \"liubomyr.semkiv.test2\" \"gmail.com\")) NIL NIL NIL \"<wMSYaDuR1oRwRZSYEu4Nxw@notifications.google.com>\") FLAGS (\\Seen) INTERNALDATE \"06-Aug-2023 07:23:31 +0000\" RFC822.SIZE 13756)\r\n"
 "A4 OK Success\r\n";
     // clang-format on
-    auto message_data_or_err = imap_parser::parse_message_data(fetch_full_result);
+    auto message_data_or_err = imap_parser::parse_message_data_records(fetch_full_result);
     ASSERT_TRUE(message_data_or_err);
 }
 
 // TODO: test for multiple rfc822 recorords.
-TEST(imap_parser_test, parse_message_data_fetch_rfc822) {
+TEST(imap_parser_test, parse_message_data_records_fetch_rfc822) {
     // clang-format off
     const std::string fetch_rfc822_result =
         "* 1 FETCH (RFC822 {4}\r\ntest)\r\n"
         "A4 OK Success\r\n";
 
     // clang-format on
-    auto message_data_or_err = imap_parser::parse_message_data(fetch_rfc822_result);
+    auto message_data_or_err = imap_parser::parse_message_data_records(fetch_rfc822_result);
     ASSERT_TRUE(message_data_or_err);
 }
 
-TEST(imap_parser_test, parse_message_data_fetch_rfc822__correct_size) {
+TEST(imap_parser_test, parse_message_data_records_fetch_rfc822__correct_size) {
     // clang-format off
     const std::string fetch_rfc822_result =
         "* 1 FETCH (RFC822 {4}\r\n1234)\r\n"
         "A4 OK Success\r\n";
 
     // clang-format on
-    auto message_data_or_err = imap_parser::parse_message_data(fetch_rfc822_result);
+    auto message_data_or_err = imap_parser::parse_message_data_records(fetch_rfc822_result);
     ASSERT_TRUE(message_data_or_err);
 }
 
-TEST(imap_parser_test, parse_message_data_fetch_rfc822__bigger_size) {
+TEST(imap_parser_test, parse_message_data_records_fetch_rfc822__bigger_size) {
     // clang-format off
     const std::string fetch_rfc822_result =
         "* 1 FETCH (RFC822 {4}\r\n12345)\r\n"
         "A4 OK Success\r\n";
 
     // clang-format on
-    auto message_data_or_err = imap_parser::parse_message_data(fetch_rfc822_result);
+    auto message_data_or_err = imap_parser::parse_message_data_records(fetch_rfc822_result);
     ASSERT_FALSE(message_data_or_err);
 }
 
-TEST(imap_parser_test, parse_message_data_fetch_rfc822__smaller_size) {
+TEST(imap_parser_test, parse_message_data_records_fetch_rfc822__smaller_size) {
     // clang-format off
     const std::string fetch_rfc822_result =
         "* 1 FETCH (RFC822 {4}\r\n123)\r\n"
         "A4 OK Success\r\n";
 
     // clang-format on
-    auto message_data_or_err = imap_parser::parse_message_data(fetch_rfc822_result);
+    auto message_data_or_err = imap_parser::parse_message_data_records(fetch_rfc822_result);
     ASSERT_FALSE(message_data_or_err);
 }
 
-TEST(imap_parser_test, parse_message_data_fetch_rfc822__zero_size) {
+TEST(imap_parser_test, parse_message_data_records_fetch_rfc822__zero_size) {
     // clang-format off
     const std::string fetch_rfc822_result =
         "* 1 FETCH (RFC822 {0}\r\n)\r\n"
         "A4 OK Success\r\n";
 
     // clang-format on
-    auto message_data_or_err = imap_parser::parse_message_data(fetch_rfc822_result);
+    auto message_data_or_err = imap_parser::parse_message_data_records(fetch_rfc822_result);
     ASSERT_TRUE(message_data_or_err);
 }

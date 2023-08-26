@@ -29,7 +29,9 @@ std::string encode_cmd(const fetch_t& cmd) {
                                         return "<INVALID>";
                                 }
                             },
-                            [&](const std::vector<std::string>& attrs) { return ""s; }},
+                            [&](const std::vector<std::string>& attrs) {
+                                return fmt::format("({})", fmt::join(attrs, " "));
+                            }},
                    cmd.data_item_names_or_macro);
 
     return fmt::format("fetch {} {}", cmd.sequence_set, second_arg);
@@ -487,25 +489,25 @@ class imap_client_impl_t : public imap_client_t {
 
     virtual void async_execute_command(imap_commands::fetch_t cmd,
                                        async_callback<types::fetch_response_t> cb) override {
-        async_execute_raw_command(
-            encode_cmd(cmd),
-            [cb = std::move(cb)](std::error_code ec, std::string imap_resp) mutable {
-                if (ec) {
-                    log_error("async_execute_simple_command failed: {}", ec);
-                    cb(ec, {});
-                    return;
-                }
+        async_execute_raw_command(encode_cmd(cmd), [cb = std::move(cb)](
+                                                       std::error_code ec,
+                                                       std::string imap_resp) mutable {
+            if (ec) {
+                log_error("async_execute_simple_command failed: {}", ec);
+                cb(ec, {});
+                return;
+            }
 
-                auto message_data_or_err = imap_parser::parse_message_data(imap_resp);
-                if (!message_data_or_err) {
-                    log_error("failed parsing message data: {}", message_data_or_err.error());
-                    return;
-                }
+            auto message_data_records_or_err = imap_parser::parse_message_data_records(imap_resp);
+            if (!message_data_records_or_err) {
+                log_error("failed parsing message data: {}", message_data_records_or_err.error());
+                return;
+            }
 
-                log_warning("PARSING SUCCESSFUL!");
+            log_warning("PARSING SUCCESSFUL!");
 
-                cb({}, {});
-            });
+            cb({}, {});
+        });
     }
 
     // read input line by line until tagged line received. Returns raw, unparsed bytes.

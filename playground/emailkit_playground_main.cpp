@@ -60,8 +60,8 @@ void gmail_fetch_some_messages(imap_client::imap_client_t& client) {
                         client.async_execute_command(
                             imap_client::imap_commands::fetch_t{
                                 .sequence_set = "1:3",
-                                .data_item_names_or_macro =
-                                    imap_client::imap_commands::fetch_macro::full},
+                                .data_item_names_or_macro = std::vector<std::string>(
+                                    {/*"FLAGS", "INTERNALDATE", "RFC822.SIZE",*/ "ENVELOPE"})},
                             [&](std::error_code ec, imap_client::types::fetch_response_t r) {
                                 if (ec) {
                                     log_error("fetch command failed: {}", ec);
@@ -283,53 +283,50 @@ void imap_parsing_test() {
     }
 }
 
-static GMimeMessage *
-parse_message (int fd)
-{
-	GMimeMessage *message;
-	GMimeParser *parser;
-	GMimeStream *stream;
-	
-    log_debug("creating the stream");
-	/* create a stream to read from the file descriptor */
-	stream = g_mime_stream_fs_new (fd);
-	
-	log_debug("creating the parser");
-    /* create a new parser object to parse the stream */
-	parser = g_mime_parser_new_with_stream (stream);
-	
-	log_debug("unreading the stream");
-    /* unref the stream (parser owns a ref, so this object does not actually get free'd until we destroy the parser) */
-	g_object_unref (stream);
-	
-	log_debug("parsing message");
-    /* parse the message from the stream */
-	message = g_mime_parser_construct_message (parser, NULL);
-	
-	log_debug("unrefing parser and tream");
-    /* free the parser (and the stream) */
-	//g_object_unref (parser);
-	
-	return message;
-}
+static GMimeMessage* parse_message(int fd) {
+    GMimeMessage* message;
+    GMimeParser* parser;
+    GMimeStream* stream;
 
+    log_debug("creating the stream");
+    /* create a stream to read from the file descriptor */
+    stream = g_mime_stream_fs_new(fd);
+
+    log_debug("creating the parser");
+    /* create a new parser object to parse the stream */
+    parser = g_mime_parser_new_with_stream(stream);
+
+    log_debug("unreading the stream");
+    /* unref the stream (parser owns a ref, so this object does not actually get free'd until we
+     * destroy the parser) */
+    g_object_unref(stream);
+
+    log_debug("parsing message");
+    /* parse the message from the stream */
+    message = g_mime_parser_construct_message(parser, NULL);
+
+    log_debug("unrefing parser and tream");
+    /* free the parser (and the stream) */
+    // g_object_unref (parser);
+
+    return message;
+}
 
 int main() {
     // int fd;
-	// if ((fd = open ("google-fetch-response.txt", O_RDONLY, 0)) == -1) {
-	// 	fprintf (stderr, "Cannot open message `%s': %s\n", "google-fetch-response.txt", g_strerror (errno));
-	// 	return 0;
-	// }
+    // if ((fd = open ("google-fetch-response.txt", O_RDONLY, 0)) == -1) {
+    // 	fprintf (stderr, "Cannot open message `%s': %s\n", "google-fetch-response.txt", g_strerror
+    // (errno)); 	return 0;
+    // }
 
     // g_mime_init ();
     // auto message = parse_message (fd);
-	// if (message == NULL) {
-	// 	printf ("Error parsing message\n");
-	// 	return 1;
-	// }
+    // if (message == NULL) {
+    // 	printf ("Error parsing message\n");
+    // 	return 1;
+    // }
 
-
-     gmail_auth_test();
+    gmail_auth_test();
     // imap_parsing_test();
     // parsing_list_flags_test();
 }

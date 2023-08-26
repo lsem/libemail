@@ -216,12 +216,12 @@ msg-att         = "(" (msg-att-dynamic / msg-att-static)
                    *(SP (msg-att-dynamic / msg-att-static)) ")"
 msg-att-dynamic = "FLAGS" SP "(" [flag-fetch *(SP flag-fetch)] ")" ; MAY change for a message
 msg-att-static-envelope = "ENVELOPE" SP envelope
-msg-att-static-internaldate = "INTERNALDATE" SP date-time
-msg-att-static-rfc822 = "RFC822" [".HEADER" / ".TEXT"] SP nstring
-msg-att-static-rfc822-size = "RFC822.SIZE" SP number
 msg-att-static-uid = "UID" SP uniqueid
+msg-att-static-internaldate = "INTERNALDATE" SP date-time
 msg-att-static-body-structure = "BODY" ["STRUCTURE"] SP body
 msg-att-static-body-section = "BODY" section ["<" number ">"] SP nstring
+msg-att-static-rfc822 = "RFC822" [".HEADER" / ".TEXT"] SP nstring
+msg-att-static-rfc822-size = "RFC822.SIZE" SP number
 msg-att-static  = msg-att-static-envelope /
                   msg-att-static-uid /
                   msg-att-static-internaldate /
