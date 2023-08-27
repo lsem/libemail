@@ -109,9 +109,11 @@ class imap_client_impl_t : public imap_socket_t, std::enable_shared_from_this<im
                     std::ofstream fs{"imap_socket_dump.bin", std::ios_base::out |
                                                                  std::ios_base::app |
                                                                  std::ios_base::binary};
-                    fs.write(data_ptr, bytes_transferred);
-                    if (!fs.good()) {
-                        log_warning("dump failed");
+                    m_protocol_log_fs << "S: ";
+                    m_protocol_log_fs.write(data_ptr, bytes_transferred);
+                    if (!m_protocol_log_fs.good()) {
+                        auto err = errno;
+                        log_warning("write to protocol log failed: {}", strerror(err));
                     }
                 }
 #endif
@@ -158,12 +160,13 @@ class imap_client_impl_t : public imap_socket_t, std::enable_shared_from_this<im
 
 #ifndef NDEBUG
                 if (m_opt_dump_stream_to_file) {
-                    std::ofstream fs{"imap_socket_dump.bin", std::ios_base::out |
-                                                                 std::ios_base::app |
-                                                                 std::ios_base::binary};
-                    fs.write(data_ptr, bytes_transferred);
-                    if (!fs.good()) {
-                        log_warning("dump failed");
+                    // TODO: seems like we should not expect that write will happen by entire
+                    // portion.
+                    m_protocol_log_fs << "S: ";
+                    m_protocol_log_fs.write(data_ptr, bytes_transferred);
+                    if (!m_protocol_log_fs.good()) {
+                        auto err = errno;
+                        log_warning("write to protocol log failed: {}", strerror(err));
                     }
                 }
 #endif
@@ -190,20 +193,48 @@ class imap_client_impl_t : public imap_socket_t, std::enable_shared_from_this<im
 
         log_debug("sending command '{}'", utils::escape_ctrl(command));
 
-        asio::async_write(m_socket, asio::buffer(command),
-                          [cb = std::move(cb)](std::error_code ec, size_t bytes_written) mutable {
-                              if (ec) {
-                                  log_error("async_write failed: {}", ec.message());
-                                  cb(make_error_code(std::errc::not_connected));
-                                  return;
-                              }
+        asio::async_write(
+            m_socket, asio::buffer(command),
+            [this, cb = std::move(cb), command](std::error_code ec, size_t bytes_written) mutable {
+                if (ec) {
+                    log_error("async_write failed: {}", ec.message());
+                    cb(make_error_code(std::errc::not_connected));
+                    return;
+                }
 
-                              cb({});
-                          });
+#ifndef NDEBUG
+                if (m_opt_dump_stream_to_file) {
+                    // TODO: seems like we should not expect that write will happen by
+                    // entire portion.
+                    m_protocol_log_fs << "C: " << command;
+                    if (!m_protocol_log_fs.good()) {
+                        auto err = errno;
+                        log_warning("write to protocol log failed: {}", strerror(err));
+                    }
+                }
+#endif
+
+                cb({});
+            });
     }
 
     virtual void set_option(imap_socket_opts::dump_stream_to_file) override {
         m_opt_dump_stream_to_file = true;
+    }
+
+    bool initialize(bool dump_stream_to_file) {
+        if (dump_stream_to_file) {
+            m_protocol_log_fs =
+                std::ofstream{"imap_socket_dump.bin",
+                              std::ios_base::out | std::ios_base::app | std::ios_base::binary};
+            if (!m_protocol_log_fs) {
+                auto err = errno;
+                log_error("failed opening protocol log file: {}", ::strerror(err));
+                // TODO: allow to override with env variable/library opt and make this optional.
+                return false;
+            }
+        }
+        return true;
     }
 
    private:
@@ -213,12 +244,19 @@ class imap_client_impl_t : public imap_socket_t, std::enable_shared_from_this<im
     bool m_connected = false;
     asio::streambuf m_recv_buff;
     bool m_opt_dump_stream_to_file = false;
+    std::ofstream m_protocol_log_fs;
 };
 
 }  // namespace
 
 std::shared_ptr<imap_socket_t> make_imap_socket(asio::io_context& ctx) {
-    return std::make_shared<imap_client_impl_t>(ctx);
+    auto inst = std::make_shared<imap_client_impl_t>(ctx);
+    // FIXME: we have dynamic flag for this so this should be on demand created.
+    if (!inst->initialize(true)) {
+        log_error("imap socket initialization failed");
+        return nullptr;
+    }
+    return inst;
 }
 
 void async_keep_receiving_lines_until(

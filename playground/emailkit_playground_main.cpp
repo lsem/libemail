@@ -104,6 +104,10 @@ void gmail_auth_test() {
     const std::vector<std::string> scopes = {"https://mail.google.com"};
 
     auto imap_client = emailkit::imap_client::make_imap_client(ctx);
+    if (!imap_client) {
+        log_error("failed creating imap_client");
+        return;
+    }
 
     // We are requesting authentication for our app (represented by app_creds) for scoped needed for
     // our application.
