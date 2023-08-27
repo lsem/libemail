@@ -151,6 +151,29 @@ TEST(imap_parser_test, parse_message_data_records_envelope_multiple) {
     EXPECT_EQ(message_data_records[0].message_number, 1);
     EXPECT_EQ(message_data_records[1].message_number, 2);
     EXPECT_EQ(message_data_records[2].message_number, 3);
+
+    // envelop is the only statis attribute we are expecting for each record
+    ASSERT_EQ(message_data_records[0].static_attrs.size(), 1);
+    ASSERT_EQ(message_data_records[1].static_attrs.size(), 1);
+    ASSERT_EQ(message_data_records[2].static_attrs.size(), 1);
+
+    ASSERT_TRUE(std::holds_alternative<imap_parser::msg_attr_envelope_t>(
+        message_data_records[0].static_attrs[0]));
+    ASSERT_TRUE(std::holds_alternative<imap_parser::msg_attr_envelope_t>(
+        message_data_records[1].static_attrs[0]));
+    ASSERT_TRUE(std::holds_alternative<imap_parser::msg_attr_envelope_t>(
+        message_data_records[2].static_attrs[0]));
+
+    auto& env_attr_r1 =
+        std::get<imap_parser::msg_attr_envelope_t>(message_data_records[0].static_attrs[0]);
+    auto& env_attr_r2 =
+        std::get<imap_parser::msg_attr_envelope_t>(message_data_records[1].static_attrs[0]);
+    auto& env_attr_r3 =
+        std::get<imap_parser::msg_attr_envelope_t>(message_data_records[2].static_attrs[0]);
+
+    EXPECT_EQ(*env_attr_r1.date_opt, "\"Sat, 5 Aug 2023 14:53:18 +0300\"");
+    EXPECT_EQ(*env_attr_r2.date_opt, "\"Sat, 05 Aug 2023 11:54:58 GMT\"");
+    EXPECT_EQ(*env_attr_r3.date_opt, "\"Sun, 06 Aug 2023 07:23:30 GMT\"");
 }
 
 TEST(imap_parser_test, parse_message_data_records_fetch_fast_test) {

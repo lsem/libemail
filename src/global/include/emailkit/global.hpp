@@ -7,6 +7,7 @@
 #include <system_error>
 #include <tl/expected.hpp>
 #include <type_traits>
+#include <chrono>
 
 using std::shared_ptr;
 
@@ -16,6 +17,7 @@ using unexpected = tl::unexpected<std::error_code>;
 
 
 using namespace std::literals;
+using namespace std::literals::chrono_literals;
 
 namespace asynckit = lsem::async_kit;
 

@@ -3,6 +3,7 @@
 #include "imap_parser.hpp"
 
 #include <emailkit/log.hpp>
+#include <emailkit/utils.hpp>
 
 #include "utils.hpp"
 
@@ -634,21 +635,19 @@ expected<std::vector<message_data_t>> parse_message_data_records(std::string_vie
     std::vector<message_data_t> result;
 
     std::vector<int> current_path;
+    current_path.reserve(1024);
 
-    auto current_path_is = [&current_path](std::initializer_list<int> l) {
-        return std::equal(current_path.begin(), current_path.end(), l.begin(), l.end());
+    auto current_path_is = [&current_path](auto... l) {
+        const auto il = std::initializer_list<int>{l...};
+        return std::equal(current_path.begin(), current_path.end(), il.begin(), il.end());
     };
-    auto path_tail_is = [&current_path](std::initializer_list<int> l) {
-        if (l.size() > current_path.size()) {
-            log_warning("l.size() > current_path.size()");
-            return false;
-        }
-        // log_warning("comparing..");
-        return std::equal(current_path.begin() + (current_path.size() - l.size()),
-                          current_path.end(), l.begin(), l.end());
+    auto current_path_is_superset_of = [&current_path](auto... l) {
+        return emailkit::utils::subset_match(std::initializer_list<int>{l...}, current_path);
     };
 
-    log_debug("invoking parser!");
+    std::optional<imap_parser::msg_attr_envelope_t> curr_envelope_opt{};
+
+    std::vector<msg_static_attr_t> pased_static_attrs;
 
     auto ec = apg_invoke_parser__ast(
         IMAP_PARSER_APG_IMPL_RESPONSE, input_text,
@@ -685,78 +684,90 @@ expected<std::vector<message_data_t>> parse_message_data_records(std::string_vie
 
                     current_path.emplace_back(it->uiIndex);
 
-                    if (it->uiIndex == IMAP_PARSER_APG_IMPL_ENV_DATE) {
-                        log_warning("found date: {}", std::string(match_text));
-                    }
-
-                    if (current_path_is({IMAP_PARSER_APG_IMPL_MESSAGE_DATA})) {
+                    if (current_path_is(IMAP_PARSER_APG_IMPL_MESSAGE_DATA)) {
                         result.emplace_back(message_data_t{});
-                    } else if (current_path_is({IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
-                                                IMAP_PARSER_APG_IMPL_NZ_NUMBER})) {
+                    } else if (current_path_is(IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
+                                               IMAP_PARSER_APG_IMPL_NZ_NUMBER)) {
                         log_debug("message-data, number: {}", match_text);
                         result.back().message_number = std::stoul(std::string{match_text});
-                    } else if (current_path_is({IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
-                                                IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
-                                                IMAP_PARSER_APG_IMPL_MSG_ATT})) {
+                    } else if (current_path_is(IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
+                                               IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
+                                               IMAP_PARSER_APG_IMPL_MSG_ATT)) {
                         log_debug("message-data, fetch-message-data");
-                    } else if (current_path_is({IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
-                                                IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
-                                                IMAP_PARSER_APG_IMPL_MSG_ATT,
-                                                IMAP_PARSER_APG_IMPL_MSG_ATT_DYNAMIC})) {
+                    } else if (current_path_is(IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
+                                               IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
+                                               IMAP_PARSER_APG_IMPL_MSG_ATT,
+                                               IMAP_PARSER_APG_IMPL_MSG_ATT_DYNAMIC)) {
                         log_debug("message-data, att-dynamic: '{}'", match_text);
-                    } else if (current_path_is({IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
-                                                IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
-                                                IMAP_PARSER_APG_IMPL_MSG_ATT,
-                                                IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC})) {
+                    } else if (current_path_is(IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
+                                               IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
+                                               IMAP_PARSER_APG_IMPL_MSG_ATT,
+                                               IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC)) {
                         log_debug("message-data, att-static: '{}'", match_text);
-                    } else if (current_path_is({IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
-                                                IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
-                                                IMAP_PARSER_APG_IMPL_MSG_ATT,
-                                                IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC,
-                                                IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_ENVELOPE,
-                                                IMAP_PARSER_APG_IMPL_ENVELOPE})) {
+                    } else if (current_path_is(IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
+                                               IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
+                                               IMAP_PARSER_APG_IMPL_MSG_ATT,
+                                               IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC,
+                                               IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_ENVELOPE)) {
                         log_debug("static attribute, envelope: '{}'", match_text);
-
-                        if (path_tail_is({IMAP_PARSER_APG_IMPL_ENV_DATE})) {
-                            log_warning("static attribute, envelope, date: '{}'", match_text);
+                        curr_envelope_opt = imap_parser::msg_attr_envelope_t{};
+                    } else if (current_path_is_superset_of(IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC,
+                                                           IMAP_PARSER_APG_IMPL_ENVELOPE,
+                                                           IMAP_PARSER_APG_IMPL_ENV_DATE)) {
+                        log_debug("static attribute, envelope, date: '{}'", match_text);
+                        if (!curr_envelope_opt.has_value()) {
+                            log_error("logic error: no envelop static attr");
+                            continue;
                         }
-
-                        // result.back().static_attr = imap_parser::msg_attr_envelope_t{};
-                    } else if (current_path_is({IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
-                                                IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
-                                                IMAP_PARSER_APG_IMPL_MSG_ATT,
-                                                IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC,
-                                                IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_UID})) {
+                        // TODO: handle a case when server returned NUL
+                        curr_envelope_opt->date_opt = match_text;
+                    } else if (current_path_is(IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
+                                               IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
+                                               IMAP_PARSER_APG_IMPL_MSG_ATT,
+                                               IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC,
+                                               IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_UID)) {
                         log_debug("static attribute, uid: '{}'", match_text);
-                    } else if (current_path_is(
-                                   {IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
-                                    IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
-                                    IMAP_PARSER_APG_IMPL_MSG_ATT,
-                                    IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC,
-                                    IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_INTERNALDATE})) {
+                    } else if (current_path_is(IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
+                                               IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
+                                               IMAP_PARSER_APG_IMPL_MSG_ATT,
+                                               IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC,
+                                               IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_INTERNALDATE)) {
                         log_debug("static attribute, internal-date: '{}'", match_text);
                     } else if (current_path_is(
-                                   {IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
-                                    IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
-                                    IMAP_PARSER_APG_IMPL_MSG_ATT,
-                                    IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC,
-                                    IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_BODY_STRUCTURE})) {
+                                   IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
+                                   IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
+                                   IMAP_PARSER_APG_IMPL_MSG_ATT,
+                                   IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC,
+                                   IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_BODY_STRUCTURE)) {
                         log_debug("static attribute, body-structure: '{}'", match_text);
-                    } else if (current_path_is({IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
-                                                IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
-                                                IMAP_PARSER_APG_IMPL_MSG_ATT,
-                                                IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC,
-                                                IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_RFC822})) {
+                    } else if (current_path_is(IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
+                                               IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
+                                               IMAP_PARSER_APG_IMPL_MSG_ATT,
+                                               IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC,
+                                               IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_RFC822)) {
                         log_debug("static attribute, rfc822: '{}'", match_text);
-                    } else if (current_path_is({IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
-                                                IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
-                                                IMAP_PARSER_APG_IMPL_MSG_ATT,
-                                                IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC,
-                                                IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_RFC822_SIZE})) {
+                    } else if (current_path_is(IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
+                                               IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
+                                               IMAP_PARSER_APG_IMPL_MSG_ATT,
+                                               IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC,
+                                               IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_RFC822_SIZE)) {
                         log_debug("static attribute, rfc822-size: '{}'", match_text);
                     }
 
                 } else {
+                    if (current_path_is(IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
+                                        IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
+                                        IMAP_PARSER_APG_IMPL_MSG_ATT,
+                                        IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC,
+                                        IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_ENVELOPE)) {
+                        pased_static_attrs.emplace_back(*curr_envelope_opt);
+                    } else if (current_path_is(IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
+                                               IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
+                                               IMAP_PARSER_APG_IMPL_MSG_ATT,
+                                               IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC)) {
+                        result.back().static_attrs = std::move(pased_static_attrs);
+                    }
+
                     current_path.pop_back();
                 }
             }

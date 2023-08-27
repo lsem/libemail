@@ -54,7 +54,10 @@ using mailbox_data_t = std::variant<flags_mailbox_data_t,
 ///////////////////////////////////////////////////////////////////////////////////////////////
 // message-data
 struct msg_attr_envelope_t {
-    std::string date;
+    // Date in format defined in rfc2822.
+    // optional because server may return NIL for this field.
+    std::optional<std::string> date_opt;
+
     std::string subject;
     std::string from;
     std::string sender;

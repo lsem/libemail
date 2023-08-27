@@ -162,4 +162,33 @@ TEST(utils_test, split_test) {
     }
 }
 
+TEST(utils_test, subset_match_test) {
+    using il = std::initializer_list<int>;
+    EXPECT_TRUE(emailkit::utils::subset_match(il{1, 2, 4, 8}, il{1, 2, 3, 4, 5, 6, 7, 8, 9}));
+    EXPECT_TRUE(emailkit::utils::subset_match(il{2}, il{1, 2, 3, 4, 5, 6, 7, 8, 9}));
+
+    EXPECT_TRUE(emailkit::utils::subset_match(il{1, 2, 3}, il{1, 2, 3}));
+    EXPECT_TRUE(emailkit::utils::subset_match(il{1}, il{1}));
+
+    EXPECT_FALSE(emailkit::utils::subset_match(il{1, 2, 12}, il{1, 2, 3, 4, 5, 6, 7, 8, 9}));
+    EXPECT_FALSE(emailkit::utils::subset_match(il{1, 2, 9}, il{2, 3, 4, 5, 6, 7, 8, 9}));
+    EXPECT_FALSE(emailkit::utils::subset_match(il{1, 2}, il{2, 1}));
+    EXPECT_FALSE(emailkit::utils::subset_match(il{1}, il{2}));
+
+    EXPECT_TRUE(emailkit::utils::subset_match(il{}, il{}));
+    EXPECT_TRUE(emailkit::utils::subset_match(il{}, il{1}));
+    EXPECT_TRUE(emailkit::utils::subset_match(il{}, il{1, 2}));
+
+    EXPECT_FALSE(emailkit::utils::subset_match(il{1}, il{}));
+    EXPECT_FALSE(emailkit::utils::subset_match(il{1, 2}, il{}));
+
+    using iv = std::vector<int>;
+    EXPECT_TRUE(emailkit::utils::subset_match(il{1, 2}, iv{1, 2, 3, 4}));
+    EXPECT_TRUE((emailkit::utils::subset_match<il, iv>({1, 2}, {1, 2, 3, 4})));
+
+    using sw = std::string_view;
+    EXPECT_TRUE((emailkit::utils::subset_match<sw, sw>("iertype", "imap_parser_types.cpp")));
+    EXPECT_FALSE((emailkit::utils::subset_match<sw, sw>("iertypex", "imap_parser_types.cpp")));
+}
+
 }  // namespace

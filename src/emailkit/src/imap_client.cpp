@@ -498,13 +498,15 @@ class imap_client_impl_t : public imap_client_t {
                 return;
             }
 
+            auto parse_start = std::chrono::steady_clock::now();
             auto message_data_records_or_err = imap_parser::parse_message_data_records(imap_resp);
             if (!message_data_records_or_err) {
                 log_error("failed parsing message data: {}", message_data_records_or_err.error());
                 return;
             }
+            auto parse_took = std::chrono::steady_clock::now() - parse_start;
 
-            log_warning("PARSING SUCCESSFUL!");
+            log_debug("parsing successful, time take: {}ms", parse_took / 1.0ms);
 
             cb({}, {});
         });
