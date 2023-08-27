@@ -1045,7 +1045,6 @@ TEST(imap_client_test, select_command_basic_test) {
     EXPECT_TRUE(test_ran);
 }
 
-// TODO: separate test for random crap instead of response.
 TEST(imap_client_test, select_command_invalid_response_basic_test) {
     asio::io_context ctx;
 
@@ -1174,5 +1173,105 @@ TEST(imap_client_test, fetch_command_result_of_mailbox_data_test) {
     EXPECT_TRUE(test_ran);
 }
 
+TEST(imap_client_test, fetch_command_bad_requeset_from_server) {
+    // Just in case some servers don't like our requests or all servers don't like some of our
+    // requests, we want to have some well defined behavior.
+    asio::io_context ctx;
 
-// test for when servers think that fetch command syntax is wrong.
+    bool test_ran = false;
+
+    fake_imap_server srv{ctx, "localhost", "9934"};
+    ASSERT_FALSE(srv.start());
+
+    srv.reply_once(
+        [&](std::error_code ec, std::tuple<std::string, async_callback<std::string>> line_and_cb) {
+            auto& [line, cb] = line_and_cb;
+
+            auto maybe_cmd = parse_imap_command(line);
+            ASSERT_TRUE(maybe_cmd);
+            auto& cmd = *maybe_cmd;
+
+            ASSERT_GT(cmd.tokens.size(), 3);
+            EXPECT_EQ(cmd.tokens[1], "fetch");
+            EXPECT_EQ(cmd.tokens[2], "1:2");
+            EXPECT_EQ(cmd.tokens[3], "(body2)");
+
+            const std::string response =
+                fmt::format("{} BAD Could not parse command\r\n", cmd.tokens[0]);
+
+            cb({}, response);
+        });
+
+    auto client = make_imap_client(ctx);
+    client->async_connect("localhost", "9934", [&](std::error_code ec) {
+        ASSERT_FALSE(ec);
+
+        namespace imap_commands = emailkit::imap_client::imap_commands;
+
+        client->async_execute_command(
+            imap_commands::fetch_t{
+                .sequence_set = imap_commands::fetch_sequence_spec{.from = 1, .to = 2},
+                .items = imap_commands::fetch_items_vec_t{"body2"}},
+            [&](std::error_code ec, emailkit::imap_client::types::fetch_response_t r) {
+                EXPECT_TRUE(ec);
+                test_ran = true;
+                ctx.stop();
+            });
+    });
+
+    ctx.run_for(std::chrono::seconds(1));
+    EXPECT_TRUE(test_ran);
+}
+
+// TODO: test for when servers think that fetch command syntax is wrong.
+
+namespace imap_commands = emailkit::imap_client::imap_commands;
+
+TEST(imap_parser_test, encode_fetch_command_test) {
+    {
+        auto text_or_err = imap_commands::encode_cmd(imap_commands::fetch_t{
+            .sequence_set = imap_commands::fetch_sequence_spec{.from = 1, .to = 200},
+            .items = imap_commands::fetch_items_vec_t{"body"}});
+
+        ASSERT_TRUE(text_or_err);
+        auto& text = *text_or_err;
+
+        EXPECT_EQ(text, "fetch 1:200 (body)");
+    }
+    {
+        auto text_or_err = imap_commands::encode_cmd(imap_commands::fetch_t{
+            .sequence_set = imap_commands::fetch_sequence_spec{.from = 1, .to = 200},
+            .items = imap_commands::fetch_items_vec_t{"body", "envelope"}});
+
+        ASSERT_TRUE(text_or_err);
+        auto& text = *text_or_err;
+
+        EXPECT_EQ(text, "fetch 1:200 (body envelope)");
+    }
+    {
+        namespace fi = imap_commands::fetch_items;
+        auto text_or_err = imap_commands::encode_cmd(imap_commands::fetch_t{
+            .sequence_set = imap_commands::fetch_sequence_spec{.from = 1, .to = 200},
+            // clang-format off
+            .items = imap_commands::fetch_items_vec_t{
+                fi::body_t{},                
+                fi::body_structure_t{},
+                fi::envelope_t{},
+                fi::flags_t{},
+                fi::internal_date_t{},
+                fi::rfc822_t{},
+                fi::rfc822_header_t{},
+                fi::rfc822_size_t{},
+                fi::rfc822_text_t{},
+                fi::uid_t{}}
+            // clang-format on
+        });
+
+        ASSERT_TRUE(text_or_err);
+        auto& text = *text_or_err;
+
+        EXPECT_EQ(text,
+                  "fetch 1:200 (body bodystructure envelope flags internaldate rfc822 "
+                  "rfc822.header rfc822.size rfc822.text uid)");
+    }
+}

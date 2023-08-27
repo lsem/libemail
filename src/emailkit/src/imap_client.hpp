@@ -50,8 +50,17 @@ struct select_t {
 // Note, not for all command there is parser.
 namespace fetch_items {
 struct body_t {};
-struct body_part_t {};
-struct body_peek_t {};
+
+// TODO: not supported yet, encoding is complicated here.
+// struct body_part_t {
+//     std::string section_spec;
+//     std::string partial;
+// };
+// struct body_peek_t {
+//     std::string section_spec;
+//     std::string partial;
+// };
+
 struct body_structure_t {};
 struct envelope_t {};
 struct flags_t {};
@@ -75,8 +84,8 @@ struct full_t {};
 
 using fetch_items_raw_string_t = std::string;
 using fetch_item_t = std::variant<fetch_items::body_t,
-                                  fetch_items::body_part_t,
-                                  fetch_items::body_peek_t,
+                                //   fetch_items::body_part_t,
+                                //   fetch_items::body_peek_t,
                                   fetch_items::body_structure_t,
                                   fetch_items::envelope_t,
                                   fetch_items::flags_t,

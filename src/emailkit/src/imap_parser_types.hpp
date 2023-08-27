@@ -2,6 +2,7 @@
 
 #include <optional>
 #include <string>
+#include <system_error>
 #include <variant>
 #include <vector>
 
@@ -99,4 +100,25 @@ std::vector<std::string> decode_mailbox_path_from_list_response(const list_respo
 
 std::string to_json(const list_response_t&);
 
+///////////////////////////////////////////////////////////////////////////////////////////////
+// imap-parser-errors
+enum class parser_errc {
+    // basic parser failed at grammar level
+    parser_fail_l0 = 1,
+
+    // at grammar level parsing is OK, but format is unexpected.
+    parser_fail_l1,
+
+    // at grammar level parsing is OK, but downstream parsers provided by 3rd-party parsers failed.
+    parser_fail_l2,
+
+};
+
+std::error_code make_error_code(parser_errc);
+
 }  // namespace emailkit::imap_parser
+
+namespace std {
+template <>
+struct is_error_code_enum<emailkit::imap_parser::parser_errc> : true_type {};
+}  // namespace std

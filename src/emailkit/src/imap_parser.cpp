@@ -101,6 +101,7 @@ auto udt_literal_data_callback(callback_data* spData) -> void {
     if ((end - begin) < literal_size_bytes) {
         log_error("not enough data bytes, literal size is {} while available only {} bytes",
                   literal_size_bytes, end - begin);
+        // log_debug("available text is: '{}'", std::string{begin, end});
         return;
     }
     // TODO: we still need to validate that data is OK and has no zero but it can

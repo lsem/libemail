@@ -133,6 +133,7 @@ TEST(imap_parser_test, DISABLED_uid_validity_isolated__zero_number) {
     ASSERT_FALSE(records_or_err);
 }
 
+
 TEST(imap_parser_test, parse_message_data_records_envelope_multiple) {
     // response for "FETCH 1:3(ENVELOPE)"
     // clang-format off
@@ -278,3 +279,5 @@ TEST(imap_parser_test, parse_message_data_records_fetch_rfc822__zero_size) {
     auto message_data_or_err = imap_parser::parse_message_data_records(fetch_rfc822_result);
     ASSERT_TRUE(message_data_or_err);
 }
+
+

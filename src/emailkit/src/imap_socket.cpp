@@ -106,15 +106,13 @@ class imap_client_impl_t : public imap_socket_t, std::enable_shared_from_this<im
 
 #ifndef NDEBUG
                 if (m_opt_dump_stream_to_file) {
-                    std::ofstream fs{"imap_socket_dump.bin", std::ios_base::out |
-                                                                 std::ios_base::app |
-                                                                 std::ios_base::binary};
                     m_protocol_log_fs << "S: ";
                     m_protocol_log_fs.write(data_ptr, bytes_transferred);
                     if (!m_protocol_log_fs.good()) {
                         auto err = errno;
                         log_warning("write to protocol log failed: {}", strerror(err));
                     }
+                    m_protocol_log_fs.flush();
                 }
 #endif
 
@@ -168,6 +166,8 @@ class imap_client_impl_t : public imap_socket_t, std::enable_shared_from_this<im
                         auto err = errno;
                         log_warning("write to protocol log failed: {}", strerror(err));
                     }
+
+                    m_protocol_log_fs.flush();
                 }
 #endif
 
@@ -211,6 +211,7 @@ class imap_client_impl_t : public imap_socket_t, std::enable_shared_from_this<im
                         auto err = errno;
                         log_warning("write to protocol log failed: {}", strerror(err));
                     }
+                    m_protocol_log_fs.flush();
                 }
 #endif
 

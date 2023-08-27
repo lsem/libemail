@@ -25,17 +25,15 @@ expected<std::string> encode_cmd(const fetch_t& cmd) {
                     auto item_encoded = std::visit(
                         overload{
                             [&](fetch_items::body_t x) -> std::string { return "body"; },
-                            [&](fetch_items::body_part_t x) -> std::string {
-                                std::abort();
-                                return "";
-                            },
-                            [&](fetch_items::body_peek_t x) -> std::string {
-                                std::abort();
-                                return "";
-                            },
+                            // TODO: not supported yet, encoding is complicated here.
+                            // [&](fetch_items::body_part_t x) -> std::string {
+                            //     return fmt::format("body[{}]", x.section_spec);
+                            // },
+                            // [&](fetch_items::body_peek_t x) -> std::string {
+                            //     return fmt::format("[{}]", x.section_spec);
+                            // },
                             [&](fetch_items::body_structure_t x) -> std::string {
-                                std::abort();
-                                return "";
+                                return "bodystructure";
                             },
                             [&](fetch_items::envelope_t x) -> std::string { return "envelope"; },
                             [&](fetch_items::flags_t x) -> std::string { return "flags"; },
