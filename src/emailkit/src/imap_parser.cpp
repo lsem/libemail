@@ -422,32 +422,12 @@ std::error_code apg_invoke_parser__ast(
             ::vAstTranslate(ast, &ctx);
             log_debug("translating AST -- done");
 
-            // log_debug("dumping the AST to XML");
-            // ::bUtilAstToXml(ast, "u", NULL);
-            // log_debug("dumping the AST to XML -- done");
-
             ast_info info;
             ::vAstInfo(ast, &info);
             size_t indent = 0;
             constexpr size_t INDENT_WIDTH = 4;
 
-            printf("calling ast cb");
             ast_cb(&(info.spRecords[0]), &(info.spRecords[info.uiRecordCount]));
-            // for (auto r = info.spRecords; r != info.spRecords + info.uiRecordCount; ++r) {
-            //     if (r->uiState == ID_AST_PRE) {
-            //         indent += INDENT_WIDTH;
-
-            //         std::string_view match_text{input_text.data() + r->uiPhraseOffset,
-            //                                     r->uiPhraseLength};
-            //         log_debug("{}PRE: {} ('{}') (offset: {})", std::string(indent, ' '),
-            //         r->cpName,
-            //                   match_text, r->uiPhraseOffset);
-            //     } else {
-            //         assert(r->uiState == ID_AST_POST);
-            //         log_debug("{}POST: {}", std::string(indent, ' '), r->cpName);
-            //         indent -= INDENT_WIDTH;
-            //     }
-            // }
         }
 
         log_debug("APG TRY section end");
@@ -649,6 +629,8 @@ expected<std::vector<message_data_t>> parse_message_data_records(std::string_vie
 
     std::vector<msg_static_attr_t> pased_static_attrs;
 
+    bool got_message_data = false;
+
     auto ec = apg_invoke_parser__ast(
         IMAP_PARSER_APG_IMPL_RESPONSE, input_text,
         {
@@ -688,6 +670,7 @@ expected<std::vector<message_data_t>> parse_message_data_records(std::string_vie
                         result.emplace_back(message_data_t{});
                     } else if (current_path_is(IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
                                                IMAP_PARSER_APG_IMPL_NZ_NUMBER)) {
+                        got_message_data = true;
                         log_debug("message-data, number: {}", match_text);
                         result.back().message_number = std::stoul(std::string{match_text});
                     } else if (current_path_is(IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
@@ -775,6 +758,12 @@ expected<std::vector<message_data_t>> parse_message_data_records(std::string_vie
 
     if (ec) {
         return unexpected(ec);
+    }
+
+    if (!got_message_data) {
+        // what if there are no messages?
+        log_error("no message data in response");
+        return unexpected(make_error_code(std::errc::io_error));  // TODO: dedicated error code
     }
 
     return result;

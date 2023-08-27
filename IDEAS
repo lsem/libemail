@@ -7,3 +7,14 @@ https://www.getmailbird.com/setup/access-ovh-net-via-imap-smtp
 
 server with bugs:
 https://github.com/jstedfast/MailKit/issues/944
+
+
+
+# Non functional feature: count all received and sent bytes on socket, estimate connection quality.
+This would be just nice weature which gives an idea why network manager is not working if the problem is internet connection. We can immidiately spot that rate is low (e.g. to have three categories: green, yellow and red).
+The thing is that finished email product with all modern bells and whistles should never hang
+and be able to restore connection as soon as traffic is unblocked. E.g. the ultinate test would be to enter a lift
+while data is send/received and see that we detected problems, communicated them to user nicely and as soon as wifi
+is avaialble again, continuted transfer and connection health became green. Or dynamic network switching between networks to ensure that socket wotks as expected even though underlying connection has changed.
+
+# Non functional feature: measure how fast parsing of responses is. Profiling.

@@ -1108,7 +1108,9 @@ TEST(imap_client_test, select_command_invalid_response_basic_test) {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //  fetch command
 
-TEST(imap_client_test, DISABLED_fetch_command_basic_test) {
+TEST(imap_client_test, fetch_command_result_of_mailbox_data_test) {
+    // Since we are using common parser for all responses it is important to make sure that
+    // we can detect when response is wrong and we specifically wait for message data.
     asio::io_context ctx;
 
     bool test_ran = false;
@@ -1127,10 +1129,12 @@ TEST(imap_client_test, DISABLED_fetch_command_basic_test) {
             // TODO: check that cmd.tokens[0] is valid tag, check that two commands in a row have
             // uniqu tags.
 
-            ASSERT_GT(cmd.tokens.size(), 2);
-            EXPECT_EQ(cmd.tokens[1], "select");
-            EXPECT_EQ(cmd.tokens[2], "\"INBOX\"");
+            ASSERT_GT(cmd.tokens.size(), 3);
+            EXPECT_EQ(cmd.tokens[1], "fetch");
+            EXPECT_EQ(cmd.tokens[2], "1:2");
+            EXPECT_EQ(cmd.tokens[3], "all");
 
+            // response from diffrent command: select (returns mailbox-data)
             // clang-format off
             const std::string response = fmt::format(
                 "* FLAGS (\\Answered \\Flagged \\Draft \\Deleted \\Seen $NotPhishing $Phishing)\r\n"
@@ -1153,13 +1157,14 @@ TEST(imap_client_test, DISABLED_fetch_command_basic_test) {
     client->async_connect("localhost", "9934", [&](std::error_code ec) {
         ASSERT_FALSE(ec);
 
-        client->async_execute_command(
-            emailkit::imap_client::imap_commands::fetch_t{
-                .sequence_set = "1:4",
-                .data_item_names_or_macro = imap_client::imap_commands::fetch_macro::fast},
-            [&](std::error_code ec, emailkit::imap_client::types::fetch_response_t r) {
-                ASSERT_FALSE(ec);
+        namespace imap_commands = emailkit::imap_client::imap_commands;
 
+        client->async_execute_command(
+            imap_commands::fetch_t{
+                .sequence_set = imap_commands::fetch_sequence_spec{.from = 1, .to = 2},
+                .items = {imap_commands::all_t{}}},
+            [&](std::error_code ec, emailkit::imap_client::types::fetch_response_t r) {
+                EXPECT_TRUE(ec);
                 test_ran = true;
                 ctx.stop();
             });
@@ -1168,3 +1173,6 @@ TEST(imap_client_test, DISABLED_fetch_command_basic_test) {
     ctx.run_for(std::chrono::seconds(1));
     EXPECT_TRUE(test_ran);
 }
+
+
+// test for when servers think that fetch command syntax is wrong.

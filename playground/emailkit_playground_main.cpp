@@ -57,11 +57,13 @@ void gmail_fetch_some_messages(imap_client::imap_client_t& client) {
                             "box.",
                             r.opt_unseen.value_or(0), r.recents, r.exists);
 
+                        namespace imap_commands = emailkit::imap_client::imap_commands;
+
                         client.async_execute_command(
                             imap_client::imap_commands::fetch_t{
-                                .sequence_set = "1:3",
-                                .data_item_names_or_macro = std::vector<std::string>(
-                                    {/*"FLAGS", "INTERNALDATE", "RFC822.SIZE",*/ "rfc822.header"})},
+                                .sequence_set =
+                                    imap_commands::fetch_sequence_spec{.from = 1, .to = 200},
+                                .items = imap_commands::all_t{}},
                             [&](std::error_code ec, imap_client::types::fetch_response_t r) {
                                 if (ec) {
                                     log_error("fetch command failed: {}", ec);

@@ -43,23 +43,65 @@ struct select_t {
     std::string mailbox_name;
 };
 
-// fetch           = "FETCH" SP sequence-set SP ("ALL" / "FULL" / "FAST" /
-//                   fetch-att / "(" fetch-att *(SP fetch-att) ")")
-// https://datatracker.ietf.org/doc/html/rfc3501#section-6.4.5
-// TODO: each command must have its own builder command. To ensure that we build correct requests
-// we can double check by parsing our requests with format grammar without any interpretation of the
-// results.
-enum class fetch_macro { all, full, fast, RFC822 };
-struct fetch_t {
-    // 2,4:7,9,12:* -> 2,4,5,6,7,9,12,13,14,15 -- for mailbox of size 15.
-    std::string sequence_set;
+//
+// Defines of one arguments that can be passed to FETCH command.
+// See FETCH Command in RFC for details:
+// (https://datatracker.ietf.org/doc/html/rfc3501#section-6.4.5
+// Note, not for all command there is parser.
+namespace fetch_items {
+struct body_t {};
+struct body_part_t {};
+struct body_peek_t {};
+struct body_structure_t {};
+struct envelope_t {};
+struct flags_t {};
+struct internal_date_t {};
+struct rfc822_t {};
+struct rfc822_header_t {};
+struct rfc822_size_t {};
+struct rfc822_text_t {};
+struct uid_t {};
 
-    // message data item names or macro
-
-    std::variant<std::vector<std::string>, fetch_macro> data_item_names_or_macro;
+struct raw {
+    std::string idname;
 };
 
-std::string encode_cmd(const fetch_t& cmd);
+}  // namespace fetch_items
+
+// Can be used if none of the above suits or implemented incorrectly.
+struct all_t {};
+struct fast_t {};
+struct full_t {};
+
+using fetch_items_raw_string_t = std::string;
+using fetch_item_t = std::variant<fetch_items::body_t,
+                                  fetch_items::body_part_t,
+                                  fetch_items::body_peek_t,
+                                  fetch_items::body_structure_t,
+                                  fetch_items::envelope_t,
+                                  fetch_items::flags_t,
+                                  fetch_items::internal_date_t,
+                                  fetch_items::rfc822_t,
+                                  fetch_items::rfc822_header_t,
+                                  fetch_items::rfc822_size_t,
+                                  fetch_items::rfc822_text_t,
+                                  fetch_items::uid_t,
+                                  fetch_items_raw_string_t>;
+using fetch_items_vec_t = std::vector<fetch_item_t>;
+
+struct fetch_sequence_spec {
+    int from{};
+    int to{};
+};
+using raw_fetch_sequence_spec = std::string;
+
+struct fetch_t {
+    // 2,4:7,9,12:* -> 2,4,5,6,7,9,12,13,14,15 -- for mailbox of size 15.
+    std::variant<fetch_sequence_spec, raw_fetch_sequence_spec> sequence_set;
+    std::variant<all_t, fast_t, full_t, fetch_items_vec_t> items;
+};
+
+expected<std::string> encode_cmd(const fetch_t& cmd);
 
 }  // namespace imap_commands
 

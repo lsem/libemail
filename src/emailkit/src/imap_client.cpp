@@ -13,28 +13,65 @@
 namespace emailkit::imap_client {
 
 namespace imap_commands {
-std::string encode_cmd(const fetch_t& cmd) {
-    const auto second_arg =
-        std::visit(overload{[&](fetch_macro m) -> std::string {
-                                switch (m) {
-                                    case fetch_macro::all:
-                                        return "ALL";
-                                    case fetch_macro::fast:
-                                        return "FAST";
-                                    case fetch_macro::full:
-                                        return "FULL";
-                                    case fetch_macro::RFC822:
-                                        return "RFC822";
-                                    default:
-                                        return "<INVALID>";
-                                }
+expected<std::string> encode_cmd(const fetch_t& cmd) {
+    const auto encoded_items = std::visit(
+        overload{
+            [&](all_t x) -> std::string { return "all"; },
+            [&](fast_t x) -> std::string { return "fast"; },
+            [&](full_t x) -> std::string { return "full"; },
+            [&](const fetch_items_vec_t& x) -> std::string {
+                std::vector<std::string> items;
+                for (auto& i : x) {
+                    auto item_encoded = std::visit(
+                        overload{
+                            [&](fetch_items::body_t x) -> std::string { return "body"; },
+                            [&](fetch_items::body_part_t x) -> std::string {
+                                std::abort();
+                                return "";
                             },
-                            [&](const std::vector<std::string>& attrs) {
-                                return fmt::format("({})", fmt::join(attrs, " "));
+                            [&](fetch_items::body_peek_t x) -> std::string {
+                                std::abort();
+                                return "";
+                            },
+                            [&](fetch_items::body_structure_t x) -> std::string {
+                                std::abort();
+                                return "";
+                            },
+                            [&](fetch_items::envelope_t x) -> std::string { return "envelope"; },
+                            [&](fetch_items::flags_t x) -> std::string { return "flags"; },
+                            [&](fetch_items::internal_date_t x) -> std::string {
+                                return "internaldate";
+                            },
+                            [&](fetch_items::rfc822_t x) -> std::string { return "rfc822"; },
+                            [&](fetch_items::rfc822_header_t x) -> std::string {
+                                return "rfc822.header";
+                            },
+                            [&](fetch_items::rfc822_size_t x) -> std::string {
+                                return "rfc822.size";
+                            },
+                            [&](fetch_items::rfc822_text_t x) -> std::string {
+                                return "rfc822.text";
+                            },
+                            [&](fetch_items::uid_t x) -> std::string { return "uid"; },
+                            [&](fetch_items_raw_string_t x) -> std::string {
+                                return std::move(x);
                             }},
-                   cmd.data_item_names_or_macro);
+                        i);
+                    items.emplace_back(std::move(item_encoded));
+                }
+                return fmt::format("({})", fmt::join(items, " "));
+            },
+        },
+        cmd.items);
 
-    return fmt::format("fetch {} {}", cmd.sequence_set, second_arg);
+    auto encoded_sequence_set =
+        std::visit(overload{[](const std::string& x) -> std::string { return x; },
+                            [](const fetch_sequence_spec& x) -> std::string {
+                                return fmt::format("{}:{}", x.from, x.to);
+                            }},
+                   cmd.sequence_set);
+
+    return fmt::format("fetch {} {}", encoded_sequence_set, encoded_items);
 }
 
 }  // namespace imap_commands
@@ -489,9 +526,16 @@ class imap_client_impl_t : public imap_client_t {
 
     virtual void async_execute_command(imap_commands::fetch_t cmd,
                                        async_callback<types::fetch_response_t> cb) override {
-        async_execute_raw_command(encode_cmd(cmd), [cb = std::move(cb)](
-                                                       std::error_code ec,
-                                                       std::string imap_resp) mutable {
+        auto encoded_cmd_or_err = encode_cmd(cmd);
+        if (!encoded_cmd_or_err) {
+            log_error("failed encoding fetch command: {}", encoded_cmd_or_err.error());
+            cb(encoded_cmd_or_err.error(), {});
+            return;
+        }
+        auto& encoded_cmd = *encoded_cmd_or_err;
+
+        async_execute_raw_command(encoded_cmd, [cb = std::move(cb)](std::error_code ec,
+                                                                    std::string imap_resp) mutable {
             if (ec) {
                 log_error("async_execute_simple_command failed: {}", ec);
                 cb(ec, {});
@@ -502,6 +546,7 @@ class imap_client_impl_t : public imap_client_t {
             auto message_data_records_or_err = imap_parser::parse_message_data_records(imap_resp);
             if (!message_data_records_or_err) {
                 log_error("failed parsing message data: {}", message_data_records_or_err.error());
+                cb(message_data_records_or_err.error(), {});
                 return;
             }
             auto parse_took = std::chrono::steady_clock::now() - parse_start;
