@@ -76,8 +76,7 @@ void gmail_fetch_some_messages(imap_client::imap_client_t& client) {
                                         fi::rfc822_header_t{},
                                         fi::rfc822_size_t{},
                                         fi::rfc822_text_t{},
-                                    }
-                            },
+                                    }},
                             [&](std::error_code ec, imap_client::types::fetch_response_t r) {
                                 if (ec) {
                                     log_error("fetch command failed: {}", ec);

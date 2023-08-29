@@ -149,4 +149,7 @@ class imap_client_t {
 
 std::shared_ptr<imap_client_t> make_imap_client(asio::io_context& ctx);
 
+// test client has predictive tags: a1, a2, a_n..
+std::shared_ptr<imap_client_t> make_test_imap_client(asio::io_context& ctx);
+
 }  // namespace emailkit::imap_client

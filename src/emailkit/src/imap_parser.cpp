@@ -54,7 +54,7 @@ auto udt_literal_size_callback(callback_data* spData) -> void {
     }
 
     if (user_data_ptr->literal_size_opt.has_value()) {
-        log_warning("overwriting previous literal size with new one");
+        // log_warning("overwriting previous literal size with new one");
     }
 
     spData->uiCallbackState = ID_NOMATCH;
@@ -120,6 +120,7 @@ auto udt_literal_data_callback(callback_data* spData) -> void {
     log_debug("have match of size {}: '{}'", literal_size_bytes,
               std::string{begin, begin + literal_size_bytes});
 
+    log_debug("returning ID_MATCH");
     spData->uiCallbackState = ID_MATCH;
     spData->uiCallbackPhraseLength = literal_size_bytes;
 }
@@ -434,6 +435,7 @@ std::error_code apg_invoke_parser__ast(
         log_debug("APG TRY section end");
     } else {
         log_error("APG EXCEPTION: {}", format_apg_exception(apg_exception));
+        result = make_error_code(parser_errc::parser_fail_l0);
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////

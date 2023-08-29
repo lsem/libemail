@@ -1173,6 +1173,81 @@ TEST(imap_client_test, fetch_command_result_of_mailbox_data_test) {
     EXPECT_TRUE(test_ran);
 }
 
+TEST(imap_client_test, fetch_command_with_literal_size____AND_CRETE_NORMAL_NAME) {
+    asio::io_context ctx;
+
+    bool test_ran = false;
+
+    fake_imap_server srv{ctx, "localhost", "9934"};
+    ASSERT_FALSE(srv.start());
+
+    srv.reply_once(
+        [&](std::error_code ec, std::tuple<std::string, async_callback<std::string>> line_and_cb) {
+            auto& [line, cb] = line_and_cb;
+
+            auto maybe_cmd = parse_imap_command(line);
+            ASSERT_TRUE(maybe_cmd);
+            auto& cmd = *maybe_cmd;
+
+            // TODO: check that cmd.tokens[0] is valid tag, check that two commands in a row have
+            // uniqu tags.
+
+            ASSERT_GT(cmd.tokens.size(), 3);
+            ASSERT_EQ(cmd.tokens[0], "A0");
+            EXPECT_EQ(cmd.tokens[1], "fetch");
+            EXPECT_EQ(cmd.tokens[2], "1:2");
+            EXPECT_EQ(cmd.tokens[3], "all");
+
+            // response from diffrent command: select (returns mailbox-data)
+
+            // RED: const std::string fetch_response = fmt::format("* 1 FETCH (RFC822
+            // {{12}}\r\n01234\r\nA0 89)\r\n{} OK Success\r\n", cmd.tokens[0]); GREEN: const
+            // std::string fetch_response = fmt::format("* 1 FETCH (RFC822 {{12}}\r\n01234\r\nA1
+            // 89)\r\n{} OK Success\r\n", cmd.tokens[0]);
+
+            // In the following line literal manifests that there will be 22 characters (0x01-0xff)
+            // after \r\n and in fact there are 22 bytes, but inside the line there is a sequence
+            // "\r\nA0 " which primitive input sequences may use as stop condition for reading text
+            // from socket because it looks like a tag. The problem occurs whenever we have
+            // non-stream capable parser where we don't know how much to read. The only what we cab
+            // rely on seems to be \r\n<TAG> <TEXT>\r\n. In other words the code which does reading
+            // should be able to recgnize tag line from imap grammar and stop here. But the problem
+            // is that literal can contain arbitray text including our tag line so we should make
+            // sure our parser can deal with it.
+            // TODO: this works because current tag is A0 while there is no such tag in the stream
+            // (there is A1 however). const std::string fetch_response = fmt::format(
+            //     "* 1 FETCH (RFC822 {{22}}\r\n0123\r\nA1 8901\r\n0123456)\r\n{} OK Success\r\n",
+            //     cmd.tokens[0]);
+
+            // But this is harder becaue if we brake by <TAG> rule this will have consequences.
+            const std::string fetch_response = fmt::format(
+                "* 1 FETCH (RFC822 {{22}}\r\n0123\r\nA0 8901\r\n0123456)\r\n{} OK Success\r\n",
+                cmd.tokens[0]);
+
+            cb({}, fmt::format("{}{} OK success\r\n", fetch_response, cmd.tokens[0]));
+        });
+
+    auto client = make_test_imap_client(ctx);
+    client->async_connect("localhost", "9934", [&](std::error_code ec) {
+        ASSERT_FALSE(ec);
+
+        namespace imap_commands = emailkit::imap_client::imap_commands;
+
+        client->async_execute_command(
+            imap_commands::fetch_t{
+                .sequence_set = imap_commands::fetch_sequence_spec{.from = 1, .to = 2},
+                .items = {imap_commands::all_t{}}},
+            [&](std::error_code ec, emailkit::imap_client::types::fetch_response_t r) {
+                EXPECT_FALSE(ec);
+                test_ran = true;
+                ctx.stop();
+            });
+    });
+
+    ctx.run_for(std::chrono::seconds(1));
+    EXPECT_TRUE(test_ran);
+}
+
 TEST(imap_client_test, fetch_command_bad_requeset_from_server) {
     // Just in case some servers don't like our requests or all servers don't like some of our
     // requests, we want to have some well defined behavior.

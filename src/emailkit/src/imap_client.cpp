@@ -79,13 +79,14 @@ class imap_client_impl_t : public imap_client_t {
    public:
     explicit imap_client_impl_t(asio::io_context& ctx) : m_ctx(ctx) {}
 
-    bool initialize() {
+    bool initialize(std::string tag_pattern) {
         m_imap_socket = make_imap_socket(m_ctx);
         if (!m_imap_socket) {
             log_info("make_imap_socket failed");
             return false;
         }
         m_imap_socket->set_option(imap_socket_opts::dump_stream_to_file{});
+        m_tag_pattern = tag_pattern;
         return true;
     }
 
@@ -356,10 +357,9 @@ class imap_client_impl_t : public imap_client_t {
                     return;
                 }
 
-                async_receive_response_until_tagged_line(
-                    *m_imap_socket, tag, ""s,
-                    [this, tag, cb = std::move(cb)](std::error_code ec,
-                                                    std::string response) mutable {
+                m_imap_socket->async_receive_response(
+                    tag, [this, tag, cb = std::move(cb)](std::error_code ec,
+                                                         std::string response) mutable {
                         if (ec) {
                             cb(ec, std::move(response));
                             return;
@@ -549,7 +549,7 @@ class imap_client_impl_t : public imap_client_t {
             }
             auto parse_took = std::chrono::steady_clock::now() - parse_start;
 
-            log_debug("parsing successful, time take: {}ms", parse_took / 1.0ms);
+            log_info("parsing successful, time take: {}ms", parse_took / 1.0ms);
 
             cb({}, {});
         });
@@ -575,7 +575,7 @@ class imap_client_impl_t : public imap_client_t {
             // correct according to the grammar)
             bool stop_reading = false;
             if (line.rfind(tag, 0) == 0) {
-                log_debug("got tagged reply, stop reading..");
+                log_debug("got tagged reply in line '{}', stop reading..", line);
                 stop_reading = true;
             }
 
@@ -607,6 +607,7 @@ class imap_client_impl_t : public imap_client_t {
             const auto& l = r.lines.back();
 
             if (l.first_token_is(r.tag)) {
+                log_debug("got tag, stoppig..");
                 cb({}, std::move(r));
                 return;
             } else if (l.is_command_continiation_request()) {
@@ -624,7 +625,7 @@ class imap_client_impl_t : public imap_client_t {
         });
     }
 
-    std::string new_command_id() { return std::string("A") + std::to_string(m_command_counter++); }
+    std::string new_command_id() { return fmt::format(m_tag_pattern, m_command_counter++); }
     std::string next_tag() { return new_command_id(); }
 
    private:
@@ -638,13 +639,22 @@ class imap_client_impl_t : public imap_client_t {
         async_callback<std::string> cb;
     };
     std::map<std::string, pending_command_ctx> m_active_commands;
+    std::string m_tag_pattern;
 };  // namespace
 
 }  // namespace
 
+std::shared_ptr<imap_client_t> make_test_imap_client(asio::io_context& ctx) {
+    auto client = std::make_shared<imap_client_impl_t>(ctx);
+    if (!client->initialize("A{}")) {
+        return nullptr;
+    }
+    return client;
+}
+
 std::shared_ptr<imap_client_t> make_imap_client(asio::io_context& ctx) {
     auto client = std::make_shared<imap_client_impl_t>(ctx);
-    if (!client->initialize()) {
+    if (!client->initialize("A{}")) {
         return nullptr;
     }
     return client;

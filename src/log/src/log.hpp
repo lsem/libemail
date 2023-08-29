@@ -52,7 +52,9 @@ void log_impl(log_level_t level, fmt_and_location fmt, fmt::format_args args) {
 
 template <class... Args>
 void log_debug(fmt_and_location fmt, Args&&... args) {
+#ifndef NDEBUG
     log_impl(log_level_t::debug, std::move(fmt), fmt::make_format_args(args...));
+#endif
 }
 template <class... Args>
 void log_info(fmt_and_location fmt, Args&&... args) {
