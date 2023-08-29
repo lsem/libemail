@@ -17,6 +17,42 @@
 
 using namespace emailkit;
 
+void fetch_messages_in_a_row(imap_client::imap_client_t& client, int count) {
+    namespace imap_commands = emailkit::imap_client::imap_commands;
+    namespace fi = imap_commands::fetch_items;
+
+    if (count == 0) {
+        log_info("done with rows");
+        return;
+    }
+
+    client.async_execute_command(
+        imap_client::imap_commands::fetch_t{
+            .sequence_set = imap_commands::fetch_sequence_spec{.from = count, .to = count},
+            .items =
+                imap_commands::fetch_items_vec_t{
+                                        fi::body_t{},
+                                        fi::body_structure_t{},
+                                        fi::envelope_t{},
+                                        fi::flags_t{},
+                                        fi::internal_date_t{},
+                                        fi::rfc822_t{},
+                                        fi::rfc822_header_t{},
+                                        fi::rfc822_size_t{},
+                                        fi::rfc822_text_t{},
+
+                }},
+        [&client, count](std::error_code ec, imap_client::types::fetch_response_t r) {
+            if (ec) {
+                log_error("fetch command failed: {}", ec);
+                return;
+            }
+            log_info("fetch of {} done", count);
+
+            fetch_messages_in_a_row(client, count - 1);
+        });
+}
+
 void gmail_fetch_some_messages(imap_client::imap_client_t& client) {
     client.async_execute_command(imap_client::imap_commands::namespace_t{}, [&](std::error_code
                                                                                     ec) {
@@ -57,33 +93,35 @@ void gmail_fetch_some_messages(imap_client::imap_client_t& client) {
                             "box.",
                             r.opt_unseen.value_or(0), r.recents, r.exists);
 
+                        fetch_messages_in_a_row(client, 10);
+
                         namespace imap_commands = emailkit::imap_client::imap_commands;
                         namespace fi = imap_commands::fetch_items;
 
-                        client.async_execute_command(
-                            imap_client::imap_commands::fetch_t{
-                                .sequence_set =
-                                    imap_commands::fetch_sequence_spec{.from = 1, .to = 200},
-                                // .items = imap_commands::all_t{}
-                                .items =
-                                    imap_commands::fetch_items_vec_t{
-                                        fi::body_t{},
-                                        fi::body_structure_t{},
-                                        fi::envelope_t{},
-                                        fi::flags_t{},
-                                        fi::internal_date_t{},
-                                        fi::rfc822_t{},
-                                        fi::rfc822_header_t{},
-                                        fi::rfc822_size_t{},
-                                        fi::rfc822_text_t{},
-                                    }},
-                            [&](std::error_code ec, imap_client::types::fetch_response_t r) {
-                                if (ec) {
-                                    log_error("fetch command failed: {}", ec);
-                                    return;
-                                }
-                                log_info("fetch done");
-                            });
+                        // client.async_execute_command(
+                        //     imap_client::imap_commands::fetch_t{
+                        //         .sequence_set =
+                        //             imap_commands::fetch_sequence_spec{.from = 1, .to = 200},
+                        //         // .items = imap_commands::all_t{}
+                        //         .items =
+                        //             imap_commands::fetch_items_vec_t{
+                        //                 fi::body_t{},
+                        //                 fi::body_structure_t{},
+                        //                 fi::envelope_t{},
+                        //                 fi::flags_t{},
+                        //                 fi::internal_date_t{},
+                        //                 fi::rfc822_t{},
+                        //                 fi::rfc822_header_t{},
+                        //                 fi::rfc822_size_t{},
+                        //                 fi::rfc822_text_t{},
+                        //             }},
+                        //     [&](std::error_code ec, imap_client::types::fetch_response_t r) {
+                        //         if (ec) {
+                        //             log_error("fetch command failed: {}", ec);
+                        //             return;
+                        //         }
+                        //         log_info("fetch done");
+                        //     });
                     });
             });
     });
