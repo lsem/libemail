@@ -59,6 +59,8 @@ void log_impl(log_level_t level, fmt_and_location fmt, fmt::format_args args) {
             } else if (level_val == "error") {
                 g_current_level = log_level_t::error;
             }
+        } else if (std::getenv("DEBUG")) {
+            g_current_level = log_level_t::debug;
         }
         log_level_read = true;
     }
@@ -103,9 +105,10 @@ void log_impl(log_level_t level, fmt_and_location fmt, fmt::format_args args) {
     static const auto local_epooch = std::chrono::steady_clock::now();
     auto curr_ms = (std::chrono::steady_clock::now() - local_epooch) / std::chrono::milliseconds(1);
 
-    fmt::print(stdout, style, "{:<4}: {} {}:{}: ", curr_ms, lvl_s,
-               strip_fpath(fmt.location.file_name()), fmt.location.line());
+    fmt::print(stdout, style, "{:<4}: {} ", curr_ms, lvl_s);
     fmt::vprint(stdout, style, fmt.fmt, args);
+    fmt::print(stdout, style, " ({}:{}) ", strip_fpath(fmt.location.file_name()),
+               fmt.location.line());
     fmt::print(stdout, "\n");
 }
 
