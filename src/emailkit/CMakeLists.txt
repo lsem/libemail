@@ -29,7 +29,7 @@ target_link_libraries(emailkit
         skeeto::utf7
         gmime::gmime)
 
-add_dependencies(emailkit  external_glib external_gmime)
+# add_dependencies(emailkit  external_glib external_gmime)
 
 
 ##############################################################################

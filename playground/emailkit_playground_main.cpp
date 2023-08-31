@@ -36,10 +36,10 @@ void fetch_messages_in_a_row(imap_client::imap_client_t& client, int count) {
                                         // fi::envelope_t{},
                                         // fi::flags_t{},
                                         // fi::internal_date_t{},
-                                        //fi::rfc822_t{},
+                                        fi::rfc822_t{},
                                         fi::rfc822_header_t{},
-                                        // fi::rfc822_size_t{},
-                                        // fi::rfc822_text_t{},
+                                         fi::rfc822_size_t{},
+                                         fi::rfc822_text_t{},
 
                 }},
         [&client, count](std::error_code ec, imap_client::types::fetch_response_t r) {
@@ -93,7 +93,7 @@ void gmail_fetch_some_messages(imap_client::imap_client_t& client) {
                             "box.",
                             r.opt_unseen.value_or(0), r.recents, r.exists);
 
-                        fetch_messages_in_a_row(client, 1);
+                        fetch_messages_in_a_row(client, 10);
 
                         namespace imap_commands = emailkit::imap_client::imap_commands;
                         namespace fi = imap_commands::fetch_items;

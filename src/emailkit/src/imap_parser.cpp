@@ -829,7 +829,26 @@ expected<std::vector<message_data_t>> parse_message_data_records(std::string_vie
         log_error("failed constructing message from parser");
         return result;
     }
-    //log_debug("message created");
+    
+    log_debug("message parsed");
+
+    int count = 0;
+    g_mime_message_foreach (message, [](GMimeObject *parent, GMimeObject *part, gpointer user_data) {
+        if (GMIME_IS_MESSAGE_PART (part)) {
+            log_info("PART");
+
+            auto message_part = g_mime_message_part_get_message ((GMimeMessagePart *) part);
+            if (message_part) {
+                log_debug("parsed message part");
+            } else {
+                log_error("failed parsing message part");
+            }            
+        } else if (GMIME_IS_MULTIPART(part)) {
+            log_info("MULTIPART");            
+        } else if (GMIME_IS_PART(part)) {
+            log_info("REGULAR PART");
+        }
+    }, &count);
 
     // g_object_unref(parser);
 
