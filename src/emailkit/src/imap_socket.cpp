@@ -28,9 +28,7 @@ namespace emailkit {
 using iterator_t = asio::buffers_iterator<asio::const_buffers_1>;
 struct imap_match_condition_t {
     explicit imap_match_condition_t(std::string tag)
-        : m_tag(tag),
-          m_end_of_tagged_reply_regex{fmt::format("\r\n{} ", m_tag)},
-          m_pattern_prefix{fmt::format("{} ", m_tag)} {}
+        : m_tag(tag), m_pattern_prefix{fmt::format("{} ", m_tag)} {}
 
     enum class state_t { idle, reading_size, waiting_cr, waiting_lf, reading_data, got_tag };
 
@@ -133,8 +131,8 @@ struct imap_match_condition_t {
         log_debug("added for match -- END");
         return {end, false};
     }
+
     std::string m_tag;
-    std::regex m_end_of_tagged_reply_regex;
     size_t m_literal_data_bytes_left = 0;
     state_t m_state = state_t::idle;
     std::string m_literal_size_s;

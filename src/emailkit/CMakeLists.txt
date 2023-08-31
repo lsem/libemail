@@ -26,7 +26,11 @@ target_link_libraries(emailkit
         apg::library
         apg::utilities
         ricab::scope_guard
-        skeeto::utf7)
+        skeeto::utf7
+        gmime::gmime)
+
+add_dependencies(emailkit  external_glib external_gmime)
+
 
 ##############################################################################
 # emailkit-tests

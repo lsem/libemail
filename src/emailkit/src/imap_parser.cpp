@@ -17,6 +17,11 @@
 
 #include <cstdlib>
 
+#include <gmime/gmime.h>
+
+#include <fstream>
+#include <fcntl.h>
+
 namespace emailkit::imap_parser {
 
 namespace {
@@ -117,8 +122,8 @@ auto udt_literal_data_callback(callback_data* spData) -> void {
     // of input allready. This is exactly the original problem with greedy matching and
     // greedy rule.
 
-    log_debug("have match of size {}: '{}'", literal_size_bytes,
-              std::string{begin, begin + literal_size_bytes});
+    // log_debug("have match of size {}: '{}'", literal_size_bytes,
+    //           std::string{begin, begin + literal_size_bytes});
 
     log_debug("returning ID_MATCH");
     spData->uiCallbackState = ID_MATCH;
@@ -351,7 +356,7 @@ std::error_code apg_invoke_parser__ast(
     };
 
     apg_invoke_context ctx;
-    log_debug("started parsing: '{}'", input_text);
+    // log_debug("started parsing: '{}'", input_text);
 
     //////////////////////////////////////////////////////////////////////////////////////////////////
     // WARNING: since apg uses longjmp we should take care of c++ destructors and make sure that our
@@ -399,6 +404,11 @@ std::error_code apg_invoke_parser__ast(
             ::vAstSetRuleCallback(
                 ast, rule, +[](ast_data* ast_data_ptr) -> aint { return ID_AST_OK; });
         }
+
+        ::vAstSetUdtCallback(
+            ast, IMAP_PARSER_APG_IMPL_U_LITERAL_SIZE, +[](ast_data*) -> aint { return ID_AST_OK; });
+        ::vAstSetUdtCallback(
+            ast, IMAP_PARSER_APG_IMPL_U_LITERAL_DATA, +[](ast_data*) -> aint { return ID_AST_OK; });
 
         ast_parse_invoke_user_data_t parsing_user_data;
 
@@ -492,6 +502,7 @@ expected<std::vector<mailbox_data_t>> parse_mailbox_data_records(std::string_vie
             IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE_READ_WRITE,
             IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE_READ_ONLY,
             IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE_TRY_CREATE,
+            
         },
         // clang-format on
         [&](const ast_record* begin, const ast_record* end) {
@@ -620,6 +631,8 @@ expected<std::vector<message_data_t>> parse_message_data_records(std::string_vie
     std::vector<int> current_path;
     current_path.reserve(1024);
 
+    std::string rfc822_data;
+
     auto current_path_is = [&current_path](auto... l) {
         const auto il = std::initializer_list<int>{l...};
         return std::equal(current_path.begin(), current_path.end(), il.begin(), il.end());
@@ -652,6 +665,8 @@ expected<std::vector<message_data_t>> parse_message_data_records(std::string_vie
             IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_RFC822,
             IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_RFC822_SIZE,
             IMAP_PARSER_APG_IMPL_NUMBER,
+            IMAP_PARSER_APG_IMPL_NSTRING,
+            IMAP_PARSER_APG_IMPL_U_LITERAL_DATA,
             IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_BODY_STRUCTURE,
             IMAP_PARSER_APG_IMPL_BODY,
             IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_UID,
@@ -689,7 +704,7 @@ expected<std::vector<message_data_t>> parse_message_data_records(std::string_vie
                                                IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
                                                IMAP_PARSER_APG_IMPL_MSG_ATT,
                                                IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC)) {
-                        log_debug("message-data, att-static: '{}'", match_text);
+                        // log_debug("message-data, att-static: '{}'", match_text);
                     } else if (current_path_is(IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
                                                IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
                                                IMAP_PARSER_APG_IMPL_MSG_ATT,
@@ -726,12 +741,13 @@ expected<std::vector<message_data_t>> parse_message_data_records(std::string_vie
                                    IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC,
                                    IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_BODY_STRUCTURE)) {
                         log_debug("static attribute, body-structure: '{}'", match_text);
-                    } else if (current_path_is(IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
-                                               IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
-                                               IMAP_PARSER_APG_IMPL_MSG_ATT,
-                                               IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC,
-                                               IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_RFC822)) {
-                        log_debug("static attribute, rfc822: '{}'", match_text);
+                    } else if (current_path_is_superset_of(
+                                   IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC,
+                                   IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_RFC822,
+                                   IMAP_PARSER_APG_IMPL_NSTRING,
+                                   IMAP_PARSER_APG_IMPL_U_LITERAL_DATA)) {
+                        log_debug("static attribute, rfc822/nstring/literal: '{}'", match_text);
+                        rfc822_data = match_text;
                     } else if (current_path_is(IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
                                                IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
                                                IMAP_PARSER_APG_IMPL_MSG_ATT,
@@ -768,6 +784,54 @@ expected<std::vector<message_data_t>> parse_message_data_records(std::string_vie
         log_error("no message data in response");
         return unexpected(make_error_code(std::errc::io_error));  // TODO: dedicated error code
     }
+
+    log_debug("rfc822_data: {}", rfc822_data.size());
+
+    // TODO: move somewhere up.
+
+    // char* data = new char[rfc822_data.size()];
+    // std::copy(rfc822_data.begin(), rfc822_data.end(), data);
+
+    std::ofstream ofs("data.bin", std::ofstream::out);
+    ofs << rfc822_data;
+    ofs.flush();
+    ofs.close();
+
+    int fd;
+
+    if ((fd = open("data.bin", O_RDONLY, 0)) == -1) {
+        log_error("failed opening file: {}", strerror(errno));
+        return result;
+    };
+    
+    //GMimeStream* stream = g_mime_stream_mem_new_with_buffer(rfc822_data.data(), rfc822_data.size());
+    auto stream = g_mime_stream_fs_new (fd);
+    if (!stream) {
+        log_error("failed creating stream");
+        return result;
+    }
+    //log_debug("stream created, owner: {}", g_mime_stream_mem_get_owner((GMimeStreamMem*)stream));
+
+    auto parser = g_mime_parser_new ();
+
+    //GMimeParser* parser = g_mime_parser_new_with_stream(stream);
+    g_mime_parser_init_with_stream (parser, stream);
+    if (!parser) {
+        log_error("failed creating parser from stream");
+        return result;
+    }
+    log_debug("parser created");
+
+    // g_object_unref(stream);
+
+    GMimeMessage* message = g_mime_parser_construct_message(parser, nullptr);
+    if (!message) {
+        log_error("failed constructing message from parser");
+        return result;
+    }
+    //log_debug("message created");
+
+    // g_object_unref(parser);
 
     return result;
 }
