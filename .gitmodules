@@ -35,6 +35,3 @@
 [submodule "vendor/expected"]
 	path = vendor/expected
 	url = git@github.com:lsem/expected.git
-[submodule "vendor/gmime"]
-	path = vendor/gmime
-	url = git@github.com:lsem/gmime.git
