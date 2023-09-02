@@ -13,6 +13,7 @@
 #include <folly/folly_uri.hpp>
 #include <iostream>
 
+
 #include <gmime/gmime.h>
 
 using namespace emailkit;
@@ -372,6 +373,8 @@ static GMimeMessage* parse_message(int fd) {
 int main() {
     log_debug("initializing gmime library");
     g_mime_init();
+
+    //g_object_new();
 
     // int fd;
     // if ((fd = open ("google-fetch-response.txt", O_RDONLY, 0)) == -1) {

@@ -54,7 +54,7 @@ class http_srv_impl_t : public http_srv_t, public std::enable_shared_from_this<h
         return {};
     }
 
-    virtual void register_handler(std::string method, std::string pattern, handler_func_t func) {
+    virtual void register_handler(std::string method, std::string pattern, handler_func_t func) override {
         // TODO: we should better have somehow not sorted them here but sort before matching.
         m_registered_handelrs.emplace_back(
             handler_tuple{.method = method, .pattern = pattern, .func = std::move(func)});

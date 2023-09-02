@@ -8,6 +8,8 @@
 #include <asio/read_until.hpp>
 #include <asio/ssl.hpp>
 
+#include <gmime/gmime.h>
+
 #include <list>
 
 using namespace emailkit;
@@ -1180,6 +1182,8 @@ TEST(imap_client_test, fetch_command_with_literal_size____AND_CRETE_NORMAL_NAME)
 
     fake_imap_server srv{ctx, "localhost", "9934"};
     ASSERT_FALSE(srv.start());
+
+    g_mime_init();
 
     srv.reply_once(
         [&](std::error_code ec, std::tuple<std::string, async_callback<std::string>> line_and_cb) {

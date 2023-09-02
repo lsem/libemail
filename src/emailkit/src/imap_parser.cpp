@@ -19,8 +19,8 @@
 
 #include <gmime/gmime.h>
 
-#include <fstream>
 #include <fcntl.h>
+#include <fstream>
 
 namespace emailkit::imap_parser {
 
@@ -545,24 +545,24 @@ expected<std::vector<mailbox_data_t>> parse_mailbox_data_records(std::string_vie
                                                 IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE_UIDVALIDITY,
                                                 IMAP_PARSER_APG_IMPL_NZ_NUMBER})) {
                         // TODO: fix narrowing.
-                        parsed_records.emplace_back(
-                            uidvalidity_data_t{.value = std::stoul(std::string{match_text})});
+                        parsed_records.emplace_back(uidvalidity_data_t{
+                            .value = static_cast<uint32_t>(std::stoul(std::string{match_text}))});
 
                     } else if (current_path_is({IMAP_PARSER_APG_IMPL_RESP_COND_STATE,
                                                 IMAP_PARSER_APG_IMPL_RESP_TEXT,
                                                 IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE,
                                                 IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE_UNSEEN,
                                                 IMAP_PARSER_APG_IMPL_NZ_NUMBER})) {
-                        parsed_records.emplace_back(
-                            unseen_resp_text_code_t{.value = std::stoul(std::string{match_text})});
+                        parsed_records.emplace_back(unseen_resp_text_code_t{
+                            .value = static_cast<uint32_t>(std::stoul(std::string{match_text}))});
 
                     } else if (current_path_is({IMAP_PARSER_APG_IMPL_RESP_COND_STATE,
                                                 IMAP_PARSER_APG_IMPL_RESP_TEXT,
                                                 IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE,
                                                 IMAP_PARSER_APG_IMPL_RESP_TEXT_CODE_UID_NEXT,
                                                 IMAP_PARSER_APG_IMPL_NZ_NUMBER})) {
-                        parsed_records.emplace_back(
-                            uidnext_resp_text_code_t{.value = std::stoul(std::string{match_text})});
+                        parsed_records.emplace_back(uidnext_resp_text_code_t{
+                            .value = static_cast<uint32_t>(std::stoul(std::string{match_text}))});
 
                     } else if (current_path_is({IMAP_PARSER_APG_IMPL_RESP_COND_STATE,
                                                 IMAP_PARSER_APG_IMPL_RESP_TEXT,
@@ -585,14 +585,14 @@ expected<std::vector<mailbox_data_t>> parse_mailbox_data_records(std::string_vie
                     } else if (current_path_is({IMAP_PARSER_APG_IMPL_MAILBOX_DATA,
                                                 IMAP_PARSER_APG_IMPL_MAILBOX_DATA_RECENT,
                                                 IMAP_PARSER_APG_IMPL_NUMBER})) {
-                        parsed_records.emplace_back(
-                            recent_mailbox_data_t{.value = std::stoul(std::string{match_text})});
+                        parsed_records.emplace_back(recent_mailbox_data_t{
+                            .value = static_cast<uint32_t>(std::stoul(std::string{match_text}))});
 
                     } else if (current_path_is({IMAP_PARSER_APG_IMPL_MAILBOX_DATA,
                                                 IMAP_PARSER_APG_IMPL_MAILBOX_DATA_EXISTS,
                                                 IMAP_PARSER_APG_IMPL_NUMBER})) {
-                        parsed_records.emplace_back(
-                            exists_mailbox_data_t{.value = std::stoul(std::string{match_text})});
+                        parsed_records.emplace_back(exists_mailbox_data_t{
+                            .value = static_cast<uint32_t>(std::stoul(std::string{match_text}))});
                     }
 
                     indent += INDENT_WIDTH;
@@ -803,19 +803,20 @@ expected<std::vector<message_data_t>> parse_message_data_records(std::string_vie
         log_error("failed opening file: {}", strerror(errno));
         return result;
     };
-    
-    //GMimeStream* stream = g_mime_stream_mem_new_with_buffer(rfc822_data.data(), rfc822_data.size());
-    auto stream = g_mime_stream_fs_new (fd);
+
+    // GMimeStream* stream = g_mime_stream_mem_new_with_buffer(rfc822_data.data(),
+    // rfc822_data.size());
+    auto stream = g_mime_stream_fs_new(fd);
     if (!stream) {
         log_error("failed creating stream");
         return result;
     }
-    //log_debug("stream created, owner: {}", g_mime_stream_mem_get_owner((GMimeStreamMem*)stream));
+    // log_debug("stream created, owner: {}", g_mime_stream_mem_get_owner((GMimeStreamMem*)stream));
 
-    auto parser = g_mime_parser_new ();
+    auto parser = g_mime_parser_new();
 
-    //GMimeParser* parser = g_mime_parser_new_with_stream(stream);
-    g_mime_parser_init_with_stream (parser, stream);
+    // GMimeParser* parser = g_mime_parser_new_with_stream(stream);
+    g_mime_parser_init_with_stream(parser, stream);
     if (!parser) {
         log_error("failed creating parser from stream");
         return result;
@@ -829,26 +830,29 @@ expected<std::vector<message_data_t>> parse_message_data_records(std::string_vie
         log_error("failed constructing message from parser");
         return result;
     }
-    
+
     log_debug("message parsed");
 
     int count = 0;
-    g_mime_message_foreach (message, [](GMimeObject *parent, GMimeObject *part, gpointer user_data) {
-        if (GMIME_IS_MESSAGE_PART (part)) {
-            log_info("PART");
+    g_mime_message_foreach(
+        message,
+        [](GMimeObject* parent, GMimeObject* part, gpointer user_data) {
+            if (GMIME_IS_MESSAGE_PART(part)) {
+                log_info("PART");
 
-            auto message_part = g_mime_message_part_get_message ((GMimeMessagePart *) part);
-            if (message_part) {
-                log_debug("parsed message part");
-            } else {
-                log_error("failed parsing message part");
-            }            
-        } else if (GMIME_IS_MULTIPART(part)) {
-            log_info("MULTIPART");            
-        } else if (GMIME_IS_PART(part)) {
-            log_info("REGULAR PART");
-        }
-    }, &count);
+                auto message_part = g_mime_message_part_get_message((GMimeMessagePart*)part);
+                if (message_part) {
+                    log_debug("parsed message part");
+                } else {
+                    log_error("failed parsing message part");
+                }
+            } else if (GMIME_IS_MULTIPART(part)) {
+                log_info("MULTIPART");
+            } else if (GMIME_IS_PART(part)) {
+                log_info("REGULAR PART");
+            }
+        },
+        &count);
 
     // g_object_unref(parser);
 

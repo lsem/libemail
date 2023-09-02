@@ -2,7 +2,7 @@ project(emailkit)
 
 cmake_minimum_required(VERSION 3.5)
 
-set (CMAKE_CXX_STANDARD 17)
+set (CMAKE_CXX_STANDARD 20)
 
 
 # add_compile_options("-fcolor-diagnostics")
@@ -19,7 +19,6 @@ add_subdirectory(vendor/scope_guard)
 add_subdirectory(vendor/libb64)
 add_subdirectory(vendor/utf-7)
 add_subdirectory(vendor/expected)
-#add_subdirectory(vendor/glib)
 include(gmime-superbuild.cmake)
 
 add_subdirectory(src/global)

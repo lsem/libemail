@@ -6,10 +6,12 @@ cmake_minimum_required(VERSION 3.16)
 # https://stackoverflow.com/questions/55708589/how-to-pass-an-environment-variable-to-externalproject-add-configure-command
 # https://gitlab.kitware.com/cmake/cmake/-/issues/15052
 # https://cmake.org/pipermail/cmake/2015-February/059891.html
+# https://cmake.org/cmake/help/latest/module/BundleUtilities.html
 
 include(ExternalProject)
 include(GNUInstallDirs)
 
+set (compiler "") # TODO: use CC=CMAKE_C_COMPILER CXX=CMAKE_CXX_COMPILER
 set(superbuild_prefix ${CMAKE_BINARY_DIR}/install_prefix)
 set(libdir lib)
 set(libdir_abs_path ${superbuild_prefix}/${libdir})
@@ -23,7 +25,8 @@ ExternalProject_Add(libffi
     URL     https://github.com/libffi/libffi/releases/download/v3.4.4/libffi-3.4.4.tar.gz
     UPDATE_DISCONNECTED true
     # autoconf-based projects require libdir to be absolute
-    CONFIGURE_COMMAND <SOURCE_DIR>/configure --prefix=${superbuild_prefix} --libdir=${libdir_abs_path}
+    CONFIGURE_COMMAND
+    env PKG_CONFIG_PATH=${pkg_config_path} <SOURCE_DIR>/configure --prefix=${superbuild_prefix} --libdir=${libdir_abs_path} ${compiler} ${rpath_ldflags}
     BUILD_COMMAND ${make_cmd} -j4
     INSTALL_COMMAND ${make_cmd} -j4 install
     # BUILD_BYPRODUCTS ${my_LIBRARY} # for ninja only
@@ -52,6 +55,7 @@ ExternalProject_Add(external_glib
     UPDATE_DISCONNECTED true
     CONFIGURE_HANDLED_BY_BUILD true# cmake must support this even though we don't need it.
     CONFIGURE_COMMAND
+        env ${compiler}
         ${meson_cmd} setup
                     --prefix ${superbuild_prefix}
                     --libdir ${libdir}
@@ -89,8 +93,7 @@ ExternalProject_Add(external_gmime
     UPDATE_DISCONNECTED
         true
     CONFIGURE_COMMAND
-        # TODO: make env setting portable
-        env PKG_CONFIG_PATH=${pkg_config_path} <SOURCE_DIR>/configure --prefix=${superbuild_prefix} --libdir=${libdir_abs_path}
+        ${CMAKE_COMMAND} -E env PKG_CONFIG_PATH=${superbuild_prefix}/lib/pkgconfig LDFLAGS=-L${superbuild_prefix}/lib  <SOURCE_DIR>/configure --prefix=${superbuild_prefix}
     BUILD_COMMAND
         ${make_cmd} -j4
     INSTALL_COMMAND
@@ -105,3 +108,27 @@ target_link_directories(gmime INTERFACE ${libdir_abs_path})
 target_link_libraries(gmime INTERFACE  glib::glib ${gmime_libname})
 target_include_directories(gmime INTERFACE ${gmime_include_directory})
 add_library(gmime::gmime ALIAS gmime)
+
+
+####################################################################################################
+# # WIP: this is attempt to patch libraries.
+# # The current problem is that we don't know what libraries we are linked against.
+# # https://preshing.com/20170522/learn-cmakes-scripting-language-in-15-minutes/
+# #
+# # TODO: ideally we should not be patching this shit but have it done during compilation instead.
+# set (patched_lib "gmime-3.0")
+# set (patched_lib_fname "${CMAKE_SHARED_LIBRARY_PREFIX}${patched_lib}${CMAKE_SHARED_LIBRARY_SUFFIX}")
+# set (patched_lib_abs_path "${superbuild_prefix}/lib/${patched_lib_fname}")
+
+# set (libraries_list "gobject-2.0.0;gio-2.0.0;gmodule-2.0.0;gthread-2.0.0")
+# foreach(lib ${libraries_list})
+#    set (lib_fname "${CMAKE_SHARED_LIBRARY_PREFIX}${lib}${CMAKE_SHARED_LIBRARY_SUFFIX}")
+#    set (lib_abs_path "${superbuild_prefix}/lib/${lib_fname}")
+#    set (lib_rel_path "@rpath/${lib_fname}")
+#    set (patched_lib_path )
+#    # we change full path to relpath in library patched_lib_abs_path
+#    set (install_name_change_cmd "install_name_tool -change ${lib_abs_path} ${lib_rel_path} ${patched_lib_abs_path}")
+#    message("command: ${install_name_change_cmd}")
+# endforeach()
+
+

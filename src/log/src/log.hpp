@@ -3,22 +3,10 @@
 #include <fmt/color.h>
 #include <fmt/format.h>
 #include <chrono>
-#include <experimental/source_location>
 
 #include <string_view>
 
 #include <unistd.h>
-
-struct fmt_and_location {
-    std::string_view fmt;
-    std::experimental::source_location location;
-
-    template <typename S>
-    fmt_and_location(const S& fmt,
-                     const std::experimental::source_location& location =
-                         std::experimental::source_location::current())
-        : fmt(fmt), location(location) {}
-};
 
 enum class log_level_t {
     error,
@@ -43,9 +31,12 @@ constexpr std::string_view strip_fpath(std::string_view fpath) {
 static_assert(strip_fpath("a/b/c") == "c");
 
 template <class... Args>
-void log_impl(log_level_t level, fmt_and_location fmt, fmt::format_args args) {
+void log_impl(log_level_t level,
+              int line,
+              const char* file_name,
+              std::string_view fmt,
+              Args... args) {
     static bool log_level_read = false;
-
     if (!log_level_read) {
         std::string level_val;
         if (std::getenv("LOG")) {
@@ -106,27 +97,16 @@ void log_impl(log_level_t level, fmt_and_location fmt, fmt::format_args args) {
     auto curr_ms = (std::chrono::steady_clock::now() - local_epooch) / std::chrono::milliseconds(1);
 
     fmt::print(stdout, style, "{:<4}:  {}  ", curr_ms, lvl_s);
-    fmt::vprint(stdout, style, fmt.fmt, args);
-    fmt::print(stdout, style, " ({}:{}) ", strip_fpath(fmt.location.file_name()),
-               fmt.location.line());
+    fmt::vprint(stdout, style, fmt, fmt::make_format_args(args...));
+    fmt::print(stdout, style, " ({}:{}) ", file_name, /*strip_fpath(file_name),*/ line);
     fmt::print(stdout, "\n");
 }
 
-template <class... Args>
-void log_debug(fmt_and_location fmt, Args&&... args) {
-#ifndef NDEBUG
-    log_impl(log_level_t::debug, std::move(fmt), fmt::make_format_args(args...));
-#endif
-}
-template <class... Args>
-void log_info(fmt_and_location fmt, Args&&... args) {
-    log_impl(log_level_t::info, std::move(fmt), fmt::make_format_args(args...));
-}
-template <class... Args>
-void log_warning(fmt_and_location fmt, Args&&... args) {
-    log_impl(log_level_t::warning, std::move(fmt), fmt::make_format_args(args...));
-}
-template <class... Args>
-void log_error(fmt_and_location fmt, Args&&... args) {
-    log_impl(log_level_t::error, std::move(fmt), fmt::make_format_args(args...));
-}
+#define log_error(Fmt, ...) \
+    log_impl(log_level_t::error, __LINE__, __FILE__, Fmt __VA_OPT__(, ) __VA_ARGS__)
+#define log_warning(Fmt, ...) \
+    log_impl(log_level_t::warning, __LINE__, __FILE__, Fmt __VA_OPT__(, ) __VA_ARGS__)
+#define log_info(Fmt, ...) \
+    log_impl(log_level_t::info, __LINE__, __FILE__, Fmt __VA_OPT__(, ) __VA_ARGS__)
+#define log_debug(Fmt, ...) \
+    log_impl(log_level_t::debug, __LINE__, __FILE__, Fmt __VA_OPT__(, ) __VA_ARGS__)
