@@ -1,0 +1,2 @@
+1) parse rfc headers and bodies with gmime.
+2) write a program which can display a list of items in UI with email subjects (decoded unicode and flags). QT can be used I guess or cmdline.
