@@ -11,7 +11,8 @@ cmake_minimum_required(VERSION 3.16)
 include(ExternalProject)
 include(GNUInstallDirs)
 
-set (compiler "") # TODO: use CC=CMAKE_C_COMPILER CXX=CMAKE_CXX_COMPILER
+
+set(compilers_override CC=${CMAKE_C_COMPILER} CXX=${CMAKE_CXX_COMPILER})
 set(superbuild_prefix ${CMAKE_BINARY_DIR}/install_prefix)
 set(libdir lib)
 set(libdir_abs_path ${superbuild_prefix}/${libdir})
@@ -26,7 +27,7 @@ ExternalProject_Add(libffi
     UPDATE_DISCONNECTED true
     # autoconf-based projects require libdir to be absolute
     CONFIGURE_COMMAND
-    env PKG_CONFIG_PATH=${pkg_config_path} <SOURCE_DIR>/configure --prefix=${superbuild_prefix} --libdir=${libdir_abs_path} ${compiler} ${rpath_ldflags}
+    ${CMAKE_COMMAND} -E env PKG_CONFIG_PATH=${superbuild_prefix}/lib/pkgconfig  <SOURCE_DIR>/configure --prefix=${superbuild_prefix} --libdir=${libdir_abs_path} ${compiler} ${rpath_ldflags} ${compilers_override}
     BUILD_COMMAND ${make_cmd} -j4
     INSTALL_COMMAND ${make_cmd} -j4 install
     # BUILD_BYPRODUCTS ${my_LIBRARY} # for ninja only
@@ -55,7 +56,7 @@ ExternalProject_Add(external_glib
     UPDATE_DISCONNECTED true
     CONFIGURE_HANDLED_BY_BUILD true# cmake must support this even though we don't need it.
     CONFIGURE_COMMAND
-        env ${compiler}
+        ${CMAKE_COMMAND} -E env ${compilers_override}
         ${meson_cmd} setup
                     --prefix ${superbuild_prefix}
                     --libdir ${libdir}
@@ -93,7 +94,7 @@ ExternalProject_Add(external_gmime
     UPDATE_DISCONNECTED
         true
     CONFIGURE_COMMAND
-        ${CMAKE_COMMAND} -E env PKG_CONFIG_PATH=${superbuild_prefix}/lib/pkgconfig LDFLAGS=-L${superbuild_prefix}/lib  <SOURCE_DIR>/configure --prefix=${superbuild_prefix}
+        ${CMAKE_COMMAND} -E env PKG_CONFIG_PATH=${superbuild_prefix}/lib/pkgconfig LDFLAGS=-L${superbuild_prefix}/lib  <SOURCE_DIR>/configure --prefix=${superbuild_prefix} ${compilers_override}
     BUILD_COMMAND
         ${make_cmd} -j4
     INSTALL_COMMAND
@@ -132,3 +133,9 @@ add_library(gmime::gmime ALIAS gmime)
 # endforeach()
 
 
+# TODO:
+# /usr/lib/libiconv.2.dylib
+# /usr/local/opt/gettext/lib/libintl.8.dylib
+# /opt/local/lib/libintl.8.dylib (compatibility version 10.0.0, current version 10.5.0)
+# /opt/local/lib/libz.1.dylib (compatibility version 1.0.0, current version 1.2.11)
+# /opt/local/lib/libiconv.2.dylib (compatibility version 9.0.0, current version 9.1.0)

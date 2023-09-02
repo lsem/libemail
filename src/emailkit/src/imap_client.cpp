@@ -625,7 +625,7 @@ class imap_client_impl_t : public imap_client_t {
         });
     }
 
-    std::string new_command_id() { return fmt::format(m_tag_pattern, m_command_counter++); }
+    std::string new_command_id() { return fmt::format(fmt::runtime (m_tag_pattern), m_command_counter++); }
     std::string next_tag() { return new_command_id(); }
 
    private:
