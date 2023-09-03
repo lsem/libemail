@@ -19,10 +19,36 @@
 
 #include <gmime/gmime.h>
 
+#include <scope_guard/scope_guard.hpp>
+
 #include <fcntl.h>
 #include <fstream>
 
 namespace emailkit::imap_parser {
+
+namespace {
+class parser_err_category_t : public std::error_category {
+   public:
+    const char* name() const noexcept override { return "imap_parser_err"; }
+    std::string message(int ev) const override {
+        switch (static_cast<parser_errc>(ev)) {
+            case parser_errc::parser_fail_l0:
+                return "parser fail at syntax level (l0)";
+            case parser_errc::parser_fail_l1:
+                return "parser fail at semantics level (l1)";
+            case parser_errc::parser_fail_l2:
+                return "parser fail at derived parsing level (l2)";
+            default:
+                return "unknown error";
+        }
+    }
+};
+const parser_err_category_t the_parser_err_cat{};
+}  // namespace
+
+std::error_code make_error_code(parser_errc ec) {
+    return std::error_code(static_cast<int>(ec), the_parser_err_cat);
+}
 
 namespace {
 std::string format_apg_parser_state(const parser_state& state) {
@@ -785,78 +811,131 @@ expected<std::vector<message_data_t>> parse_message_data_records(std::string_vie
         return unexpected(make_error_code(std::errc::io_error));  // TODO: dedicated error code
     }
 
-    log_debug("rfc822_data: {}", rfc822_data.size());
+    log_debug("rfc822_data.size: {}", rfc822_data.size());
 
-    // TODO: move somewhere up.
+    parse_rfc822_message(rfc822_data);
 
-    // char* data = new char[rfc822_data.size()];
-    // std::copy(rfc822_data.begin(), rfc822_data.end(), data);
+    return result;
+}
 
-    std::ofstream ofs("data.bin", std::ofstream::out);
-    ofs << rfc822_data;
-    ofs.flush();
-    ofs.close();
+static void write_message_to_screen(GMimeMessage* message) {
+    GMimeStream* stream;
 
-    int fd;
+    /* create a new stream for writing to stdout */
+    stream = g_mime_stream_pipe_new(STDOUT_FILENO);
+    g_mime_stream_pipe_set_owner((GMimeStreamPipe*)stream, FALSE);
 
-    if ((fd = open("data.bin", O_RDONLY, 0)) == -1) {
-        log_error("failed opening file: {}", strerror(errno));
-        return result;
-    };
+    /* write the message to the stream */
+    g_mime_object_write_to_stream((GMimeObject*)message, NULL, stream);
 
-    // GMimeStream* stream = g_mime_stream_mem_new_with_buffer(rfc822_data.data(),
-    // rfc822_data.size());
-    auto stream = g_mime_stream_fs_new(fd);
-    if (!stream) {
-        log_error("failed creating stream");
-        return result;
-    }
-    // log_debug("stream created, owner: {}", g_mime_stream_mem_get_owner((GMimeStreamMem*)stream));
+    /* flush the stream (kinda like fflush() in libc's stdio) */
+    g_mime_stream_flush(stream);
 
-    auto parser = g_mime_parser_new();
+    /* free the output stream */
+    g_object_unref(stream);
+}
 
-    // GMimeParser* parser = g_mime_parser_new_with_stream(stream);
-    g_mime_parser_init_with_stream(parser, stream);
-    if (!parser) {
-        log_error("failed creating parser from stream");
-        return result;
-    }
-    log_debug("parser created");
-
-    // g_object_unref(stream);
-
-    GMimeMessage* message = g_mime_parser_construct_message(parser, nullptr);
-    if (!message) {
-        log_error("failed constructing message from parser");
-        return result;
-    }
-
-    log_debug("message parsed");
-
-    int count = 0;
+void visit_gmime_message(GMimeMessage* message) {
     g_mime_message_foreach(
         message,
         [](GMimeObject* parent, GMimeObject* part, gpointer user_data) {
             if (GMIME_IS_MESSAGE_PART(part)) {
                 log_info("PART");
 
-                auto message_part = g_mime_message_part_get_message((GMimeMessagePart*)part);
-                if (message_part) {
-                    log_debug("parsed message part");
+                auto* part_message = g_mime_message_part_get_message((GMimeMessagePart*)part);
+                if (part_message) {
+                    log_warning("parsed message part, descending dwon");
+                    visit_gmime_message(part_message);
                 } else {
-                    log_error("failed parsing message part");
+                    log_error("not message part");
                 }
+            } else if (GMIME_IS_MESSAGE_PARTIAL(part)) {
+                /* message/partial */
+
+                /* this is an incomplete message part, probably a
+                   large message that the sender has broken into
+                   smaller parts and is sending us bit by bit. we
+                   could save some info about it so that we could
+                   piece this back together again once we get all the
+                   parts? */
+
             } else if (GMIME_IS_MULTIPART(part)) {
+                /* multipart/mixed, multipart/alternative,
+                 * multipart/related, multipart/signed,
+                 * multipart/encrypted, etc... */
+
+                /* we'll get to finding out if this is a
+                 * signed/encrypted multipart later... */
                 log_info("MULTIPART");
             } else if (GMIME_IS_PART(part)) {
+                /* a normal leaf part, could be text/plain or
+                 * image/jpeg etc */
                 log_info("REGULAR PART");
             }
         },
-        &count);
+        nullptr);
+}
 
-    // g_object_unref(parser);
+expected<void> parse_rfc822_message(std::string_view input_text) {
+    GMimeStream* stream = g_mime_stream_mem_new_with_buffer(input_text.data(), input_text.size());
+    if (!stream) {
+        log_error("failed creating stream");
+        return unexpected(make_error_code(parser_errc::parser_fail_l2));
+    }
+    GMimeParser* parser = g_mime_parser_new_with_stream(stream);
+    if (!parser) {
+        log_error("failed creating parser from stream");
+        return unexpected(make_error_code(parser_errc::parser_fail_l2));
+    }
+    log_debug("parser created");
 
-    return result;
+    g_object_unref(stream);
+
+    int *p = new int();
+
+    GMimeMessage* message = g_mime_parser_construct_message(parser, nullptr);
+    if (!message) {
+        log_error("failed constructing message from parser");
+        return unexpected(make_error_code(parser_errc::parser_fail_l2));
+    }
+
+    log_debug("message parsed, message id: {}", message->message_id);
+
+    // now we are going to get the following:
+    //  1. header
+    //  2. bodystructure
+    //  3. parts
+
+    rfc822_headers_t rfc822_headers;
+
+    GMimeHeaderList* header_list = g_mime_object_get_header_list((GMimeObject*)message);
+    const int headers_num = g_mime_header_list_get_count(header_list);
+    for (int i = 0; i < headers_num; ++i) {
+        auto header = g_mime_header_list_get_header_at(header_list, i);
+        if (!header) {
+            log_warning("no header at {}", i);
+            continue;
+        }
+        auto header_name = g_mime_header_get_name(header);
+        if (!header_name) {
+            log_warning("header at {} does not have a name", i);
+            continue;
+        }
+
+        auto header_value = g_mime_header_get_value(header);
+        if (!header_value) {
+            log_warning("header at {} does not have a value", i);
+            continue;
+        }
+
+        rfc822_headers.emplace_back(header_name, header_value);
+    }
+
+    for (auto& [k, v] : rfc822_headers) {
+        log_info("'{}': '{}'", k, "...");
+    }
+
+    return unexpected(make_error_code(std::errc::io_error));
 }
 
 }  // namespace emailkit::imap_parser

@@ -71,7 +71,7 @@ void log_impl(log_level_t level,
             case log_level_t::info:
                 return fmt::fg(fmt::color::gray);
             case log_level_t::warning:
-                return fmt::bg(fmt::color::yellow);
+                return fmt::bg(fmt::color::yellow) | fmt::fg(fmt::color::black);
             case log_level_t::error:
                 return fmt::bg(fmt::color::indian_red) | fmt::fg(fmt::color::white);
         }
@@ -108,5 +108,5 @@ void log_impl(log_level_t level,
     log_impl(log_level_t::warning, __LINE__, __FILE__, Fmt __VA_OPT__(, ) __VA_ARGS__)
 #define log_info(Fmt, ...) \
     log_impl(log_level_t::info, __LINE__, __FILE__, Fmt __VA_OPT__(, ) __VA_ARGS__)
-#define log_debug(Fmt, ...) \
-    log_impl(log_level_t::debug, __LINE__, __FILE__, Fmt __VA_OPT__(, ) __VA_ARGS__)
+#define log_debug(Fmt, ...) //\
+    //log_impl(log_level_t::debug, __LINE__, __FILE__, Fmt __VA_OPT__(, ) __VA_ARGS__)

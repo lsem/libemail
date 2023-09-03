@@ -34,7 +34,7 @@ struct imap_match_condition_t {
 
     std::pair<iterator_t, bool> operator()(iterator_t begin, iterator_t end) {
         if (std::exchange(m_first_byte, false)) {
-            log_info("started reading response");
+            log_debug("started reading response");
         }
 
         // FIXME:
@@ -51,7 +51,7 @@ struct imap_match_condition_t {
                 // TODO: should we somehow recover from this?
                 // we can validate this tag better, strictly accordint the grammar!
                 if (m_prev == 0x0d && *it == 0x0a) {
-                    log_info("finished reading response");
+                    log_debug("finished reading response");
                     return {it + 1, true};
                 }
                 // m_prev = *it;
@@ -105,7 +105,7 @@ struct imap_match_condition_t {
                 if (*it == 0x0a) {
                     m_state = state_t::reading_data;
                     m_literal_data_bytes_left = std::stoi(m_literal_size_s);
-                    log_info("reading literal data of size (size={})", m_literal_data_bytes_left);
+                    log_debug("reading literal data of size (size={})", m_literal_data_bytes_left);
                     if (m_literal_data_bytes_left > 0) {
                     } else {
                         log_debug("literal size == 0 case, going to idle state");
@@ -119,7 +119,7 @@ struct imap_match_condition_t {
                 }
             } else if (m_state == state_t::reading_data) {
                 if (m_literal_data_bytes_left-- == 0) {
-                    log_info("read last byte of literal, going to idle state");
+                    log_debug("read last byte of literal, going to idle state");
                     m_state = state_t::idle;
                     m_next_expected_prefix_char_idx = 0;
                 }

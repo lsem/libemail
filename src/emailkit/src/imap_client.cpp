@@ -549,7 +549,7 @@ class imap_client_impl_t : public imap_client_t {
             }
             auto parse_took = std::chrono::steady_clock::now() - parse_start;
 
-            log_info("parsing successful, time take: {}ms", parse_took / 1.0ms);
+            log_debug("parsing successful, time take: {}ms", parse_took / 1.0ms);
 
             cb({}, {});
         });
@@ -625,7 +625,9 @@ class imap_client_impl_t : public imap_client_t {
         });
     }
 
-    std::string new_command_id() { return fmt::format(fmt::runtime (m_tag_pattern), m_command_counter++); }
+    std::string new_command_id() {
+        return fmt::format(fmt::runtime(m_tag_pattern), m_command_counter++);
+    }
     std::string next_tag() { return new_command_id(); }
 
    private:

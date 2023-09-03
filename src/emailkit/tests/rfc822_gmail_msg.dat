@@ -1,0 +1,85 @@
+Delivered-To: liubomyr.semkiv.test2@gmail.com
+Received: by 2002:a05:6359:618c:b0:139:b597:11a4 with SMTP id sb12csp483616rwb;
+        Sat, 5 Aug 2023 04:53:31 -0700 (PDT)
+X-Received: by 2002:a05:651c:39c:b0:2b9:c689:3c33 with SMTP id e28-20020a05651c039c00b002b9c6893c33mr678546ljp.19.1691236411115;
+        Sat, 05 Aug 2023 04:53:31 -0700 (PDT)
+ARC-Seal: i=1; a=rsa-sha256; t=1691236411; cv=none;
+        d=google.com; s=arc-20160816;
+        b=HsD8LYv68hwM9n1uup6koeVlbXFeEdkFUpNbQ2lBs4aX5i/fppjQWOEz9YNnUuGtbI
+         7OceRJnuqupRmOg6qTibn3tIWyNkxY3fuQGi6RdKviDlLJyN82OQMFxXh6uSCigp7eZk
+         2CB52X7LEutgQJva+vqhGC+iRTjiaaQNj29b039cFHpz9ZG5epSvYGPXrSKOOnxHphmE
+         rj+0SbEwEpILC5mm5vQewUc+0QpHBMP+12Vmt76PDfcjwiLTvj2tu0eX9IbXgOSNb3s+
+         r34HHBVjlD/ueiWC25RoA0gCUNEWmlANqM74040wuzSBppLhyEP7CS9hFSHb0s5u/4W5
+         uXRg==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=google.com; s=arc-20160816;
+        h=to:subject:message-id:date:from:mime-version:dkim-signature;
+        bh=JFxxozIgpXUl2G9pchuaut6R6KmtZePET7CU/x3Ho8Y=;
+        fh=CvGPcTZEAlaEAtCmTmWhiJD69bS3CsYhvP1u19Vpc0s=;
+        b=rmbq2KoM9gzGEzWr5B6XXgC75NaH+pdbTEIHNo41MwKiApkzidYrb26f8EcxvqaDJu
+         DIkpq/reMBdvC1K4H+4i8H0gI6rb5Nzf4EBU31YStf6GSSPFaSpqJ93JrEE/YC3R+brs
+         jxUf7C31yzYP5A6Ho/ViOLi5inl4jaUgmYVM314t1FtRI9ttLk90DTUdVEqAojaCtEw6
+         CvD1FSO0nLnGFweLxnRA70i/iPBenQasbJEQEbrYpmHsajPyPIJB057wkr7Pk7kYcSAP
+         9mDzRkZ7OMn20RjQ3kjNxh9u3m4CShV3HFpuec0Fo84C5cLEwocwicN8ktCeBD8bTQOJ
+         UHig==
+ARC-Authentication-Results: i=1; mx.google.com;
+       dkim=pass header.i=@gmail.com header.s=20221208 header.b=KPVQ1N0L;
+       spf=pass (google.com: domain of liubomyr.semkiv.test@gmail.com designates 209.85.220.41 as permitted sender) smtp.mailfrom=liubomyr.semkiv.test@gmail.com;
+       dmarc=pass (p=NONE sp=QUARANTINE dis=NONE) header.from=gmail.com
+Return-Path: <liubomyr.semkiv.test@gmail.com>
+Received: from mail-sor-f41.google.com (mail-sor-f41.google.com. [209.85.220.41])
+        by mx.google.com with SMTPS id bd5-20020a05651c168500b002b734c4fe32sor16238ljb.1.2023.08.05.04.53.30
+        for <liubomyr.semkiv.test2@gmail.com>
+        (Google Transport Security);
+        Sat, 05 Aug 2023 04:53:31 -0700 (PDT)
+Received-SPF: pass (google.com: domain of liubomyr.semkiv.test@gmail.com designates 209.85.220.41 as permitted sender) client-ip=209.85.220.41;
+Authentication-Results: mx.google.com;
+       dkim=pass header.i=@gmail.com header.s=20221208 header.b=KPVQ1N0L;
+       spf=pass (google.com: domain of liubomyr.semkiv.test@gmail.com designates 209.85.220.41 as permitted sender) smtp.mailfrom=liubomyr.semkiv.test@gmail.com;
+       dmarc=pass (p=NONE sp=QUARANTINE dis=NONE) header.from=gmail.com
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=gmail.com; s=20221208; t=1691236410; x=1691841210;
+        h=to:subject:message-id:date:from:mime-version:from:to:cc:subject
+         :date:message-id:reply-to;
+        bh=JFxxozIgpXUl2G9pchuaut6R6KmtZePET7CU/x3Ho8Y=;
+        b=KPVQ1N0L+gjLhoKN1ospte5uVmcVyw5VGdKgsfir/NIoxR9vAFmICi/0VTBJnd7HEg
+         oU7GxBEIIE/uyG06ixGSh5hz/jnQozcttcI/an81WO3chJUM5jcyJ1AaHX+ELhrmVSjh
+         HAEwhdQ74wjvE8uFBwgZYwLEhLY7vFIr7VibwmFbayzSf4kBMg22F/CWU4taBkmUeXtq
+         KRCurMKJyBEIef+FmxBrehdDejbNZpoq2qZWZtDl61QvjKCzLlq6XFQam6yArqRCRy30
+         dQvPCVmjH/l4Lm/t3dcAMOVgEX56a0nvw9tGX3ZwFzqCqldCwFOQLYt+i5SmiA1j+tNR
+         h1Iw==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20221208; t=1691236410; x=1691841210;
+        h=to:subject:message-id:date:from:mime-version:x-gm-message-state
+         :from:to:cc:subject:date:message-id:reply-to;
+        bh=JFxxozIgpXUl2G9pchuaut6R6KmtZePET7CU/x3Ho8Y=;
+        b=J93WeP/gAzOAVMb1xJgt4miNlgG46EJ95CKps/Cz0nh2VUGlxqNgNCVXKswIgIvmm2
+         cQbxa5bZi3Uod8tdbsZqw7ChuEdRxlHnyAJVhdfA9FqhYKIn1ckEkryk4kAebCcaPV8T
+         1QgsVEn69CPlh7cOo6boRpt28IS86cFmfcf86tl3z+IDgU7voDcpEET4VBWQQbQqFZfA
+         mby5gnphEXeuYmtFUbXRLA3+HG/xYKz6ByzGGBO33BrruCf2bxAZmoG9gJrm4b6Mttqf
+         lVBlOebRXTLFXzod+xcd/tXAM+2Knl+kHcRM6VW9lARTk0F4og0ua7kI51AbGFgzR8+C
+         ddEQ==
+X-Gm-Message-State: AOJu0YxfBMjkwoEViBnNhHLXxv+4gh9v2HRqBwac2zggy7AD2ZU3ta9J
+	BysVrtxs0nRf+oxwKZZEAgC55pfPiE8v07eqFFwiXT/8UbE=
+X-Google-Smtp-Source: AGHT+IGPCwUHe4Pq1azoeN0Rf/sHJj8pmfGXkqUqzAtfHlMSAFP6hqxs2nzknhqeT2jwupNHyYDvp8kFO+QRJDDhoFY=
+X-Received: by 2002:a2e:9690:0:b0:2b9:344c:181e with SMTP id
+ q16-20020a2e9690000000b002b9344c181emr748168lji.19.1691236409950; Sat, 05 Aug
+ 2023 04:53:29 -0700 (PDT)
+MIME-Version: 1.0
+From: Liubomyr <liubomyr.semkiv.test@gmail.com>
+Date: Sat, 5 Aug 2023 14:53:18 +0300
+Message-ID: <CA+n06nmeSAV4S3c5JLVJK2+j-bykMviYe91BpAERzbvLCbayDQ@mail.gmail.com>
+Subject: ping
+To: liubomyr.semkiv.test2@gmail.com
+Content-Type: multipart/alternative; boundary="0000000000007245a806022ba9cd"
+
+--0000000000007245a806022ba9cd
+Content-Type: text/plain; charset="UTF-8"
+
+
+
+--0000000000007245a806022ba9cd
+Content-Type: text/html; charset="UTF-8"
+
+<div dir="ltr"><br></div>
+
+--0000000000007245a806022ba9cd--

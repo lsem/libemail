@@ -35,4 +35,10 @@ bool subset_match(const Collection1& c1, const Collection2& c2) {
     return true;
 }
 
+template<class StringOrStringView>
+bool starts_with(const StringOrStringView& s, std::string_view prefix) {
+    return s.rfind(prefix) == 0;
+}
+
+
 }  // namespace emailkit::utils

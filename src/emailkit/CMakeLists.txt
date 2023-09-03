@@ -29,6 +29,10 @@ target_link_libraries(emailkit
         skeeto::utf7
         gmime::gmime)
 
+target_compile_options(emailkit PUBLIC "-fsanitize=address")
+target_link_options(emailkit PUBLIC "-fsanitize=address")
+        
+
 
 ##############################################################################
 # emailkit-tests
@@ -53,3 +57,4 @@ target_link_options(emailkit-tests PRIVATE "-fsanitize=address")
 # TODO: consider generating this on the fly since we have dependency on OpenSSL here.
 configure_file(tests/newcert.pem ${CMAKE_BINARY_DIR}/)
 configure_file(tests/privkey.pem ${CMAKE_BINARY_DIR}/)
+configure_file(tests/rfc822_gmail_msg.dat ${CMAKE_BINARY_DIR}/)

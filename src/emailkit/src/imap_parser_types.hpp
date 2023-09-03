@@ -1,5 +1,6 @@
 #pragma once
 
+#include <map>
 #include <optional>
 #include <string>
 #include <system_error>
@@ -94,31 +95,66 @@ struct message_data_t {
     std::vector<msg_static_attr_t> static_attrs;
 };
 
+struct envelope_fields_t {
+    std::optional<std::string> date_opt;
+    std::optional<std::string> subject_opt;
+    std::optional<std::string> from_opt;
+    std::optional<std::string> sender_opt;
+    std::optional<std::string> reply_to_opt;
+    std::optional<std::string> to_opt;
+    std::optional<std::string> cc_opt;
+    std::optional<std::string> bcc_opt;
+    std::optional<std::string> in_reply_to_opt;
+    std::optional<std::string> message_id_opt;
+};
+
+namespace envelope_fields {
+static const std::string date = "Date";
+static const std::string subject = "Subject";
+static const std::string from = "From";
+static const std::string sender = "Sender";
+static const std::string reply_to = "Reply-To";
+static const std::string to = "To";
+static const std::string cc = "Cc";
+static const std::string bcc = "Bcc";
+static const std::string message_id = "Message-ID";
+static const std::string delivered_to = "Delivered-To";
+static const std::string received = "Received";
+static const std::string x_received = "X-Received";
+static const std::string arc_seal = "ARC-Seal";
+static const std::string arc_message_signature = "ARC-Message-Signature";
+static const std::string arc_authentication_results = "ARC-Authentication-Results";
+static const std::string return_path = "Return-Path";
+static const std::string received_spf = "Received-SPF";
+static const std::string authentication_results = "Authentication-Results";
+static const std::string dkim_signature = "DKIM-Signature";
+static const std::string x_google_dkim_signature = "X-Google-DKIM-Signature";
+static const std::string x_gm_message_state = "X-Gm-Message-State";
+static const std::string x_google_smtp_source = "X-Google-Smtp-Source";
+static const std::string mime_version = "MIME-Version";
+}  // namespace envelope_fields
+
+using rfc822_headers_t = std::vector<std::pair<std::string, std::string>>;
+
 namespace utils {
 std::vector<std::string> decode_mailbox_path_from_list_response(const list_response_t& r);
 }
 
 std::string to_json(const list_response_t&);
 
-///////////////////////////////////////////////////////////////////////////////////////////////
-// imap-parser-errors
-enum class parser_errc {
-    // basic parser failed at grammar level
-    parser_fail_l0 = 1,
-
-    // at grammar level parsing is OK, but format is unexpected.
-    parser_fail_l1,
-
-    // at grammar level parsing is OK, but downstream parsers provided by 3rd-party parsers failed.
-    parser_fail_l2,
-
-};
-
-std::error_code make_error_code(parser_errc);
-
 }  // namespace emailkit::imap_parser
 
-namespace std {
-template <>
-struct is_error_code_enum<emailkit::imap_parser::parser_errc> : true_type {};
-}  // namespace std
+DEFINE_FMT_FORMATTER(
+    emailkit::imap_parser::envelope_fields_t,
+    "envelope_fields_t(date: {}, subject: {}, from: {}, sender: {}, reply_to: {}, to: {}, cc: {}, "
+    "bcc: {}, in_repy_to: {}, message_id: {})",
+    arg.date_opt.has_value() ? *arg.date_opt : "null",
+    arg.subject_opt.has_value() ? *arg.subject_opt : "null",
+    arg.from_opt.has_value() ? *arg.from_opt : "null",
+    arg.sender_opt.has_value() ? *arg.sender_opt : "null",
+    arg.reply_to_opt.has_value() ? *arg.reply_to_opt : "null",
+    arg.to_opt.has_value() ? *arg.to_opt : "null",
+    arg.cc_opt.has_value() ? *arg.cc_opt : "null",
+    arg.bcc_opt.has_value() ? *arg.bcc_opt : "null",
+    arg.in_reply_to_opt.has_value() ? *arg.in_reply_to_opt : "null",
+    arg.message_id_opt.has_value() ? *arg.message_id_opt : "null");
