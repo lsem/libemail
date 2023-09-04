@@ -22,7 +22,7 @@ find_program(make_cmd NAMES gmake make mingw32-make REQUIRED)
 
 ########################################################################
 # libFFI
-ExternalProject_Add(libffi
+ExternalProject_Add(libffi_external
     URL     https://github.com/libffi/libffi/releases/download/v3.4.4/libffi-3.4.4.tar.gz
     UPDATE_DISCONNECTED true
     # autoconf-based projects require libdir to be absolute
@@ -33,6 +33,12 @@ ExternalProject_Add(libffi
     INSTALL_COMMAND ${make_cmd} -j4 install
     # BUILD_BYPRODUCTS ${my_LIBRARY} # for ninja only
 )
+set(libffi_libname ${CMAKE_SHARED_LIBRARY_PREFIX}ffi${CMAKE_SHARED_LIBRARY_SUFFIX})
+add_library(libffi INTERFACE)
+target_link_directories(libffi INTERFACE ${libdir_abs_path})
+target_link_libraries(libffi INTERFACE ${libffi_libname})
+add_library(libffi::libffi ALIAS libffi)
+
 
 ########################################################################
 # Meson build system, needed for glib (https://mesonbuild.com/Getting-meson.html)
@@ -76,12 +82,12 @@ ExternalProject_Add(external_glib
     INSTALL_COMMAND
         ${meson_cmd} install -C _build    
     DEPENDS
-        libffi meson
+    libffi_external meson
 )
 add_library(glib INTERFACE)
 add_dependencies(glib external_glib)
 target_link_directories(glib INTERFACE ${libdir_abs_path})
-target_link_libraries(glib INTERFACE ${glib_libname} ${gobject_libname})
+target_link_libraries(glib INTERFACE ${glib_libname} ${gobject_libname} libffi)
 target_include_directories(glib INTERFACE ${glib_include_directory1} ${glib_include_directory2})
 add_library(glib::glib ALIAS glib)
 
@@ -107,7 +113,7 @@ ExternalProject_Add(external_gmime
 add_library(gmime INTERFACE)
 add_dependencies(gmime external_gmime)
 target_link_directories(gmime INTERFACE ${libdir_abs_path})
-target_link_libraries(gmime INTERFACE  glib::glib ${gmime_libname})
+target_link_libraries(gmime INTERFACE  glib::glib ${gmime_libname} )
 target_include_directories(gmime INTERFACE ${gmime_include_directory})
 add_library(gmime::gmime ALIAS gmime)
 

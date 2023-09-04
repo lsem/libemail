@@ -876,7 +876,7 @@ void visit_gmime_message(GMimeMessage* message) {
                 log_info("MULTIPART ({} parts)", n);
                 for (int i = 0; i < n; i++) {
                     auto subpart = g_mime_multipart_get_part(multipart, i);
-                    visit_gmime_message(subpart);
+                    //visit_gmime_message(subpart);
                     //write_part_bodystructure(subpart, fp);
                 }
 
