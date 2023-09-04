@@ -840,7 +840,7 @@ void visit_gmime_message(GMimeMessage* message) {
         message,
         [](GMimeObject* parent, GMimeObject* part, gpointer user_data) {
             if (GMIME_IS_MESSAGE_PART(part)) {
-                log_info("PART");
+                log_warning("PART");
 
                 auto* part_message = g_mime_message_part_get_message((GMimeMessagePart*)part);
                 if (part_message) {
@@ -860,17 +860,104 @@ void visit_gmime_message(GMimeMessage* message) {
                    parts? */
 
             } else if (GMIME_IS_MULTIPART(part)) {
+                auto multipart = (GMimeMultipart *) part;
                 /* multipart/mixed, multipart/alternative,
                  * multipart/related, multipart/signed,
                  * multipart/encrypted, etc... */
 
                 /* we'll get to finding out if this is a
                  * signed/encrypted multipart later... */
-                log_info("MULTIPART");
+                
+
+                // GMimeMultipart* multipart = (GMimeMultipart*)part;
+                // GMimeObject* subpart;
+
+                int n = g_mime_multipart_get_count(multipart);
+                log_info("MULTIPART ({} parts)", n);
+                for (int i = 0; i < n; i++) {
+                    auto subpart = g_mime_multipart_get_part(multipart, i);
+                    visit_gmime_message(subpart);
+                    //write_part_bodystructure(subpart, fp);
+                }
+
             } else if (GMIME_IS_PART(part)) {
                 /* a normal leaf part, could be text/plain or
                  * image/jpeg etc */
-                log_info("REGULAR PART");
+                log_warning("REGULAR PART");
+
+                GMimeContentDisposition* disposition;
+                GMimeParamList* params;
+
+                disposition = g_mime_object_get_content_disposition(part);
+                if (disposition) {
+                    switch (g_mime_part_get_content_encoding((GMimePart*)part)) {
+                        case GMIME_CONTENT_ENCODING_7BIT:
+                            log_debug("encoding: 7bit");
+                            break;
+                        case GMIME_CONTENT_ENCODING_8BIT:
+                            log_debug("encoding: 8bit");
+                            break;
+                        case GMIME_CONTENT_ENCODING_BINARY:
+                            log_debug("encoding: binary");
+                            break;
+                        case GMIME_CONTENT_ENCODING_BASE64:
+                            log_debug("encoding: base64");
+                            break;
+                        case GMIME_CONTENT_ENCODING_QUOTEDPRINTABLE:
+                            log_debug("encoding: quoted primtable");
+                            break;
+                        case GMIME_CONTENT_ENCODING_UUENCODE:
+                            log_debug("encoding: xuencode");
+                            break;
+                        default:
+                            log_debug("encoding: nil");
+                    }
+                } else {
+                    log_info("no content disposition");
+                }
+                // if (disposition) {
+                // fprintf (fp, "\"%s\" ", g_mime_content_disposition_get_disposition
+                // (disposition));
+                // 	params = g_mime_content_disposition_get_parameters (disposition);
+                // 	if ((n = g_mime_param_list_length (params)) > 0) {
+                // 		fputc ('(', fp);
+                // 		for (i = 0; i < n; i++) {
+                // 			if (i > 0)
+                // 				fputc (' ', fp);
+
+                // 			param = g_mime_param_list_get_parameter_at (params, i);
+                // 			fprintf (fp, "\"%s\" \"%s\"", g_mime_param_get_name (param),
+                // 				 g_mime_param_get_value (param));
+                // 		}
+                // 		fputs (") ", fp);
+                // 	} else {
+                // 		fputs ("NIL ", fp);
+                // 	}
+                // } else {
+                // 	fputs ("NIL NIL ", fp);
+                // }
+                // switch (g_mime_part_get_content_encoding ((GMimePart *) part)) {
+                // case GMIME_CONTENT_ENCODING_7BIT:
+                // 	fputs ("\"7bit\"", fp);
+                // 	break;
+                // case GMIME_CONTENT_ENCODING_8BIT:
+                // 	fputs ("\"8bit\"", fp);
+                // 	break;
+                // case GMIME_CONTENT_ENCODING_BINARY:
+                // 	fputs ("\"binary\"", fp);
+                // 	break;
+                // case GMIME_CONTENT_ENCODING_BASE64:
+                // 	fputs ("\"base64\"", fp);
+                // 	break;
+                // case GMIME_CONTENT_ENCODING_QUOTEDPRINTABLE:
+                // 	fputs ("\"quoted-printable\"", fp);
+                // 	break;
+                // case GMIME_CONTENT_ENCODING_UUENCODE:
+                // 	fputs ("\"x-uuencode\"", fp);
+                // 	break;
+                // default:
+                // 	fputs ("NIL", fp);
+                // }
             }
         },
         nullptr);
@@ -891,7 +978,7 @@ expected<void> parse_rfc822_message(std::string_view input_text) {
 
     g_object_unref(stream);
 
-    int *p = new int();
+    int* p = new int();
 
     GMimeMessage* message = g_mime_parser_construct_message(parser, nullptr);
     if (!message) {
@@ -932,8 +1019,9 @@ expected<void> parse_rfc822_message(std::string_view input_text) {
     }
 
     for (auto& [k, v] : rfc822_headers) {
-        log_info("'{}': '{}'", k, "...");
+        // log_info("'{}': '{}'", k, "...");
     }
+    visit_gmime_message(message);
 
     return unexpected(make_error_code(std::errc::io_error));
 }

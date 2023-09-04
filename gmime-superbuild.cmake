@@ -27,8 +27,9 @@ ExternalProject_Add(libffi
     UPDATE_DISCONNECTED true
     # autoconf-based projects require libdir to be absolute
     CONFIGURE_COMMAND
-    ${CMAKE_COMMAND} -E env PKG_CONFIG_PATH=${superbuild_prefix}/lib/pkgconfig  <SOURCE_DIR>/configure --prefix=${superbuild_prefix} --libdir=${libdir_abs_path} ${compiler} ${rpath_ldflags} ${compilers_override}
-    BUILD_COMMAND ${make_cmd} -j4
+        ${CMAKE_COMMAND} -E env PKG_CONFIG_PATH=${superbuild_prefix}/lib/pkgconfig  <SOURCE_DIR>/configure --prefix=${superbuild_prefix} --libdir=${libdir_abs_path} ${compiler} ${rpath_ldflags} ${compilers_override}
+    BUILD_COMMAND
+        ${make_cmd} -j4
     INSTALL_COMMAND ${make_cmd} -j4 install
     # BUILD_BYPRODUCTS ${my_LIBRARY} # for ninja only
 )
