@@ -13,7 +13,6 @@
 #include <folly/folly_uri.hpp>
 #include <iostream>
 
-
 #include <gmime/gmime.h>
 
 using namespace emailkit;
@@ -32,15 +31,15 @@ void fetch_messages_in_a_row(imap_client::imap_client_t& client, int count) {
             .sequence_set = imap_commands::fetch_sequence_spec{.from = count, .to = count},
             .items =
                 imap_commands::fetch_items_vec_t{
-                                        // fi::body_t{},
-                                        // fi::body_structure_t{},
-                                        // fi::envelope_t{},
-                                        // fi::flags_t{},
-                                        // fi::internal_date_t{},
-                                        fi::rfc822_t{},
-                                        fi::rfc822_header_t{},
-                                         fi::rfc822_size_t{},
-                                         fi::rfc822_text_t{},
+                    // fi::body_t{},
+                    // fi::body_structure_t{},
+                    // fi::envelope_t{},
+                    // fi::flags_t{},
+                    // fi::internal_date_t{},
+                    fi::rfc822_t{},
+                    fi::rfc822_header_t{},
+                    fi::rfc822_size_t{},
+                    fi::rfc822_text_t{},
 
                 }},
         [&client, count](std::error_code ec, imap_client::types::fetch_response_t r) {
@@ -370,11 +369,21 @@ static GMimeMessage* parse_message(int fd) {
     return message;
 }
 
+#ifdef __linux
+#include <sanitizer/lsan_interface.h>
+void handler(int signum) {
+    __lsan_do_leak_check();
+}
+#else
+void handler(int signum) {}
+#endif
+
 int main() {
+    signal(SIGINT, handler);
     log_debug("initializing gmime library");
     g_mime_init();
 
-    //g_object_new();
+    // g_object_new();
 
     // int fd;
     // if ((fd = open ("google-fetch-response.txt", O_RDONLY, 0)) == -1) {
