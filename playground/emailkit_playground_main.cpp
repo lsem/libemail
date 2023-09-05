@@ -374,13 +374,16 @@ static GMimeMessage* parse_message(int fd) {
 void handler(int signum) {
     __lsan_do_leak_check();
 }
+void install_handlers() {
+    signal(SIGINT, handler);
+}
 #else
-void handler(int signum) {}
+void install_handlers() {}
 #endif
 
 int main() {
-    signal(SIGINT, handler);
-    log_debug("initializing gmime library");
+    install_handlers();
+
     g_mime_init();
 
     // g_object_new();

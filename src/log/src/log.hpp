@@ -30,12 +30,8 @@ constexpr std::string_view strip_fpath(std::string_view fpath) {
 
 static_assert(strip_fpath("a/b/c") == "c");
 
-template <class... Args>
-void log_impl(log_level_t level,
-              int line,
-              const char* file_name,
-              std::string_view fmt,
-              Args... args) {
+template <class Fmt, class... Args>
+void log_impl(log_level_t level, int line, std::string_view file_name, Fmt fmt, Args&&... args) {
     static bool log_level_read = false;
     if (!log_level_read) {
         std::string level_val;
@@ -98,15 +94,15 @@ void log_impl(log_level_t level,
 
     fmt::print(stdout, style, "{:<4}:  {}  ", curr_ms, lvl_s);
     fmt::vprint(stdout, style, fmt, fmt::make_format_args(args...));
-    fmt::print(stdout, style, " ({}:{}) ", file_name, /*strip_fpath(file_name),*/ line);
+    fmt::print(stdout, style, " ({}:{}) ", strip_fpath(file_name), line);
     fmt::print(stdout, "\n");
 }
 
 #define log_error(Fmt, ...) \
-    log_impl(log_level_t::error, __LINE__, __FILE__, Fmt __VA_OPT__(, ) __VA_ARGS__)
+    log_impl(log_level_t::error, __LINE__, __FILE__, FMT_STRING(Fmt) __VA_OPT__(, ) __VA_ARGS__)
 #define log_warning(Fmt, ...) \
-    log_impl(log_level_t::warning, __LINE__, __FILE__, Fmt __VA_OPT__(, ) __VA_ARGS__)
+    log_impl(log_level_t::warning, __LINE__, __FILE__, FMT_STRING(Fmt) __VA_OPT__(, ) __VA_ARGS__)
 #define log_info(Fmt, ...) \
-    log_impl(log_level_t::info, __LINE__, __FILE__, Fmt __VA_OPT__(, ) __VA_ARGS__)
-#define log_debug(Fmt, ...) //\
-    //log_impl(log_level_t::debug, __LINE__, __FILE__, Fmt __VA_OPT__(, ) __VA_ARGS__)
+    log_impl(log_level_t::info, __LINE__, __FILE__, FMT_STRING(Fmt) __VA_OPT__(, ) __VA_ARGS__)
+#define log_debug(Fmt, ...) \
+    log_impl(log_level_t::debug, __LINE__, __FILE__, FMT_STRING(Fmt) __VA_OPT__(, ) __VA_ARGS__)
