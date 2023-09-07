@@ -16,6 +16,7 @@
 #include <vector>
 
 #include <cstdlib>
+#include <set>
 
 #include <gmime/gmime.h>
 
@@ -772,7 +773,7 @@ expected<std::vector<message_data_t>> parse_message_data_records(std::string_vie
                                    IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_RFC822,
                                    IMAP_PARSER_APG_IMPL_NSTRING,
                                    IMAP_PARSER_APG_IMPL_U_LITERAL_DATA)) {
-                        log_debug("static attribute, rfc822/nstring/literal: '{}'", match_text);
+                        // log_debug("static attribute, rfc822/nstring/literal: '{}'", match_text);
                         rfc822_data = match_text;
                     } else if (current_path_is(IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
                                                IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
@@ -860,14 +861,13 @@ void visit_gmime_message(GMimeMessage* message) {
                    parts? */
 
             } else if (GMIME_IS_MULTIPART(part)) {
-                auto multipart = (GMimeMultipart *) part;
+                auto multipart = (GMimeMultipart*)part;
                 /* multipart/mixed, multipart/alternative,
                  * multipart/related, multipart/signed,
                  * multipart/encrypted, etc... */
 
                 /* we'll get to finding out if this is a
                  * signed/encrypted multipart later... */
-                
 
                 // GMimeMultipart* multipart = (GMimeMultipart*)part;
                 // GMimeObject* subpart;
@@ -876,8 +876,8 @@ void visit_gmime_message(GMimeMessage* message) {
                 log_info("MULTIPART ({} parts)", n);
                 for (int i = 0; i < n; i++) {
                     auto subpart = g_mime_multipart_get_part(multipart, i);
-                    //visit_gmime_message(subpart);
-                    //write_part_bodystructure(subpart, fp);
+                    // visit_gmime_message(subpart);
+                    // write_part_bodystructure(subpart, fp);
                 }
 
             } else if (GMIME_IS_PART(part)) {
@@ -963,6 +963,239 @@ void visit_gmime_message(GMimeMessage* message) {
         nullptr);
 }
 
+// functions for working with parts
+// Part known to have:
+//  1) content disposition
+//  2) content type
+//  3) encoding (base64, binary, quoted-printable, etc..)
+//  4) charset (e.g. utf8, can it have something else?)
+enum class content_disposition_t {};
+
+// Returns content type and media subtype.
+struct content_type_t {
+    std::string type;
+    std::string media_subtype;
+    std::vector<std::pair<std::string, std::string>> params;
+};
+
+// TODO: use expected.
+expected<content_type_t> get_part_content_type(GMimeObject* part) {
+    content_type_t result;
+
+    GMimeContentType* content_type = g_mime_object_get_content_type(part);
+    if (!content_type) {
+        log_error("no content type in part");
+        return unexpected(make_error_code(parser_errc::parser_fail_l2));
+    }
+
+    const char* type_str = g_mime_content_type_get_media_type(content_type);
+    if (type_str) {
+        result.type = type_str;
+    }
+
+    const char* media_subtype_str = g_mime_content_type_get_media_subtype(content_type);
+    if (media_subtype_str) {
+        result.media_subtype = media_subtype_str;
+    }
+
+    /* Content-Type params */
+    GMimeParamList* params = g_mime_content_type_get_parameters(content_type);
+    if (params) {
+        int params_count = g_mime_param_list_length(params);
+        if (params_count > 0) {
+            for (int i = 0; i < params_count; ++i) {
+                auto param = g_mime_param_list_get_parameter_at(params, i);
+                auto name = g_mime_param_get_name(param);
+                auto value = g_mime_param_get_value(param);
+                if (name && value) {
+                    result.params.emplace_back(name, value);
+                }
+            }
+        }
+    }
+
+    return result;
+}
+
+// Assuming \part is leaf part with content type text/html, returns HTML in utf8 charset.
+expected<std::string> decode_html_content_from_part(GMimeObject* part) {
+    GMimeContentEncoding encoding = g_mime_part_get_content_encoding((GMimePart*)part);
+    if (encoding != GMIME_CONTENT_ENCODING_QUOTEDPRINTABLE &&
+        encoding != GMIME_CONTENT_ENCODING_DEFAULT && encoding != GMIME_CONTENT_ENCODING_BASE64) {
+        log_error("dont know how to decode html from {}", static_cast<int>(encoding));
+        return unexpected(make_error_code(parser_errc::parser_fail_l2));
+    }
+
+    // TODO: support more: GMIME_CONTENT_ENCODING_7BIT, GMIME_CONTENT_ENCODING_8BIT,
+    // GMIME_CONTENT_ENCODING_BASE64, GMIME_CONTENT_ENCODING_UUENCODE, GMIME_CONTENT_ENCODING_BASE64
+
+    GMimeDataWrapper* content = g_mime_part_get_content((GMimePart*)part);
+    if (!content) {
+        log_error("no content in part");
+        return unexpected(make_error_code(parser_errc::parser_fail_l2));
+    }
+
+    GMimeStream* content_stream = g_mime_data_wrapper_get_stream(content);
+    if (!content_stream) {
+        log_error("failed getting stream for content");
+        return unexpected(make_error_code(parser_errc::parser_fail_l2));
+    }
+
+    // For the sake of simplicity data is read out before decoding. It should be just fine for html
+    // text.
+    // TODO: we need to put some limit here.
+    ssize_t bytes_read = 0;
+    std::string all_content;
+    std::string buffer(4096, 0);
+    while ((bytes_read = g_mime_stream_read(content_stream, buffer.data(), buffer.size())) > 0) {
+        all_content.append(buffer.data(), bytes_read);
+    }
+
+    if (encoding == GMIME_CONTENT_ENCODING_QUOTEDPRINTABLE) {
+        GMimeEncoding decoder;
+        g_mime_encoding_init_decode(&decoder, encoding);
+
+        size_t out_bytes_needed = g_mime_encoding_outlen(&decoder, all_content.size());
+        log_debug("bytes needed for decoding utf8 html from qp: {}", out_bytes_needed);
+        std::string decoded_content(out_bytes_needed, '\0');
+        size_t n = g_mime_encoding_step(&decoder, all_content.data(), all_content.size(),
+                                        decoded_content.data());
+        decoded_content.resize(n);
+        return std::move(decoded_content);
+    } else if (encoding == GMIME_CONTENT_ENCODING_DEFAULT) {
+        // TODO: check, but it seems like this means no encoding at all, just use as is (there is
+        // aslo param 'charset' which needs to be taken into account.)
+        return std::move(all_content);
+    } else if (encoding == GMIME_CONTENT_ENCODING_BASE64) {
+        GMimeEncoding decoder;
+        g_mime_encoding_init_decode(&decoder, encoding);
+
+        size_t out_bytes_needed = g_mime_encoding_outlen(&decoder, all_content.size());
+
+        log_warning("decoding html from base64, expected output: {}", out_bytes_needed);
+
+        // TODO: some max size from parser settings?
+        std::string decoded_content(out_bytes_needed, '\0');
+
+        size_t n = g_mime_encoding_step(&decoder, all_content.data(), all_content.size(),
+                                        decoded_content.data());
+        decoded_content.resize(n);
+        return decoded_content;
+    } else {
+        // TODO: support more. Qeuestion: how to know whether it is UTF8 or not?
+        log_error("unsupported encoding format");
+        return unexpected(make_error_code(parser_errc::parser_fail_l2));
+    }
+}
+
+struct image_data_t {};
+expected<image_data_t> decode_image_content_from_part(GMimeObject* part) {
+    log_error("unsupported encoding format");
+    return unexpected(make_error_code(parser_errc::parser_fail_l2));
+}
+
+static void count_foreach_callback(GMimeObject* parent, GMimeObject* part, void* user_data) {
+    /* find out what class 'part' is... */
+    if (GMIME_IS_MESSAGE_PART(part)) {
+        /* message/rfc822 or message/news */
+        GMimeMessage* message;
+
+        log_debug("message/rfc822 or message/news");
+
+        /* g_mime_message_foreach() won't descend into
+           child message parts, so if we want to count any
+           subparts of this child message, we'll have to call
+           g_mime_message_foreach() again here. */
+
+        message = g_mime_message_part_get_message((GMimeMessagePart*)part);
+        g_mime_message_foreach(message, count_foreach_callback, user_data);
+    } else if (GMIME_IS_MESSAGE_PARTIAL(part)) {
+        /* message/partial */
+
+        log_debug("message/partial");
+
+        /* this is an incomplete message part, probably a
+           large message that the sender has broken into
+           smaller parts and is sending us bit by bit. we
+           could save some info about it so that we could
+           piece this back together again once we get all the
+           parts? */
+    } else if (GMIME_IS_MULTIPART(part)) {
+        /* multipart/mixed, multipart/alternative,
+         * multipart/related, multipart/signed,
+         * multipart/encrypted, etc... */
+
+        log_debug("multipart/mixed");
+
+        /* we'll get to finding out if this is a
+         * signed/encrypted multipart later... */
+    } else if (GMIME_IS_PART(part)) {
+        /* a normal leaf part, could be text/plain or
+         * image/jpeg etc */
+        log_debug("leaf part");
+
+        GMimeHeaderList* header_list = g_mime_object_get_header_list(part);
+        if (header_list) {
+            log_warning("have header list!");
+        }
+
+        auto content_type_or_err = get_part_content_type(part);
+        if (!content_type_or_err) {
+            log_error("failed parsing content type: {}", content_type_or_err.error());
+            return;
+        }
+        const auto& content_type = *content_type_or_err;
+
+        if (content_type.type == "text" && content_type.media_subtype == "html") {
+            log_info("found text/html, here are params:");
+            for (auto& [p, v] : content_type.params) {
+                log_info("  {}: {}", p, v);
+            }
+
+            static int counter = 0;
+            ++counter;
+
+            auto text_html_or_err = decode_html_content_from_part(part);
+            if (!text_html_or_err) {
+                log_error("failed decoding html from part: {}", text_html_or_err.error());
+                return;
+            }
+            const auto& text_html = *text_html_or_err;
+
+            std::string file_name = fmt::format("part_content_html_{}.html", counter);
+            std::ofstream file_stream(file_name, std::ios_base::out);
+            if (file_stream) {
+                file_stream << text_html;
+
+                if (file_stream.good()) {
+                    log_info("decoded html for part, stored in file: {}", file_name);
+                } else {
+                    log_error("failed writing file for part.size was: {}", text_html.size());
+                }
+            }
+
+        } else if (content_type.type == "text" && content_type.media_subtype == "plain") {
+            // TODO:
+            log_warning("skipping text/plain");
+            return;
+        } else if (content_type.type == "image") {
+            auto image_data_or_err = decode_image_content_from_part(part);
+            if (!image_data_or_err) {
+                log_error("failed decoding image data for part: {}", image_data_or_err.error());
+                return;
+            }
+            auto& image_data = *image_data_or_err;
+
+        } else {
+            log_info("skipping unknown yet part: {}/{}", content_type.type,
+                     content_type.media_subtype);
+        }
+
+    } else {
+        g_assert_not_reached();
+    }
+}
+
 expected<void> parse_rfc822_message(std::string_view input_text) {
     GMimeStream* stream = g_mime_stream_mem_new_with_buffer(input_text.data(), input_text.size());
     if (!stream) {
@@ -1018,10 +1251,18 @@ expected<void> parse_rfc822_message(std::string_view input_text) {
         rfc822_headers.emplace_back(header_name, header_value);
     }
 
+    static const std::set<std::string> envelope_headers = {
+        envelope_fields::date,      envelope_fields::subject, envelope_fields::subject,
+        envelope_fields::from,      envelope_fields::sender,  envelope_fields::reply_to,
+        envelope_fields::to,        envelope_fields::cc,      envelope_fields::bcc,
+        envelope_fields::message_id};
     for (auto& [k, v] : rfc822_headers) {
-        // log_info("'{}': '{}'", k, "...");
+        if (envelope_headers.count(k) > 0) {
+            log_info("'{}': '{}'", k, v);
+        }
     }
-    visit_gmime_message(message);
+
+    g_mime_message_foreach(message, count_foreach_callback, nullptr);
 
     return unexpected(make_error_code(std::errc::io_error));
 }

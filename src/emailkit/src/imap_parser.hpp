@@ -24,7 +24,7 @@ enum class parser_errc {
     parser_fail_l1,
 
     // at grammar level parsing is OK, but downstream parsers provided by 3rd-party parsers failed.
-    parser_fail_l2,
+    parser_fail_l2,    
 };
 
 std::error_code make_error_code(parser_errc);
