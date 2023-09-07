@@ -1088,13 +1088,65 @@ expected<std::string> decode_html_content_from_part(GMimeObject* part) {
     }
 }
 
-struct image_data_t {};
+struct image_data_t {
+    std::vector<char> data;
+};
 expected<image_data_t> decode_image_content_from_part(GMimeObject* part) {
-    log_error("unsupported encoding format");
-    return unexpected(make_error_code(parser_errc::parser_fail_l2));
+    GMimeContentEncoding encoding = g_mime_part_get_content_encoding((GMimePart*)part);
+
+    if (encoding != GMIME_CONTENT_ENCODING_BASE64) {
+        log_error("unsupported encoding image format: {}", static_cast<int>(encoding));
+        return unexpected(make_error_code(parser_errc::parser_fail_l2));
+    }
+
+    GMimeDataWrapper* content = g_mime_part_get_content((GMimePart*)part);
+    if (!content) {
+        log_error("no content in image part");
+        return unexpected(make_error_code(parser_errc::parser_fail_l2));
+    }
+
+    GMimeStream* content_stream = g_mime_data_wrapper_get_stream(content);
+    if (!content_stream) {
+        log_error("failed getting stream for image content");
+        return unexpected(make_error_code(parser_errc::parser_fail_l2));
+    }
+
+    if (encoding == GMIME_CONTENT_ENCODING_BASE64) {
+        ssize_t bytes_read = 0;
+        std::string all_content;
+        std::string buffer(4096, 0);
+        while ((bytes_read = g_mime_stream_read(content_stream, buffer.data(), buffer.size())) >
+               0) {
+            all_content.append(buffer.data(), bytes_read);
+        }
+
+        GMimeEncoding decoder;
+        g_mime_encoding_init_decode(&decoder, encoding);
+
+        size_t out_bytes_needed = g_mime_encoding_outlen(&decoder, all_content.size());
+
+        log_warning("decoding html from base64, expected output: {}", out_bytes_needed);
+
+        // TODO: some max size from parser settings?
+        std::vector<char> decoded_content(out_bytes_needed, 0);
+
+        size_t n = g_mime_encoding_step(&decoder, all_content.data(), all_content.size(),
+                                        decoded_content.data());
+        decoded_content.resize(n);
+
+        return image_data_t{.data = std::move(decoded_content)};
+
+    } else {
+        // TODO: support more. Qeuestion: how to know whether it is UTF8 or not?
+        log_error("unsupported encoding format");
+        return unexpected(make_error_code(parser_errc::parser_fail_l2));
+    }
 }
 
 static void count_foreach_callback(GMimeObject* parent, GMimeObject* part, void* user_data) {
+    static int counter = 0;
+    ++counter;
+
     /* find out what class 'part' is... */
     if (GMIME_IS_MESSAGE_PART(part)) {
         /* message/rfc822 or message/news */
@@ -1152,9 +1204,6 @@ static void count_foreach_callback(GMimeObject* parent, GMimeObject* part, void*
                 log_info("  {}: {}", p, v);
             }
 
-            static int counter = 0;
-            ++counter;
-
             auto text_html_or_err = decode_html_content_from_part(part);
             if (!text_html_or_err) {
                 log_error("failed decoding html from part: {}", text_html_or_err.error());
@@ -1185,6 +1234,19 @@ static void count_foreach_callback(GMimeObject* parent, GMimeObject* part, void*
                 return;
             }
             auto& image_data = *image_data_or_err;
+
+            std::string file_name = fmt::format("part_content_html_{}.png", counter);
+            std::ofstream file_stream(file_name, std::ios_base::out | std::ios_base::binary);
+            if (file_stream) {
+                file_stream.write(image_data.data.data(), image_data.data.size());
+
+                if (file_stream.good()) {
+                    log_info("decoded png part, stored in file: {}", file_name);
+                } else {
+                    log_error("failed writing file png data for part.size was: {}",
+                              image_data.data.size());
+                }
+            }
 
         } else {
             log_info("skipping unknown yet part: {}/{}", content_type.type,
