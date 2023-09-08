@@ -1017,6 +1017,40 @@ expected<content_type_t> get_part_content_type(GMimeObject* part) {
     return result;
 }
 
+expected<rfc822_headers_t> decode_headers_from_part(GMimeObject* part) {
+    rfc822_headers_t rfc822_headers;
+
+    GMimeHeaderList* header_list = g_mime_object_get_header_list(part);
+    if (!header_list) {
+        log_error("no headers in part");
+        return unexpected(make_error_code(parser_errc::parser_fail_l2));
+    }
+
+    const int headers_num = g_mime_header_list_get_count(header_list);
+    for (int i = 0; i < headers_num; ++i) {
+        auto header = g_mime_header_list_get_header_at(header_list, i);
+        if (!header) {
+            log_warning("no header at {}", i);
+            continue;
+        }
+        auto header_name = g_mime_header_get_name(header);
+        if (!header_name) {
+            log_warning("header at {} does not have a name", i);
+            continue;
+        }
+
+        auto header_value = g_mime_header_get_value(header);
+        if (!header_value) {
+            log_warning("header at {} does not have a value", i);
+            continue;
+        }
+
+        rfc822_headers.emplace_back(header_name, header_value);
+    }
+
+    return std::move(rfc822_headers);
+}
+
 // Assuming \part is leaf part with content type text/html, returns HTML in utf8 charset.
 expected<std::string> decode_html_content_from_part(GMimeObject* part) {
     GMimeContentEncoding encoding = g_mime_part_get_content_encoding((GMimePart*)part);
@@ -1143,7 +1177,7 @@ expected<image_data_t> decode_image_content_from_part(GMimeObject* part) {
     }
 }
 
-static void count_foreach_callback(GMimeObject* parent, GMimeObject* part, void* user_data) {
+static void process_part(GMimeObject* parent, GMimeObject* part, void* user_data) {
     static int counter = 0;
     ++counter;
 
@@ -1160,7 +1194,7 @@ static void count_foreach_callback(GMimeObject* parent, GMimeObject* part, void*
            g_mime_message_foreach() again here. */
 
         message = g_mime_message_part_get_message((GMimeMessagePart*)part);
-        g_mime_message_foreach(message, count_foreach_callback, user_data);
+        g_mime_message_foreach(message, process_part, user_data);
     } else if (GMIME_IS_MESSAGE_PARTIAL(part)) {
         /* message/partial */
 
@@ -1258,6 +1292,12 @@ static void count_foreach_callback(GMimeObject* parent, GMimeObject* part, void*
     }
 }
 
+expected<void> decode_mesage_parts(GMimeMessage* message) {
+    // TODO: why message but not part?
+    g_mime_message_foreach(message, &process_part, nullptr);
+    return {};
+}
+
 expected<void> parse_rfc822_message(std::string_view input_text) {
     GMimeStream* stream = g_mime_stream_mem_new_with_buffer(input_text.data(), input_text.size());
     if (!stream) {
@@ -1270,10 +1310,6 @@ expected<void> parse_rfc822_message(std::string_view input_text) {
         return unexpected(make_error_code(parser_errc::parser_fail_l2));
     }
     log_debug("parser created");
-
-    g_object_unref(stream);
-
-    int* p = new int();
 
     GMimeMessage* message = g_mime_parser_construct_message(parser, nullptr);
     if (!message) {
@@ -1288,30 +1324,12 @@ expected<void> parse_rfc822_message(std::string_view input_text) {
     //  2. bodystructure
     //  3. parts
 
-    rfc822_headers_t rfc822_headers;
-
-    GMimeHeaderList* header_list = g_mime_object_get_header_list((GMimeObject*)message);
-    const int headers_num = g_mime_header_list_get_count(header_list);
-    for (int i = 0; i < headers_num; ++i) {
-        auto header = g_mime_header_list_get_header_at(header_list, i);
-        if (!header) {
-            log_warning("no header at {}", i);
-            continue;
-        }
-        auto header_name = g_mime_header_get_name(header);
-        if (!header_name) {
-            log_warning("header at {} does not have a name", i);
-            continue;
-        }
-
-        auto header_value = g_mime_header_get_value(header);
-        if (!header_value) {
-            log_warning("header at {} does not have a value", i);
-            continue;
-        }
-
-        rfc822_headers.emplace_back(header_name, header_value);
+    auto rfc822_headers_or_err = decode_headers_from_part((GMimeObject*)message);
+    if (!rfc822_headers_or_err) {
+        log_error("no headers in rfc822 message: {}", rfc822_headers_or_err.error());
+        return unexpected(rfc822_headers_or_err.error());
     }
+    const rfc822_headers_t& rfc822_headers = *rfc822_headers_or_err;
 
     static const std::set<std::string> envelope_headers = {
         envelope_fields::date,      envelope_fields::subject, envelope_fields::subject,
@@ -1324,9 +1342,13 @@ expected<void> parse_rfc822_message(std::string_view input_text) {
         }
     }
 
-    g_mime_message_foreach(message, count_foreach_callback, nullptr);
+    auto nothing_or_err = decode_mesage_parts(message);
+    if (!nothing_or_err) {
+        log_error("failed decoding message parts: {}", nothing_or_err.error());
+        return unexpected(nothing_or_err.error());
+    }
 
-    return unexpected(make_error_code(std::errc::io_error));
+    return {};
 }
 
 }  // namespace emailkit::imap_parser
