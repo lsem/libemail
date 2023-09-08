@@ -350,12 +350,14 @@ class imap_client_impl_t : public imap_client_t {
         const auto tag = next_tag();
         m_imap_socket->async_send_command(
             fmt::format("{} {}\r\n", tag, command),
-            [this, tag, cb = std::move(cb)](std::error_code ec) mutable {
+            [this, command, tag, cb = std::move(cb)](std::error_code ec) mutable {
                 if (ec) {
                     log_error("failed sending namespace command: {}", ec);
                     cb(ec, {});
                     return;
                 }
+
+                log_info("sent command {}, receiving response ...", command);
 
                 m_imap_socket->async_receive_response(
                     tag, [this, tag, cb = std::move(cb)](std::error_code ec,
@@ -540,6 +542,8 @@ class imap_client_impl_t : public imap_client_t {
                 return;
             }
 
+            log_info("parsing fetch response");
+
             auto parse_start = std::chrono::steady_clock::now();
             auto message_data_records_or_err = imap_parser::parse_message_data_records(imap_resp);
             if (!message_data_records_or_err) {
@@ -549,7 +553,7 @@ class imap_client_impl_t : public imap_client_t {
             }
             auto parse_took = std::chrono::steady_clock::now() - parse_start;
 
-            log_debug("parsing successful, time take: {}ms", parse_took / 1.0ms);
+            log_info("parsing successful, time take: {}ms", parse_took / 1.0ms);
 
             cb({}, {});
         });

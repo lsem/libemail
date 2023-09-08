@@ -16,6 +16,7 @@ enum class log_level_t {
 };
 
 extern log_level_t g_current_level;
+extern std::chrono::steady_clock::time_point g_local_epooch;
 
 constexpr std::string_view strip_fpath(std::string_view fpath) {
     size_t last_slash_pos = 0;
@@ -89,12 +90,16 @@ void log_impl(log_level_t level, int line, std::string_view file_name, Fmt fmt, 
         }
     }();
 
-    static const auto local_epooch = std::chrono::steady_clock::now();
-    auto curr_ms = (std::chrono::steady_clock::now() - local_epooch) / std::chrono::milliseconds(1);
+    auto curr_ms =
+        (std::chrono::steady_clock::now() - g_local_epooch) / std::chrono::milliseconds(1);
 
     fmt::print(stdout, style, "{:<4}:  {}  ", curr_ms, lvl_s);
     fmt::vprint(stdout, style, fmt, fmt::make_format_args(args...));
     fmt::print(stdout, style, " ({}:{}) ", strip_fpath(file_name), line);
+    fmt::print(stdout, "\n");
+}
+
+inline void log_empty_line() {
     fmt::print(stdout, "\n");
 }
 
@@ -104,5 +109,10 @@ void log_impl(log_level_t level, int line, std::string_view file_name, Fmt fmt, 
     log_impl(log_level_t::warning, __LINE__, __FILE__, FMT_STRING(Fmt) __VA_OPT__(, ) __VA_ARGS__)
 #define log_info(Fmt, ...) \
     log_impl(log_level_t::info, __LINE__, __FILE__, FMT_STRING(Fmt) __VA_OPT__(, ) __VA_ARGS__)
+
+#ifndef NDEBUG
 #define log_debug(Fmt, ...) \
     log_impl(log_level_t::debug, __LINE__, __FILE__, FMT_STRING(Fmt) __VA_OPT__(, ) __VA_ARGS__)
+#else
+#define log_debug(Fmt, ...) ;
+#endif

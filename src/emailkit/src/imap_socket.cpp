@@ -45,6 +45,19 @@ struct imap_match_condition_t {
 
         iterator_t it = begin;
         for (; it != end; ++it) {
+            if (m_state == state_t::reading_data) {
+                const auto progress =
+                    m_literal_size > 0
+                        ? ((static_cast<double>(m_literal_size - m_literal_data_bytes_left) /
+                            m_literal_size) *
+                           100.0)
+                        : 100.0;
+                if ((progress - m_prev_progress) >= 5.0 || static_cast<int>(progress) == 100) {
+                    log_info("progress: {}%", std::round(progress));
+                    m_prev_progress = progress;
+                }
+            }
+
             if (m_state == state_t::got_tag) {
                 log_debug("in state got tag, char is: {} ({})", (int)*it,
                           isprint(*it) ? ((char)*it) : '?');
@@ -104,8 +117,12 @@ struct imap_match_condition_t {
             } else if (m_state == state_t::waiting_lf) {
                 if (*it == 0x0a) {
                     m_state = state_t::reading_data;
-                    m_literal_data_bytes_left = std::stoi(m_literal_size_s);
-                    log_debug("reading literal data of size (size={})", m_literal_data_bytes_left);
+                    m_prev_progress = 0.0;
+                    m_literal_size = std::stoi(m_literal_size_s);
+                    m_literal_data_bytes_left = m_literal_size;
+                    log_info("readling literal of size {}Kb", m_literal_size / 1024);
+                    log_info("progress: 0%");
+                    log_debug("reading literal data of size (size={})", m_literal_size);
                     if (m_literal_data_bytes_left > 0) {
                     } else {
                         log_debug("literal size == 0 case, going to idle state");
@@ -136,6 +153,7 @@ struct imap_match_condition_t {
     size_t m_literal_data_bytes_left = 0;
     state_t m_state = state_t::idle;
     std::string m_literal_size_s;
+    size_t m_literal_size = 0;
     size_t m_next_expected_prefix_char_idx = 0;
     const std::string m_pattern_prefix;
     unsigned char m_prev = 255;
@@ -143,7 +161,8 @@ struct imap_match_condition_t {
     bool m_new_line = true;  // is true whenever we are in indle state and iterator it points to the
                              // first character of the line.
     size_t m_line_size = 0;
-};  // namespace emailkit
+    double m_prev_progress{};  // previously reported progress
+};                             // namespace emailkit
 }  // namespace emailkit
 
 namespace asio {

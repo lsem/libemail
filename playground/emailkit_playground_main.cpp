@@ -121,7 +121,7 @@ void gmail_fetch_some_messages(imap_client::imap_client_t& client) {
                             "box.",
                             r.opt_unseen.value_or(0), r.recents, r.exists);
 
-                        fetch_one(client, r.exists);
+                        fetch_one(client, 32);
 
                         namespace imap_commands = emailkit::imap_client::imap_commands;
                         namespace fi = imap_commands::fetch_items;

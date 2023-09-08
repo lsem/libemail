@@ -184,7 +184,7 @@ void apg_invoke_parser(uint32_t starting_rule,
     parser_config apg_parser_config;
     exception apg_exception;
     void* parser = nullptr;
-    void* vpTrace = nullptr;
+    // void* vpTrace = nullptr;
 
     // XCTOR macros sets kind of label (setjmp) that can be jumped to. So in case exception occurs
     // in APG it will jump back (longjmp) to this label but this time apg_exception.try_ will be set
@@ -195,10 +195,10 @@ void apg_invoke_parser(uint32_t starting_rule,
         parser = ::vpParserCtor(&apg_exception, vpImapParserApgImplInit);
         log_debug("constructing APG parser object -- done");
 
-        if (std::getenv("MMAP_TRACE")) {
-            vpTrace = vpTraceCtor(parser);
-            vTraceConfigGen(vpTrace, NULL);
-        }
+        // if (std::getenv("MMAP_TRACE")) {
+        //     vpTrace = vpTraceCtor(parser);
+        //     vTraceConfigGen(vpTrace, NULL);
+        // }
 
         ::vParserSetUdtCallback(parser, IMAP_PARSER_APG_IMPL_U_LITERAL_SIZE,
                                 &udt_literal_size_callback);
@@ -390,17 +390,17 @@ std::error_code apg_invoke_parser__ast(
     // objects lifetimes reside after try/catch of apg.
     // Block for C++ resources that need to have destructors.
     //////////////////////////////////////////////////////////////////////////////////////////////////
-    std::vector<uint8_t> input_text_data(input_text.size());
-    for (size_t i = 0; i < input_text.size(); ++i) {
-        input_text_data[i] = input_text[i];
-    }
+    // std::vector<uint8_t> input_text_data(input_text.size());
+    // for (size_t i = 0; i < input_text.size(); ++i) {
+    //     input_text_data[i] = input_text[i];
+    // }
     //////////////////////////////////////////////////////////////////
 
     parser_state apg_parser_state;
     parser_config apg_parser_config;
     exception apg_exception;
     void* parser = nullptr;
-    void* vpTrace = nullptr;
+    // void* vpTrace = nullptr;
     void* ast = NULL;
 
     std::error_code result{};
@@ -413,10 +413,10 @@ std::error_code apg_invoke_parser__ast(
         parser = ::vpParserCtor(&apg_exception, vpImapParserApgImplInit);
         log_debug("constructing APG parser object -- done");
 
-        if (std::getenv("MMAP_TRACE")) {
-            vpTrace = vpTraceCtor(parser);
-            vTraceConfigGen(vpTrace, NULL);
-        }
+        // if (std::getenv("MMAP_TRACE")) {
+        //     vpTrace = vpTraceCtor(parser);
+        //     vTraceConfigGen(vpTrace, NULL);
+        // }
 
         log_debug("constructing APG AST object");
         ast = ::vpAstCtor(parser);
@@ -439,8 +439,8 @@ std::error_code apg_invoke_parser__ast(
 
         ast_parse_invoke_user_data_t parsing_user_data;
 
-        apg_parser_config.acpInput = input_text_data.data();
-        apg_parser_config.uiInputLength = input_text_data.size();
+        apg_parser_config.acpInput = reinterpret_cast<const unsigned char*>(input_text.data());
+        apg_parser_config.uiInputLength = input_text.size();
         apg_parser_config.uiStartRule = starting_rule;
         apg_parser_config.bParseSubString = APG_FALSE;
         apg_parser_config.uiLookBehindLength = 0;
@@ -674,6 +674,8 @@ expected<std::vector<message_data_t>> parse_message_data_records(std::string_vie
 
     bool got_message_data = false;
 
+    auto parsing_start_time = std::chrono::steady_clock::now();
+
     auto ec = apg_invoke_parser__ast(
         IMAP_PARSER_APG_IMPL_RESPONSE, input_text,
         {
@@ -702,6 +704,8 @@ expected<std::vector<message_data_t>> parse_message_data_records(std::string_vie
         },
 
         [&](const ast_record* begin, const ast_record* end) {
+            log_info("l2 parsing almost done , now process AST, time taken so far: {}ms",
+                     (std::chrono::steady_clock::now() - parsing_start_time) / 1ms);
             constexpr size_t INDENT_WIDTH = 4;
             size_t indent = 0;
             for (auto it = begin; it != end; ++it) {
@@ -813,6 +817,9 @@ expected<std::vector<message_data_t>> parse_message_data_records(std::string_vie
     }
 
     log_debug("rfc822_data.size: {}", rfc822_data.size());
+
+    log_info("parsing imap (l1) done, time taken: {}ms, now parsing MIME (l2)",
+             (std::chrono::steady_clock::now() - parsing_start_time) / 1ms);
 
     parse_rfc822_message(rfc822_data);
 
@@ -1106,7 +1113,7 @@ expected<std::string> decode_html_content_from_part(GMimeObject* part) {
 
         size_t out_bytes_needed = g_mime_encoding_outlen(&decoder, all_content.size());
 
-        log_warning("decoding html from base64, expected output: {}", out_bytes_needed);
+        log_info("decoding html from base64, expected output: {}", out_bytes_needed);
 
         // TODO: some max size from parser settings?
         std::string decoded_content(out_bytes_needed, '\0');
@@ -1159,7 +1166,7 @@ expected<image_data_t> decode_image_content_from_part(GMimeObject* part) {
 
         size_t out_bytes_needed = g_mime_encoding_outlen(&decoder, all_content.size());
 
-        log_warning("decoding html from base64, expected output: {}", out_bytes_needed);
+        log_info("decoding image from base64, expected output: {}", out_bytes_needed);
 
         // TODO: some max size from parser settings?
         std::vector<char> decoded_content(out_bytes_needed, 0);
@@ -1218,11 +1225,27 @@ static void process_part(GMimeObject* parent, GMimeObject* part, void* user_data
     } else if (GMIME_IS_PART(part)) {
         /* a normal leaf part, could be text/plain or
          * image/jpeg etc */
-        log_debug("leaf part");
+        log_empty_line();
+        log_info("processing part ..");
 
         GMimeHeaderList* header_list = g_mime_object_get_header_list(part);
         if (header_list) {
-            log_warning("have header list!");
+            auto rfc822_headers_or_err = decode_headers_from_part(part);
+            if (rfc822_headers_or_err) {
+                const rfc822_headers_t& rfc822_headers = *rfc822_headers_or_err;
+                for (auto& [k, v] : rfc822_headers) {
+                    log_info("'{}': '{}'", k, v);
+                }
+
+            } else {
+                log_error("no headers in rfc822 message: {}", rfc822_headers_or_err.error());
+            }
+
+            // static const std::set<std::string> envelope_headers = {
+            //     envelope_fields::date,      envelope_fields::subject, envelope_fields::subject,
+            //     envelope_fields::from,      envelope_fields::sender,  envelope_fields::reply_to,
+            //     envelope_fields::to,        envelope_fields::cc,      envelope_fields::bcc,
+            //     envelope_fields::message_id};
         }
 
         auto content_type_or_err = get_part_content_type(part);
@@ -1259,7 +1282,7 @@ static void process_part(GMimeObject* parent, GMimeObject* part, void* user_data
 
         } else if (content_type.type == "text" && content_type.media_subtype == "plain") {
             // TODO:
-            log_warning("skipping text/plain");
+            log_info("skipping text/plain");
             return;
         } else if (content_type.type == "image") {
             auto image_data_or_err = decode_image_content_from_part(part);
