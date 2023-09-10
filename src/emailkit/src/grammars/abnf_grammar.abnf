@@ -385,14 +385,3 @@ zone            = ("+" / "-") 4DIGIT
                     ; from the given time will give the UT form.
                     ; The Universal Time zone is "+0000".                                                                              
 
-
-
-x-expression      = x-factor *[ [SP] (x-mul-op / x-div-op) x-factor ]
-x-factor          = x-operand *[ [SP] (x-plus-op / x-minus-op) ]
-
-x-mul-op          = "*"
-x-div-op          = "/"
-x-plus-op         = "+"
-x-minus-op        = "+"
-x-operand         = number / variable
-variable          = 1*CHAR
