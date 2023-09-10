@@ -542,7 +542,7 @@ class imap_client_impl_t : public imap_client_t {
                 return;
             }
 
-            log_info("parsing fetch response");
+            log_info("parsing fetch response of size {}Kb", imap_resp.size() / 1024);
 
             auto parse_start = std::chrono::steady_clock::now();
             auto message_data_records_or_err = imap_parser::parse_message_data_records(imap_resp);

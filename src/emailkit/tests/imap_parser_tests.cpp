@@ -295,3 +295,23 @@ TEST(imap_parser_test, rfc_822_header_gmail_basic_test) {
     auto message_data_or_err = imap_parser::parse_rfc822_message(gmail_msg);
     ASSERT_TRUE(message_data_or_err);
 }
+
+TEST(imap_parser_test, expression_tsts) {
+    imap_parser::parse_expression("1 / 2 + 2");
+}
+
+TEST(imap_parser_test_, parse_bodystructure_response) {
+    const std::string response =
+        "* 32 FETCH (BODYSTRUCTURE ((((\"TEXT\" \"PLAIN\" (\"CHARSET\" \"UTF-8\") NIL NIL "
+        "\"BASE64\" 664 14 NIL NIL NIL)(\"TEXT\" \"HTML\" (\"CHARSET\" \"UTF-8\") NIL NIL "
+        "\"BASE64\" 1596 32 NIL NIL NIL) \"ALTERNATIVE\" (\"BOUNDARY\" "
+        "\"00000000000021d4e20604ca2f3c\") NIL NIL)(\"IMAGE\" \"PNG\" (\"NAME\" \"image.png\") "
+        "\"<ii_lm9l1man0>\" NIL \"BASE64\" 35050 NIL (\"ATTACHMENT\" (\"FILENAME\" \"image.png\")) "
+        "NIL) \"RELATED\" (\"BOUNDARY\" \"00000000000021d4e30604ca2f3d\") NIL NIL)(\"APPLICATION\" "
+        "\"OCTET-STREAM\" (\"NAME\" \"DSC07119.arw\") \"<f_lm9l2vv01>\" NIL \"BASE64\" 28385390 "
+        "NIL (\"ATTACHMENT\" (\"FILENAME\" \"DSC07119.arw\")) NIL) \"MIXED\" (\"BOUNDARY\" "
+        "\"00000000000021d4e40604ca2f3e\") NIL NIL))\r\n"
+        "A4 OK Success\r\n";
+    auto message_data_or_err = imap_parser::parse_message_data_records(response);
+    ASSERT_TRUE(message_data_or_err);
+}

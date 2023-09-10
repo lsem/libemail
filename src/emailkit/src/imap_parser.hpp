@@ -14,6 +14,8 @@ expected<std::vector<message_data_t>> parse_message_data_records(std::string_vie
 
 expected<void> parse_rfc822_message(std::string_view input_text);
 
+void parse_expression(std::string_view input_text);
+
 ///////////////////////////////////////////////////////////////////////////////////////////////
 // imap-parser-errors
 enum class parser_errc {

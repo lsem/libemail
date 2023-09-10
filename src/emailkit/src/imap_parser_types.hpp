@@ -72,7 +72,34 @@ struct msg_attr_envelope_t {
 };
 struct msg_attr_uid_t {};
 struct msg_attr_internaldate_t {};
-struct msg_attr_body_structure_t {};
+
+namespace standard_basic_media_types {
+static const std::string application = "APPLICATION";
+static const std::string audio = "AUDIO";
+static const std::string image = "IMAGE";
+static const std::string message = "MESSAGE";
+static const std::string video = "VIDEO";
+}  // namespace standard_basic_media_types
+
+struct msg_attr_body_structure_t {
+    struct body_type_text_t {
+        // media_type is "TEXT" here.
+        std::string media_subtype;
+    };
+    struct body_type_basic_t {
+        std::string media_type;  // see standard_basic_media_types
+        std::string media_subtype;
+    };
+    struct body_type_msg_t {};
+    struct body_ext_part_t {};
+
+    struct body_type_part {
+        std::variant<body_type_text_t, body_type_basic_t, body_type_msg_t> body_type;
+        std::optional<body_ext_part_t> ext_part;
+    };
+
+    std::vector<body_type_part> parts;
+};
 struct msg_attr_body_section_t {};
 struct msg_attr_rfc822_t {};
 struct msg_attr_rfc822_size_t {};

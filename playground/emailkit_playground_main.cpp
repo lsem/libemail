@@ -26,14 +26,15 @@ void fetch_one(imap_client::imap_client_t& client, int n) {
             .items =
                 imap_commands::fetch_items_vec_t{
                     // fi::body_t{},
-                    // fi::body_structure_t{},
+                    //fi::body_structure_t{},
+                    fi::rfc822_header_t{},
                     // fi::envelope_t{},
                     // fi::flags_t{},
                     // fi::internal_date_t{},
-                    fi::rfc822_t{},
-                    fi::rfc822_header_t{},
-                    fi::rfc822_size_t{},
-                    fi::rfc822_text_t{},
+                    //fi::rfc822_t{},
+                    //fi::rfc822_header_t{},
+                    //fi::rfc822_size_t{},
+                    //fi::rfc822_text_t{},
 
                 }},
         [&client, n](std::error_code ec, imap_client::types::fetch_response_t r) {

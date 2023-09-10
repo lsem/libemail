@@ -203,9 +203,17 @@ mbx-list-oflag  = "\Noinferiors" / flag-extension
                     ; Other flags; multiple possible per LIST response
 mbx-list-sflag  = "\Noselect" / "\Marked" / "\Unmarked"
                     ; Selectability flags; only one per LIST response
-media-basic     = ((DQUOTE ("APPLICATION" / "AUDIO" / "IMAGE" /
-                  "MESSAGE" / "VIDEO") DQUOTE) / string) SP
-                  media-subtype ; Defined in [MIME-IMT]
+; media-basic-type-tag-application = "APPLICATION"
+; media-basic-type-tag-audio = "AUDIO"
+; media-basic-type-tag-image = "IMAGE"
+; media-basic-type-tag-message = "MESSAGE"
+; media-basic-type-tag-video = "VIDEO"
+
+; media-basic     = ((DQUOTE (media-basic-type-tag-application / media-basic-type-tag-audio / media-basic-type-tag-image /
+;                   media-basic-type-tag-message / media-basic-type-tag-video) DQUOTE) / string) SP
+;                   media-subtype ; Defined in [MIME-IMT]
+media-basic-type-tag = string
+media-basic     = media-basic-type-tag SP media-subtype
 media-message   = DQUOTE "MESSAGE" DQUOTE SP DQUOTE "RFC822" DQUOTE ; Defined in [MIME-IMT]
 media-subtype   = string ; Defined in [MIME-IMT]
 media-text      = DQUOTE "TEXT" DQUOTE SP media-subtype ; Defined in [MIME-IMT]
@@ -376,3 +384,15 @@ zone            = ("+" / "-") 4DIGIT
                     ; Universal Time).  Subtracting the timezone
                     ; from the given time will give the UT form.
                     ; The Universal Time zone is "+0000".                                                                              
+
+
+
+x-expression      = x-factor *[ [SP] (x-mul-op / x-div-op) x-factor ]
+x-factor          = x-operand *[ [SP] (x-plus-op / x-minus-op) ]
+
+x-mul-op          = "*"
+x-div-op          = "/"
+x-plus-op         = "+"
+x-minus-op        = "+"
+x-operand         = number / variable
+variable          = 1*CHAR

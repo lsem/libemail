@@ -652,6 +652,166 @@ expected<std::vector<mailbox_data_t>> parse_mailbox_data_records(std::string_vie
     return parsed_records;
 }
 
+const ast_record* parse_bodystructure(std::string_view input,
+                                      const ast_record* begin,
+                                      const ast_record* end,
+                                      msg_attr_body_structure_t& out_body_structure) {
+    log_info("bodystructure max tokens count: {}", end - begin);
+
+    msg_attr_body_structure_t body_structure;
+    std::optional<msg_attr_body_structure_t::body_type_part> current_part_opt;
+    std::optional<msg_attr_body_structure_t::body_type_text_t> current_body_type_text;
+    std::optional<msg_attr_body_structure_t::body_type_basic_t> current_body_type_basic;
+    std::optional<msg_attr_body_structure_t::body_type_msg_t> current_body_type_msg;
+    std::optional<msg_attr_body_structure_t::body_ext_part_t> current_body_ext_part;
+
+    std::optional<msg_attr_body_structure_t::body_type_part> parsed_part;
+
+    const ast_record* it = begin + 1;
+
+    for (; it != end && it->uiIndex != IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_BODY_STRUCTURE; ++it) {
+        const std::string_view match_text{input.data() + it->uiPhraseOffset, it->uiPhraseLength};
+
+        if (it->uiState == ID_AST_PRE) {
+            switch (it->uiIndex) {
+                case IMAP_PARSER_APG_IMPL_BODY_TYPE_1PART: {
+                    current_part_opt = msg_attr_body_structure_t::body_type_part{};
+                    break;
+                }
+                case IMAP_PARSER_APG_IMPL_BODY_TYPE_TEXT: {
+                    current_body_type_text = msg_attr_body_structure_t::body_type_text_t{};
+                    break;
+                }
+                case IMAP_PARSER_APG_IMPL_BODY_TYPE_BASIC: {
+                    current_body_type_basic = msg_attr_body_structure_t::body_type_basic_t{};
+                    break;
+                }
+                case IMAP_PARSER_APG_IMPL_BODY_TYPE_MSG: {
+                    current_body_type_msg = msg_attr_body_structure_t::body_type_msg_t{};
+                    break;
+                }
+                case IMAP_PARSER_APG_IMPL_BODY_EXT_1PART: {
+                    current_body_ext_part = msg_attr_body_structure_t::body_ext_part_t{};
+                    break;
+                }
+                case IMAP_PARSER_APG_IMPL_MEDIA_TEXT: {
+                    log_info("message text: {}", match_text);
+                    break;
+                }
+                case IMAP_PARSER_APG_IMPL_MEDIA_BASIC: {
+                    log_info("message basic: {}", match_text);
+                    break;
+                }
+                case IMAP_PARSER_APG_IMPL_MEDIA_MESSAGE: {
+                    log_info("message message: {}", match_text);
+                    break;
+                }
+                case IMAP_PARSER_APG_IMPL_MEDIA_SUBTYPE: {
+                    if (current_body_type_text.has_value()) {
+                        current_body_type_text->media_subtype = match_text;
+                        // TODO: remove quotes!
+                        log_info("got media subtype: {}", match_text);
+                    } else if (current_body_type_basic.has_value()) {
+                        // TODO: remove quotes!
+                        current_body_type_basic->media_subtype = match_text;
+                    } else if (current_body_type_msg.has_value()) {
+                        // TODO: implement
+                    }
+                    break;
+                }
+                case IMAP_PARSER_APG_IMPL_MEDIA_BASIC_TYPE_TAG: {
+                    assert(current_body_type_basic.has_value());
+                    if (current_body_type_basic.has_value()) {
+                        log_info("got basic media type: {}", match_text);
+                        current_body_type_basic->media_type = match_text;
+                    }
+                    break;
+                }
+                case IMAP_PARSER_APG_IMPL_BODY_FIELDS: {
+                    log_info("body fields: '{}'", match_text);
+                    break;
+                }
+
+                default:
+                    break;
+            }
+        } else if (it->uiState == ID_AST_POST) {
+            switch (it->uiIndex) {
+                case IMAP_PARSER_APG_IMPL_BODY_TYPE_1PART: {
+                    assert(parsed_part.has_value());
+                    body_structure.parts.emplace_back(std::move(parsed_part.value()));
+                    parsed_part = std::nullopt;
+                    break;
+                }
+                case IMAP_PARSER_APG_IMPL_BODY_TYPE_TEXT: {
+                    assert(current_body_type_text.has_value());
+                    parsed_part = msg_attr_body_structure_t::body_type_part{
+                        std::move(current_body_type_text.value())};
+                    current_body_type_text = {};
+                    break;
+                }
+                case IMAP_PARSER_APG_IMPL_BODY_TYPE_BASIC: {
+                    assert(current_body_type_basic.has_value());
+                    parsed_part = msg_attr_body_structure_t::body_type_part{
+                        std::move(current_body_type_basic.value())};
+                    current_body_type_basic = {};
+                    break;
+                }
+                case IMAP_PARSER_APG_IMPL_BODY_TYPE_MSG: {
+                    assert(current_body_type_msg.has_value());
+                    parsed_part = msg_attr_body_structure_t::body_type_part{
+                        std::move(current_body_type_msg.value())};
+                    current_body_type_msg = {};
+                    break;
+                }
+                case IMAP_PARSER_APG_IMPL_BODY_EXT_1PART: {
+                    assert(current_body_ext_part.has_value());
+                    assert(parsed_part.has_value());
+                    parsed_part->ext_part = std::move(current_body_ext_part);
+                    current_body_ext_part = {};
+                    break;
+                }
+                case IMAP_PARSER_APG_IMPL_BODY_FIELDS: {
+                    break;
+                }
+                default:
+                    break;
+            }
+        }
+    }
+
+    if (it != end) {
+        assert(it->uiIndex == IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_BODY_STRUCTURE);
+        assert(it->uiState == ID_AST_POST);
+    } else {
+        log_error("POST/IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_BODY_STRUCTURE has not been reached");
+    }
+
+    log_info("actual tokens count: {}", it - begin);
+
+    out_body_structure = std::move(body_structure);
+
+    log_info("parsed parts count: {}", out_body_structure.parts.size());
+    for (auto& p : out_body_structure.parts) {
+        const auto type = std::visit(
+            overload{
+                [](const msg_attr_body_structure_t::body_type_text_t&) -> std::string_view {
+                    return "body_type_msg_t";
+                },
+                [](const msg_attr_body_structure_t::body_type_basic_t&) -> std::string_view {
+                    return "body_type_basic_t";
+                },
+                [](const msg_attr_body_structure_t::body_type_msg_t&) -> std::string_view {
+                    return "body_type_msg_t";
+                },
+            },
+            p.body_type);
+        log_debug("{} ({})", type, p.ext_part.has_value() ? "has ext type" : " no ext type");
+    }
+
+    return it;
+}
+
 expected<std::vector<message_data_t>> parse_message_data_records(std::string_view input_text) {
     std::vector<message_data_t> result;
 
@@ -700,6 +860,22 @@ expected<std::vector<message_data_t>> parse_message_data_records(std::string_vie
             IMAP_PARSER_APG_IMPL_BODY,
             IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_UID,
             IMAP_PARSER_APG_IMPL_UNIQUEID,
+
+            IMAP_PARSER_APG_IMPL_BODY_TYPE_1PART,
+            IMAP_PARSER_APG_IMPL_BODY_TYPE_TEXT,
+            IMAP_PARSER_APG_IMPL_BODY_TYPE_BASIC,
+            IMAP_PARSER_APG_IMPL_BODY_TYPE_MSG,
+            IMAP_PARSER_APG_IMPL_BODY_EXT_1PART,
+
+            IMAP_PARSER_APG_IMPL_MEDIA_TEXT,
+            IMAP_PARSER_APG_IMPL_MEDIA_BASIC,
+            IMAP_PARSER_APG_IMPL_MEDIA_MESSAGE,
+            
+            IMAP_PARSER_APG_IMPL_MEDIA_SUBTYPE,            
+            IMAP_PARSER_APG_IMPL_MEDIA_BASIC_TYPE_TAG,
+
+            IMAP_PARSER_APG_IMPL_BODY_FIELDS,
+
             // clang-format on
         },
 
@@ -709,10 +885,32 @@ expected<std::vector<message_data_t>> parse_message_data_records(std::string_vie
             constexpr size_t INDENT_WIDTH = 4;
             size_t indent = 0;
             for (auto it = begin; it != end; ++it) {
-                if (it->uiState == ID_AST_PRE) {
-                    std::string_view match_text{input_text.data() + it->uiPhraseOffset,
-                                                it->uiPhraseLength};
+                const std::string_view match_text{input_text.data() + it->uiPhraseOffset,
+                                                  it->uiPhraseLength};
 
+                // if (it->uiIndex == IMAP_PARSER_APG_IMPL_BODY_TYPE_1PART) {
+                //     if (it->uiState == ID_AST_PRE) {
+                //         log_debug("BEGIN body-type-1-part: {}", match_text);
+                //     } else {
+                //         log_debug("END body-type-1-part");
+                //     }
+                // }
+
+                // if (it->uiIndex == IMAP_PARSER_APG_IMPL_BODY_EXT_1PART &&
+                //     it->uiState == ID_AST_PRE) {
+                //     log_debug("BEGIN body-ext-1p-part: {}", match_text);
+                // } else if (it->uiIndex == IMAP_PARSER_APG_IMPL_BODY_TYPE_TEXT &&
+                //            it->uiState == ID_AST_PRE) {
+                //     log_debug("BEGIN body-type-text: {}", match_text);
+                // } else if (it->uiIndex == IMAP_PARSER_APG_IMPL_BODY_TYPE_BASIC &&
+                //            it->uiState == ID_AST_PRE) {
+                //     log_debug("BEGIN body-type-basic: {}", match_text);
+                // } else if (it->uiIndex == IMAP_PARSER_APG_IMPL_BODY_TYPE_MSG &&
+                //            it->uiState == ID_AST_PRE) {
+                //     log_debug("BEGIN body-type-msg: {}", match_text);
+                // }
+
+                if (it->uiState == ID_AST_PRE) {
                     current_path.emplace_back(it->uiIndex);
 
                     if (current_path_is(IMAP_PARSER_APG_IMPL_MESSAGE_DATA)) {
@@ -771,7 +969,10 @@ expected<std::vector<message_data_t>> parse_message_data_records(std::string_vie
                                    IMAP_PARSER_APG_IMPL_MSG_ATT,
                                    IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC,
                                    IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_BODY_STRUCTURE)) {
-                        log_debug("static attribute, body-structure: '{}'", match_text);
+                        log_info("static attribute, body-structure: '{}'", match_text);
+                        msg_attr_body_structure_t parsed_body_struct;
+                        it = parse_bodystructure(input_text, it, end, parsed_body_struct);
+
                     } else if (current_path_is_superset_of(
                                    IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC,
                                    IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_RFC822,
@@ -786,7 +987,6 @@ expected<std::vector<message_data_t>> parse_message_data_records(std::string_vie
                                                IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_RFC822_SIZE)) {
                         log_debug("static attribute, rfc822-size: '{}'", match_text);
                     }
-
                 } else {
                     if (current_path_is(IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
                                         IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
@@ -816,12 +1016,17 @@ expected<std::vector<message_data_t>> parse_message_data_records(std::string_vie
         return unexpected(make_error_code(std::errc::io_error));  // TODO: dedicated error code
     }
 
-    log_debug("rfc822_data.size: {}", rfc822_data.size());
+    if (!rfc822_data.empty()) {
+        log_debug("rfc822_data.size: {}", rfc822_data.size());
 
-    log_info("parsing imap (l1) done, time taken: {}ms, now parsing MIME (l2)",
-             (std::chrono::steady_clock::now() - parsing_start_time) / 1ms);
+        log_info("parsing imap (l1) done, time taken: {}ms, now parsing MIME (l2) of size {}Kb",
+                 (std::chrono::steady_clock::now() - parsing_start_time) / 1ms,
+                 rfc822_data.size() / 1024);
 
-    parse_rfc822_message(rfc822_data);
+        parse_rfc822_message(rfc822_data);
+    } else {
+        log_info("non-rfc822 data received..");
+    }
 
     return result;
 }
@@ -1374,4 +1579,63 @@ expected<void> parse_rfc822_message(std::string_view input_text) {
     return {};
 }
 
+void parse_expression(std::string_view input_text) {
+    auto ec = apg_invoke_parser__ast(
+        IMAP_PARSER_APG_IMPL_X_EXPRESSION, input_text,
+        {
+            // clang-format off
+            IMAP_PARSER_APG_IMPL_X_EXPRESSION,
+            IMAP_PARSER_APG_IMPL_X_FACTOR,
+            IMAP_PARSER_APG_IMPL_X_MUL_OP,
+            IMAP_PARSER_APG_IMPL_X_DIV_OP,
+            IMAP_PARSER_APG_IMPL_X_PLUS_OP,
+            IMAP_PARSER_APG_IMPL_X_MINUS_OP,
+            IMAP_PARSER_APG_IMPL_X_OPERAND,
+            IMAP_PARSER_APG_IMPL_VARIABLE
+            // clang-format on
+        },
+
+        [&](const ast_record* begin, const ast_record* end) {
+            constexpr size_t INDENT_WIDTH = 4;
+            size_t indent = 0;
+
+            for (auto it = begin; it != end; ++it) {
+                if (it->uiState == ID_AST_POST)
+                    indent -= 2;
+
+                std::string_view match_text{input_text.data() + it->uiPhraseOffset,
+                                            it->uiPhraseLength};
+
+                auto state = it->uiState == ID_AST_PRE ? "PRE" : "POST";
+
+                std::string rule = ([it]() -> std::string {
+                    switch (it->uiIndex) {
+                        case IMAP_PARSER_APG_IMPL_X_EXPRESSION:
+                            return "X_EXPRESSION";
+                        case IMAP_PARSER_APG_IMPL_X_FACTOR:
+                            return "X_FACTOR";
+                        case IMAP_PARSER_APG_IMPL_X_MUL_OP:
+                            return "X_MUL_OP";
+                        case IMAP_PARSER_APG_IMPL_X_DIV_OP:
+                            return "X_DIV_OP";
+                        case IMAP_PARSER_APG_IMPL_X_PLUS_OP:
+                            return "X_PLUS_OP";
+                        case IMAP_PARSER_APG_IMPL_X_MINUS_OP:
+                            return "X_MINUS_OP";
+                        case IMAP_PARSER_APG_IMPL_X_OPERAND:
+                            return "X_OPERAND";
+                        case IMAP_PARSER_APG_IMPL_VARIABLE:
+                            return "X_VARIABLE";
+                        default:
+                            return "<unknown>";
+                    }
+                })();
+
+                log_info("{} {}{}", state, std::string(indent, ' '), rule);
+
+                if (it->uiState == ID_AST_PRE)
+                    indent += 2;
+            }
+        });
+}
 }  // namespace emailkit::imap_parser
