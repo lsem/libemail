@@ -296,13 +296,9 @@ TEST(imap_parser_test, rfc_822_header_gmail_basic_test) {
     ASSERT_TRUE(message_data_or_err);
 }
 
-TEST(imap_parser_test, expression_tsts) {
-    imap_parser::parse_expression("1 / 2 + 2");
-}
-
 TEST(imap_parser_test_, parse_bodystructure_response) {
     const std::string response =
-        "* 32 FETCH (BODYSTRUCTURE ((((\"TEXT\" \"PLAIN\" (\"CHARSET\" \"UTF-8\") NIL NIL "
+        "* 32 FETCH (BODYSTRUCTURE ((((\"TEXT\" \"PLAIN\" (\"CHARSET\" \"UTF-8\") \"NIL\" NIL "
         "\"BASE64\" 664 14 NIL NIL NIL)(\"TEXT\" \"HTML\" (\"CHARSET\" \"UTF-8\") NIL NIL "
         "\"BASE64\" 1596 32 NIL NIL NIL) \"ALTERNATIVE\" (\"BOUNDARY\" "
         "\"00000000000021d4e20604ca2f3c\") NIL NIL)(\"IMAGE\" \"PNG\" (\"NAME\" \"image.png\") "
@@ -315,3 +311,5 @@ TEST(imap_parser_test_, parse_bodystructure_response) {
     auto message_data_or_err = imap_parser::parse_message_data_records(response);
     ASSERT_TRUE(message_data_or_err);
 }
+
+// TODO: Test for when field param is NIL.

@@ -81,16 +81,37 @@ static const std::string message = "MESSAGE";
 static const std::string video = "VIDEO";
 }  // namespace standard_basic_media_types
 
+namespace standard_field_encodings {
+static const std::string enc_7bit = "7BIT";
+static const std::string enc_8bit = "8BIT";
+static const std::string enc_binary = "BINARY";
+static const std::string enc_base64 = "BASE64";
+static const std::string enc_quoted_pritable = "QUOTED-PRINTABLE";
+}  // namespace standard_field_encodings
+
 struct msg_attr_body_structure_t {
+    struct body_fields_t {
+        std::vector<std::pair<std::string, std::string>> params;  // body-fld-param
+
+        std::string field_id;    // body-fld-id
+        std::string field_desc;  // body-fld-desc
+        std::string encoding;    // body-fld-enc (see standard_field_encodings)
+        uint32_t octets{};         // body-fld-octets
+    };
+
     struct body_type_text_t {
         // media_type is "TEXT" here.
         std::string media_subtype;
+        body_fields_t body_fields;
     };
     struct body_type_basic_t {
         std::string media_type;  // see standard_basic_media_types
         std::string media_subtype;
+        body_fields_t body_fields;
     };
-    struct body_type_msg_t {};
+    struct body_type_msg_t {
+        body_fields_t body_fields;
+    };
     struct body_ext_part_t {};
 
     struct body_type_part {
