@@ -239,6 +239,12 @@ DEFINE_FMT_FORMATTER(emailkit::imap_parser::msg_attr_body_structure_t::body_type
                      arg.media_subtype,
                      arg.body_fields);
 
+DEFINE_FMT_FORMATTER(emailkit::imap_parser::msg_attr_body_structure_t::body_type_basic_t,
+                     "body_type_basic_t(media_type: {},media_subtype: {}, body_fields: {})",
+                     arg.media_type,
+                     arg.media_subtype,
+                     arg.body_fields);
+
 DEFINE_FMT_FORMATTER(
     emailkit::imap_parser::msg_attr_body_structure_t::body_type_part,
     "body_type_part(body_type: {})",
@@ -247,7 +253,7 @@ DEFINE_FMT_FORMATTER(
                      return fmt::format("{}", x);
                  },
                  [](const emailkit::imap_parser::msg_attr_body_structure_t::body_type_basic_t& x) {
-                     return fmt::format("basic");
+                     return fmt::format("{}", x);
                  },
                  [](const emailkit::imap_parser::msg_attr_body_structure_t::body_type_msg_t& x) {
                      return fmt::format("msg");
