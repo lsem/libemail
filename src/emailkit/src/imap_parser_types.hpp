@@ -55,7 +55,7 @@ using mailbox_data_t = std::variant<flags_mailbox_data_t,
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 // message-data
-struct msg_attr_envelope_t {
+struct envelope_t {
     // Date in format defined in rfc2822.
     // optional because server may return NIL for this field.
     std::optional<std::string> date_opt;
@@ -70,8 +70,10 @@ struct msg_attr_envelope_t {
     std::string in_reply_to;
     std::string message_id;
 };
+
 struct msg_attr_uid_t {};
 struct msg_attr_internaldate_t {};
+using msg_attr_envelope_t = envelope_t;
 
 namespace standard_basic_media_types {
 static const std::string application = "APPLICATION";
@@ -89,14 +91,16 @@ static const std::string enc_base64 = "BASE64";
 static const std::string enc_quoted_pritable = "QUOTED-PRINTABLE";
 }  // namespace standard_field_encodings
 
+using param_value_t = std::pair<std::string, std::string>;
+
 struct msg_attr_body_structure_t {
     struct body_fields_t {
-        std::vector<std::pair<std::string, std::string>> params;  // body-fld-param
+        std::vector<param_value_t> params;  // body-fld-param
 
         std::string field_id;    // body-fld-id
         std::string field_desc;  // body-fld-desc
         std::string encoding;    // body-fld-enc (see standard_field_encodings)
-        uint32_t octets{};         // body-fld-octets
+        uint32_t octets{};       // body-fld-octets
     };
 
     struct body_type_text_t {
@@ -110,8 +114,10 @@ struct msg_attr_body_structure_t {
         body_fields_t body_fields;
     };
     struct body_type_msg_t {
+        envelope_t envelope;
         body_fields_t body_fields;
     };
+    // body-ext-1part
     struct body_ext_part_t {};
 
     struct body_type_part {
@@ -206,3 +212,78 @@ DEFINE_FMT_FORMATTER(
     arg.bcc_opt.has_value() ? *arg.bcc_opt : "null",
     arg.in_reply_to_opt.has_value() ? *arg.in_reply_to_opt : "null",
     arg.message_id_opt.has_value() ? *arg.message_id_opt : "null");
+
+// std::vector<std::pair<std::string, std::string>> params;  // body-fld-param
+
+// std::string field_id;    // body-fld-id
+// std::string field_desc;  // body-fld-desc
+// std::string encoding;    // body-fld-enc (see standard_field_encodings)
+// uint32_t octets{};       // body-fld-octets
+
+DEFINE_FMT_FORMATTER(emailkit::imap_parser::param_value_t,
+                     "({}, {})",
+                     std::get<0>(arg),
+                     std::get<1>(arg));
+
+DEFINE_FMT_FORMATTER(
+    emailkit::imap_parser::msg_attr_body_structure_t::body_fields_t,
+    "body_fields_t(params: [{}], field_id: {}, field_desc: {}, encoding: {}, octets: {})",
+    fmt::join(arg.params, ","),
+    arg.field_id,
+    arg.field_desc,
+    arg.encoding,
+    arg.octets);
+
+DEFINE_FMT_FORMATTER(emailkit::imap_parser::msg_attr_body_structure_t::body_type_text_t,
+                     "body_type_text_t(media_subtype: {}, body_fields: {})",
+                     arg.media_subtype,
+                     arg.body_fields);
+
+DEFINE_FMT_FORMATTER(
+    emailkit::imap_parser::msg_attr_body_structure_t::body_type_part,
+    "body_type_part(body_type: {})",
+    std::visit(
+        overload{[](const emailkit::imap_parser::msg_attr_body_structure_t::body_type_text_t& x) {
+                     return fmt::format("{}", x);
+                 },
+                 [](const emailkit::imap_parser::msg_attr_body_structure_t::body_type_basic_t& x) {
+                     return fmt::format("basic");
+                 },
+                 [](const emailkit::imap_parser::msg_attr_body_structure_t::body_type_msg_t& x) {
+                     return fmt::format("msg");
+                 }},
+        arg.body_type));
+
+DEFINE_FMT_FORMATTER(emailkit::imap_parser::msg_attr_body_structure_t,
+                     "msg_attr_body_structure_t(parts: {})",
+                     arg.parts);
+
+DEFINE_FMT_FORMATTER(
+    emailkit::imap_parser::msg_static_attr_t,
+    "{}",
+    std::visit(overload{[](const emailkit::imap_parser::msg_attr_envelope_t& x) -> std::string {
+                            return "msg_attr_envelope_t";
+                        },
+                        [](const emailkit::imap_parser::msg_attr_uid_t& x) -> std::string {
+                            return "msg_attr_uid_t";
+                        },
+                        [](const emailkit::imap_parser::msg_attr_internaldate_t& x) -> std::string {
+                            return "msg_attr_internaldate_t";
+                        },
+                        [](const emailkit::imap_parser::msg_attr_body_structure_t& x)
+                            -> std::string { return fmt::format("{}", x); },
+                        [](const emailkit::imap_parser::msg_attr_body_section_t& x) -> std::string {
+                            return "msg_attr_body_section_t";
+                        },
+                        [](const emailkit::imap_parser::msg_attr_rfc822_t& x) -> std::string {
+                            return "msg_attr_rfc822_t";
+                        },
+                        [](const emailkit::imap_parser::msg_attr_rfc822_size_t& x) -> std::string {
+                            return "msg_attr_rfc822_size_t";
+                        }},
+               arg));
+
+DEFINE_FMT_FORMATTER(emailkit::imap_parser::message_data_t,
+                     "message_data_t(message_number: {}, static_attrs: [{}])",
+                     arg.message_number,
+                     fmt::join(arg.static_attrs, ", "));

@@ -652,6 +652,73 @@ expected<std::vector<mailbox_data_t>> parse_mailbox_data_records(std::string_vie
     return parsed_records;
 }
 
+const ast_record* parse_envelope(std::string_view input,
+                                 const ast_record* begin,
+                                 const ast_record* end,
+                                 msg_attr_envelope_t& out_envelope) {
+    // envelope        = "(" env-date SP env-subject SP env-from SP
+    //                   env-sender SP env-reply-to SP env-to SP env-cc SP
+    //                   env-bcc SP env-in-reply-to SP env-message-id ")"
+    msg_attr_envelope_t parsed_envelope;
+
+    assert(begin->uiIndex == IMAP_PARSER_APG_IMPL_ENVELOPE);
+
+    const ast_record* it = begin + 1;
+
+    for (; it != end && it->uiIndex != IMAP_PARSER_APG_IMPL_ENVELOPE; ++it) {
+        const std::string_view match_text{input.data() + it->uiPhraseOffset, it->uiPhraseLength};
+
+        if (it->uiState == ID_AST_PRE) {
+            switch (it->uiIndex) {
+                case IMAP_PARSER_APG_IMPL_ENV_DATE: {
+                    parsed_envelope.date_opt = match_text;
+                    break;
+                }
+                case IMAP_PARSER_APG_IMPL_ENV_SUBJECT: {
+                    parsed_envelope.subject = match_text;
+                    break;
+                }
+                case IMAP_PARSER_APG_IMPL_ENV_FROM: {
+                    parsed_envelope.from = match_text;
+                    break;
+                }
+                case IMAP_PARSER_APG_IMPL_ENV_SENDER: {
+                    parsed_envelope.sender = match_text;
+                    break;
+                }
+                case IMAP_PARSER_APG_IMPL_ENV_REPLY_TO: {
+                    parsed_envelope.reply_to = match_text;
+                    break;
+                }
+                case IMAP_PARSER_APG_IMPL_ENV_TO: {
+                    parsed_envelope.to = match_text;
+                    break;
+                }
+                case IMAP_PARSER_APG_IMPL_ENV_CC: {
+                    parsed_envelope.cc = match_text;
+                    break;
+                }
+                case IMAP_PARSER_APG_IMPL_ENV_BCC: {
+                    parsed_envelope.bcc = match_text;
+                    break;
+                }
+                case IMAP_PARSER_APG_IMPL_ENV_IN_REPLY_TO: {
+                    parsed_envelope.in_reply_to = match_text;
+                    break;
+                }
+                case IMAP_PARSER_APG_IMPL_ENV_MESSAGE_ID: {
+                    parsed_envelope.message_id = match_text;
+                    break;
+                }
+            }
+        }
+    }
+
+    out_envelope = std::move(parsed_envelope);
+
+    return it;
+}
+
 const ast_record* parse_number(std::string_view input,
                                const ast_record* begin,
                                const ast_record* end,
@@ -819,12 +886,11 @@ const ast_record* parse_bodystructure(std::string_view input,
                 }
                 case IMAP_PARSER_APG_IMPL_MEDIA_SUBTYPE: {
                     if (current_body_type_text.has_value()) {
-                        current_body_type_text->media_subtype = match_text;
-                        // TODO: remove quotes!
-                        log_info("got media subtype: {}", match_text);
+                        current_body_type_text->media_subtype =
+                            emailkit::utils::strip_double_quotes(match_text);
                     } else if (current_body_type_basic.has_value()) {
-                        // TODO: remove quotes!
-                        current_body_type_basic->media_subtype = match_text;
+                        current_body_type_basic->media_subtype =
+                            emailkit::utils::strip_double_quotes(match_text);
                     } else if (current_body_type_msg.has_value()) {
                         // TODO: implement
                     }
@@ -883,13 +949,36 @@ const ast_record* parse_bodystructure(std::string_view input,
                     break;
                 }
                 case IMAP_PARSER_APG_IMPL_BODY_FLD_PARAM_NAME: {
-                    assert(current_body_fields.has_value());
-                    current_body_fields->params.emplace_back(match_text, "");
+                    if (current_body_fields.has_value()) {
+                        current_body_fields->params.emplace_back(match_text, "");
+                    } else {
+                        log_warning("ignoring body-fld-param-name");
+                    }
                     break;
                 }
                 case IMAP_PARSER_APG_IMPL_BODY_FLD_PARAM_VALUE: {
-                    assert(current_body_fields.has_value());
-                    current_body_fields->params.back().second = match_text;
+                    if (current_body_fields.has_value()) {
+                        current_body_fields->params.back().second = match_text;
+                    } else {
+                        log_warning("ignoring body-fld-param-value");
+                    }
+                    break;
+                }
+                case IMAP_PARSER_APG_IMPL_ENVELOPE: {
+                    assert(current_body_type_msg.has_value());
+                    if (current_body_type_msg.has_value()) {
+                        it = parse_envelope(input, it, end, current_body_type_msg->envelope);
+                    }
+                    break;
+                }
+                case IMAP_PARSER_APG_IMPL_BODY_FLD_DSP: {
+                    // TODO:
+                    log_warning("ignored body-fld-dsp: {}", match_text);
+                    break;
+                }
+
+                case IMAP_PARSER_APG_IMPL_BODY_EXT_MPART: {
+                    log_warning("ignored body-ext-mpart: {}", match_text);
                     break;
                 }
 
@@ -938,15 +1027,10 @@ const ast_record* parse_bodystructure(std::string_view input,
                     if (current_body_type_text.has_value()) {
                         current_body_type_text->body_fields =
                             std::move(current_body_fields.value());
-                        // TODO: remove quotes!
-                        log_info("got media subtype: {}", match_text);
                     } else if (current_body_type_basic.has_value()) {
-                        // TODO: remove quotes!
-                        current_body_type_basic->media_subtype = match_text;
                         current_body_type_basic->body_fields =
                             std::move(current_body_fields.value());
                     } else if (current_body_type_msg.has_value()) {
-                        // TODO: implement
                         current_body_type_msg->body_fields = std::move(current_body_fields.value());
                     } else {
                         log_warning("unexpected body fields ending: {}", match_text);
@@ -1083,6 +1167,21 @@ expected<std::vector<message_data_t>> parse_message_data_records(std::string_vie
             IMAP_PARSER_APG_IMPL_BODY_FLD_PARAM_NAME,
             IMAP_PARSER_APG_IMPL_BODY_FLD_PARAM_VALUE,
 
+            IMAP_PARSER_APG_IMPL_BODY_FLD_DSP,
+            IMAP_PARSER_APG_IMPL_BODY_EXT_MPART,
+
+            // Envelope
+            IMAP_PARSER_APG_IMPL_ENV_DATE,
+            IMAP_PARSER_APG_IMPL_ENV_SUBJECT,
+            IMAP_PARSER_APG_IMPL_ENV_FROM,
+            IMAP_PARSER_APG_IMPL_ENV_SENDER,
+            IMAP_PARSER_APG_IMPL_ENV_REPLY_TO,
+            IMAP_PARSER_APG_IMPL_ENV_TO,
+            IMAP_PARSER_APG_IMPL_ENV_CC,
+            IMAP_PARSER_APG_IMPL_ENV_BCC,
+            IMAP_PARSER_APG_IMPL_ENV_IN_REPLY_TO,
+            IMAP_PARSER_APG_IMPL_ENV_MESSAGE_ID,
+
             // clang-format on
         },
 
@@ -1176,9 +1275,11 @@ expected<std::vector<message_data_t>> parse_message_data_records(std::string_vie
                                    IMAP_PARSER_APG_IMPL_MSG_ATT,
                                    IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC,
                                    IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_BODY_STRUCTURE)) {
-                        log_info("static attribute, body-structure: '{}'", match_text);
+                        log_info("static attribute, body-structure: '{}'", match_text);                        
                         msg_attr_body_structure_t parsed_body_struct;
                         it = parse_bodystructure(input_text, it, end, parsed_body_struct);
+                        // TODO: do we need to check errors somehow?
+                        pased_static_attrs.emplace_back(parsed_body_struct);
 
                     } else if (current_path_is_superset_of(
                                    IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC,
@@ -1204,8 +1305,10 @@ expected<std::vector<message_data_t>> parse_message_data_records(std::string_vie
                     } else if (current_path_is(IMAP_PARSER_APG_IMPL_MESSAGE_DATA,
                                                IMAP_PARSER_APG_IMPL_FETCH_MESSAGE_DATA,
                                                IMAP_PARSER_APG_IMPL_MSG_ATT,
-                                               IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC)) {
+                                               IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC)) {                    
+                        //assert(pased_static_attrs.size() > 0);
                         result.back().static_attrs = std::move(pased_static_attrs);
+                        //assert(result.back().static_attrs.size() > 0);
                     }
 
                     current_path.pop_back();

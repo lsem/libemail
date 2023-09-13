@@ -555,6 +555,8 @@ class imap_client_impl_t : public imap_client_t {
 
             log_info("parsing successful, time take: {}ms", parse_took / 1.0ms);
 
+            log_info("message data records: {}", *message_data_records_or_err);
+
             cb({}, {});
         });
     }

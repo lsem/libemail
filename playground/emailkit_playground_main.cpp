@@ -26,8 +26,8 @@ void fetch_one(imap_client::imap_client_t& client, int n) {
             .items =
                 imap_commands::fetch_items_vec_t{
                     // fi::body_t{},
-                    //fi::body_structure_t{},
-                    fi::rfc822_header_t{},
+                    fi::body_structure_t{},
+                    //fi::rfc822_header_t{},
                     // fi::envelope_t{},
                     // fi::flags_t{},
                     // fi::internal_date_t{},
