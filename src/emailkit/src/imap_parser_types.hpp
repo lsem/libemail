@@ -118,7 +118,14 @@ struct msg_attr_body_structure_t {
         body_fields_t body_fields;
     };
     // body-ext-1part
-    struct body_ext_part_t {};
+    struct body_ext_part_t {
+        std::optional<std::string> md5;         // body-fld-md5 (nstring)
+        std::string dsp_type;                   // possible value: "ATTACHMENT"
+        std::vector<param_value_t> dsp_params;  // "(" string SP body-fld-param ")" / nil
+        // body-fld-lang
+        // body-fld-loc
+        // *body-extension
+    };
 
     struct body_type_part {
         std::variant<body_type_text_t, body_type_basic_t, body_type_msg_t> body_type;

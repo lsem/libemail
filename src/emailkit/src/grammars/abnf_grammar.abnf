@@ -61,7 +61,8 @@ body-ext-mpart  = body-fld-param [SP body-fld-dsp [SP body-fld-lang [SP body-fld
                     ; MUST NOT be returned on non-extensible "BODY" fetch
 body-fields     = body-fld-param SP body-fld-id SP body-fld-desc SP body-fld-enc SP body-fld-octets
 body-fld-desc   = nstring
-body-fld-dsp    = "(" string SP body-fld-param ")" / nil
+body-fld-dsp-string = string
+body-fld-dsp    = "(" body-fld-dsp-string SP body-fld-param ")" / nil
 ; body-fld-enc    = (DQUOTE ("7BIT" / "8BIT" / "BINARY" / "BASE64"/ "QUOTED-PRINTABLE") DQUOTE) / string
 body-fld-enc    = string
 body-fld-id     = nstring
