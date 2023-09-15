@@ -910,7 +910,6 @@ const ast_record* parse_bodystructure(std::string_view input,
                     break;
                 }
                 case IMAP_PARSER_APG_IMPL_BODY_EXT_1PART: {
-                    log_warning("IMAP_PARSER_APG_IMPL_BODY_EXT_1PART: {}", match_text);
                     current_body_ext_part = msg_attr_body_structure_t::body_ext_part_t{};
                     break;
                 }
@@ -988,7 +987,6 @@ const ast_record* parse_bodystructure(std::string_view input,
                     assert(current_body_fields.has_value());
                     assert((end - it) > 1 && (it + 1)->uiIndex == IMAP_PARSER_APG_IMPL_NUMBER);
                     it = parse_number(input, it + 1, end, current_body_fields->octets);
-                    log_error("octets: {}", current_body_fields->octets);
                     break;
                 }
                 case IMAP_PARSER_APG_IMPL_BODY_FLD_PARAM_NAME: {
@@ -1079,7 +1077,6 @@ const ast_record* parse_bodystructure(std::string_view input,
                         current_body_type_text->body_fields =
                             std::move(current_body_fields.value());
                     } else if (current_body_type_basic.has_value()) {
-                        log_error("end of fields for BASIC");
                         current_body_type_basic->body_fields =
                             std::move(current_body_fields.value());
                     } else if (current_body_type_msg.has_value()) {
@@ -1246,28 +1243,6 @@ expected<std::vector<message_data_t>> parse_message_data_records(std::string_vie
             for (auto it = begin; it != end; ++it) {
                 const std::string_view match_text{input_text.data() + it->uiPhraseOffset,
                                                   it->uiPhraseLength};
-
-                // if (it->uiIndex == IMAP_PARSER_APG_IMPL_BODY_TYPE_1PART) {
-                //     if (it->uiState == ID_AST_PRE) {
-                //         log_debug("BEGIN body-type-1-part: {}", match_text);
-                //     } else {
-                //         log_debug("END body-type-1-part");
-                //     }
-                // }
-
-                // if (it->uiIndex == IMAP_PARSER_APG_IMPL_BODY_EXT_1PART &&
-                //     it->uiState == ID_AST_PRE) {
-                //     log_debug("BEGIN body-ext-1p-part: {}", match_text);
-                // } else if (it->uiIndex == IMAP_PARSER_APG_IMPL_BODY_TYPE_TEXT &&
-                //            it->uiState == ID_AST_PRE) {
-                //     log_debug("BEGIN body-type-text: {}", match_text);
-                // } else if (it->uiIndex == IMAP_PARSER_APG_IMPL_BODY_TYPE_BASIC &&
-                //            it->uiState == ID_AST_PRE) {
-                //     log_debug("BEGIN body-type-basic: {}", match_text);
-                // } else if (it->uiIndex == IMAP_PARSER_APG_IMPL_BODY_TYPE_MSG &&
-                //            it->uiState == ID_AST_PRE) {
-                //     log_debug("BEGIN body-type-msg: {}", match_text);
-                // }
 
                 if (it->uiState == ID_AST_PRE) {
                     current_path.emplace_back(it->uiIndex);
