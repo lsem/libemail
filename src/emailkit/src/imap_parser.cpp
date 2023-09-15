@@ -866,6 +866,90 @@ const ast_record* parse_nstring(std::string_view input,
     return it;
 }
 
+const ast_record* parse_fld_param(std::string_view input,
+                                  const ast_record* begin,
+                                  const ast_record* end,
+                                  msg_attr_body_structure_t::body_fld_param& out_fld_param) {
+    assert(begin->uiIndex == IMAP_PARSER_APG_IMPL_BODY_FLD_PARAM);
+
+    const ast_record* it = begin + 1;
+    for (; it != end && it->uiIndex != IMAP_PARSER_APG_IMPL_BODY_FLD_PARAM; ++it) {
+        const std::string_view match_text{input.data() + it->uiPhraseOffset, it->uiPhraseLength};
+
+        if (it->uiState == ID_AST_PRE) {
+            switch (it->uiIndex) {
+                case IMAP_PARSER_APG_IMPL_BODY_FLD_PARAM_NAME: {
+                    out_fld_param.emplace_back(match_text, "");
+                    break;
+                }
+                case IMAP_PARSER_APG_IMPL_BODY_FLD_PARAM_VALUE: {
+                    out_fld_param.back().second = match_text;
+                    break;
+                }
+            }
+        }
+    }
+
+    return it;
+}
+
+const ast_record* parse_ext_part(std::string_view input,
+                                 const ast_record* begin,
+                                 const ast_record* end,
+                                 msg_attr_body_structure_t::body_ext_part_t& out_ext_part) {
+    assert(begin->uiIndex == IMAP_PARSER_APG_IMPL_BODY_EXT_1PART ||
+           begin->uiIndex == IMAP_PARSER_APG_IMPL_BODY_EXT_MPART);
+
+    msg_attr_body_structure_t::body_ext_part_t parsed_ext_part;
+
+    // this parser works with two very similar rules which has first element different.
+    const auto part_rule_index = begin->uiIndex;
+
+    const ast_record* it = begin + 1;
+
+    for (; it != end && it->uiIndex != part_rule_index; ++it) {
+        const std::string_view match_text{input.data() + it->uiPhraseOffset, it->uiPhraseLength};
+
+        if (it->uiState == ID_AST_PRE) {
+            switch (it->uiIndex) {
+                case IMAP_PARSER_APG_IMPL_BODY_FLD_MD5: {
+                    // This is 1part
+                    std::string md5_n_string_value;
+                    it = parse_nstring(input, it + 1, end, md5_n_string_value);
+                    if (!md5_n_string_value.empty()) {
+                        parsed_ext_part.md5_or_fld_param =
+                            msg_attr_body_structure_t::body_fld_md5{std::move(md5_n_string_value)};
+                    } else {
+                        // NIL -> nullopt
+                    }
+                    break;
+                }
+                case IMAP_PARSER_APG_IMPL_BODY_FLD_PARAM: {
+                    // This is mpart (body-fld-parm may appear down in body-fld-dsp but since we are
+                    // parsing in recursive descent manner it should be unique  indication of mpart)
+                    msg_attr_body_structure_t::body_fld_param fld_param;
+                    it = parse_fld_param(input, it, end, fld_param);
+                    parsed_ext_part.md5_or_fld_param =
+                        msg_attr_body_structure_t::body_fld_param{std::move(fld_param)};
+                    break;
+                }
+                case IMAP_PARSER_APG_IMPL_BODY_FLD_DSP: {
+                    it = parse_fld_dsp(input, it, end, parsed_ext_part.dsp.field_dsp_string,
+                                       parsed_ext_part.dsp.field_params);
+                    break;
+                }
+                    // TODO: body-fld-lang
+                    // TODO: body-fld-loc
+                    // TODO: *(SP body-extension)
+            }
+        }
+    }
+
+    out_ext_part = std::move(parsed_ext_part);
+
+    return it;
+}
+
 const ast_record* parse_bodystructure(std::string_view input,
                                       const ast_record* begin,
                                       const ast_record* end,
@@ -893,7 +977,8 @@ const ast_record* parse_bodystructure(std::string_view input,
                     break;
                 }
                 case IMAP_PARSER_APG_IMPL_BODY_TYPE_MPART: {
-                    // TODO: get rid of this.
+                    // body-type-mpart = 1*body SP media-subtype [SP body-ext-mpart]
+                    // TODO: find out what whether indeed there could be multiple bodies.
                     // log_warning("IMAP_PARSER_APG_IMPL_BODY_TYPE_MPART: {}", match_text);
                     break;
                 }
@@ -911,6 +996,7 @@ const ast_record* parse_bodystructure(std::string_view input,
                 }
                 case IMAP_PARSER_APG_IMPL_BODY_EXT_1PART: {
                     current_body_ext_part = msg_attr_body_structure_t::body_ext_part_t{};
+                    it = parse_ext_part(input, it, end, *current_body_ext_part);
                     break;
                 }
                 case IMAP_PARSER_APG_IMPL_MEDIA_TEXT: {
@@ -1012,21 +1098,32 @@ const ast_record* parse_bodystructure(std::string_view input,
                     }
                     break;
                 }
-                case IMAP_PARSER_APG_IMPL_BODY_FLD_DSP: {
-                    if (current_body_ext_part.has_value()) {
-                        it = parse_fld_dsp(input, it, end, current_body_ext_part->dsp_type,
-                                           current_body_ext_part->dsp_params);
-                        log_info("parsed type: {}, params: {}", current_body_ext_part->dsp_type,
-                                 current_body_ext_part->dsp_params);
-                    } else {
-                        // TODO:
-                        log_warning("ignored body-fld-dsp: {}", match_text);
-                    }
-                    break;
-                }
 
                 case IMAP_PARSER_APG_IMPL_BODY_EXT_MPART: {
-                    log_warning("ignored body-ext-mpart: {}", match_text);
+                    // log_warning("ignored body-ext-mpart: {}", match_text);
+                    msg_attr_body_structure_t::body_ext_part_t mpart;
+                    it = parse_ext_part(input, it, end, mpart);
+                    log_warning("parsed mpart but ignoring anyway");
+                    if (std::holds_alternative<msg_attr_body_structure_t::body_fld_md5>(
+                            mpart.md5_or_fld_param)) {
+                        auto& md5_opt = std::get<msg_attr_body_structure_t::body_fld_md5>(
+                            mpart.md5_or_fld_param);
+                        log_info("md5: {}", md5_opt ? *md5_opt : "null");
+                    } else {
+                        auto& field_param =
+                            std::get<std::vector<param_value_t>>(mpart.md5_or_fld_param);
+                        log_info("params:");
+                        for (auto& [p, v] : field_param) {
+                            log_info("{}: {}", p, v);
+                        }
+                    }
+
+                    log_info("dsp-value: {}", mpart.dsp.field_dsp_string);
+                    log_info("dsp params:");
+                    for (auto& [p, v] : mpart.dsp.field_params) {
+                        log_info("{}: {}", p, v);
+                    }
+
                     break;
                 }
 

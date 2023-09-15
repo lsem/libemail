@@ -94,6 +94,12 @@ static const std::string enc_quoted_pritable = "QUOTED-PRINTABLE";
 using param_value_t = std::pair<std::string, std::string>;
 
 struct msg_attr_body_structure_t {
+    // TODO: what does dsp stand for: display? disposition? digital-signal-processing?
+    struct body_field_dsp_t {
+        std::string field_dsp_string;
+        std::vector<param_value_t> field_params;
+    };
+
     struct body_fields_t {
         std::vector<param_value_t> params;  // body-fld-param
 
@@ -118,10 +124,14 @@ struct msg_attr_body_structure_t {
         body_fields_t body_fields;
     };
     // body-ext-1part
+    // NOTE: this structure is used for both 1-part and m-part which differ only in first parameter
+    // where it is md5 for one part and body-fld-param for mpart. One should differentiate.
+    using body_fld_md5 =
+        std::optional<std::string>;  // since it is NSTRING, optional should be treated as NIL.
+    using body_fld_param = std::vector<param_value_t>;
     struct body_ext_part_t {
-        std::optional<std::string> md5;         // body-fld-md5 (nstring)
-        std::string dsp_type;                   // possible value: "ATTACHMENT"
-        std::vector<param_value_t> dsp_params;  // "(" string SP body-fld-param ")" / nil
+        std::variant<body_fld_md5, body_fld_param> md5_or_fld_param;
+        body_field_dsp_t dsp;
         // body-fld-lang
         // body-fld-loc
         // *body-extension
@@ -252,6 +262,10 @@ DEFINE_FMT_FORMATTER(emailkit::imap_parser::msg_attr_body_structure_t::body_type
                      arg.media_subtype,
                      arg.body_fields);
 
+// DEFINE_FMT_FORMATTER(emailkit::imap_parser::msg_attr_body_structure_t::body_ext_part_t,
+//                      "body_ext_part_t()",
+//                      arg.md5_or_fld_param);
+
 DEFINE_FMT_FORMATTER(
     emailkit::imap_parser::msg_attr_body_structure_t::body_type_part,
     "body_type_part(body_type: {})",
@@ -300,3 +314,4 @@ DEFINE_FMT_FORMATTER(emailkit::imap_parser::message_data_t,
                      "message_data_t(message_number: {}, static_attrs: [{}])",
                      arg.message_number,
                      fmt::join(arg.static_attrs, ", "));
+
