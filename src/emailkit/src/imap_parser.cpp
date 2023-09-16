@@ -768,17 +768,19 @@ const ast_record* parse_number(std::string_view input,
     auto it = begin + 1;
     while (it != end && it->uiIndex != IMAP_PARSER_APG_IMPL_NUMBER)
         ++it;
+    ++it;
+
+    assert((it - 1)->uiIndex == IMAP_PARSER_APG_IMPL_NUMBER && (it - 1)->uiState == ID_AST_POST);
     return it;
 }
 
 const ast_record* parse_string(std::string_view input,
                                const ast_record* begin,
                                const ast_record* end,
-                               std::string& out_string) {
+                               std::string& out_result) {
     // string          = quoted / literal
     // quoted          = DQUOTE *QUOTED-CHAR DQUOTE
     // literal         = "{" u_literal-size "}" CRLF u_literal-data
-    std::string parsed_string;
 
     assert(begin->uiIndex == IMAP_PARSER_APG_IMPL_STRING);
 
@@ -787,12 +789,10 @@ const ast_record* parse_string(std::string_view input,
     for (; it != end && it->uiIndex != IMAP_PARSER_APG_IMPL_STRING; ++it) {
         const std::string_view match_text{input.data() + it->uiPhraseOffset, it->uiPhraseLength};
 
-        log_info("match_text: {}", match_text);
-
         if (it->uiState == ID_AST_PRE) {
             switch (it->uiIndex) {
                 case IMAP_PARSER_APG_IMPL_QUOTED: {
-                    parsed_string = emailkit::utils::strip_double_quotes(match_text);
+                    out_result = emailkit::utils::strip_double_quotes(match_text);
                     break;
                 }
                 case IMAP_PARSER_APG_IMPL_LITERAL: {
@@ -811,22 +811,20 @@ const ast_record* parse_string(std::string_view input,
         }
     }
 
-    log_debug("skipped tokens: {}", it - begin);
+    it++;
+    assert((it - 1)->uiIndex == IMAP_PARSER_APG_IMPL_STRING && (it - 1)->uiState == ID_AST_POST);
 
-    out_string = std::move(parsed_string);
     return it;
 }
 
 const ast_record* parse_nstring(std::string_view input,
                                 const ast_record* begin,
                                 const ast_record* end,
-                                std::string& out_nstring) {
+                                std::string& out_result) {
     // nstring         = string / nil
     // string          = quoted / literal
     // quoted          = DQUOTE *QUOTED-CHAR DQUOTE
     // literal         = "{" u_literal-size "}" CRLF u_literal-data
-
-    std::string parsed_nstring;
 
     assert(begin->uiIndex == IMAP_PARSER_APG_IMPL_NSTRING);
 
@@ -835,8 +833,6 @@ const ast_record* parse_nstring(std::string_view input,
     for (; it != end && it->uiIndex != IMAP_PARSER_APG_IMPL_NSTRING; ++it) {
         const std::string_view match_text{input.data() + it->uiPhraseOffset, it->uiPhraseLength};
 
-        log_info("match_text: {}", match_text);
-
         if (it->uiState == ID_AST_PRE) {
             switch (it->uiIndex) {
                 case IMAP_PARSER_APG_IMPL_NIL: {
@@ -844,32 +840,37 @@ const ast_record* parse_nstring(std::string_view input,
                     break;
                 }
                 case IMAP_PARSER_APG_IMPL_QUOTED: {
-                    parsed_nstring = emailkit::utils::strip_double_quotes(match_text);
+                    out_result = emailkit::utils::strip_double_quotes(match_text);
                     break;
                 }
                 case IMAP_PARSER_APG_IMPL_LITERAL: {
+                    // TODO: implement
                     break;
                 }
                 case IMAP_PARSER_APG_IMPL_U_LITERAL_SIZE: {
+                    // TODO: implement
                     break;
                 }
                 case IMAP_PARSER_APG_IMPL_U_LITERAL_DATA: {
+                    // TODO: implement
                     break;
                 }
             }
         }
     }
 
-    log_debug("skipped tokens: {}", it - begin);
+    // TODO: RETURN_IF_END(it).
+    it++;
 
-    out_nstring = std::move(parsed_nstring);
+    assert((it - 1)->uiIndex == IMAP_PARSER_APG_IMPL_NSTRING && (it - 1)->uiState == ID_AST_POST);
+
     return it;
 }
 
 const ast_record* parse_fld_param(std::string_view input,
                                   const ast_record* begin,
                                   const ast_record* end,
-                                  msg_attr_body_structure_t::body_fld_param& out_fld_param) {
+                                  std::vector<param_value_t>& out_fld_param) {
     assert(begin->uiIndex == IMAP_PARSER_APG_IMPL_BODY_FLD_PARAM);
 
     const ast_record* it = begin + 1;
@@ -893,14 +894,19 @@ const ast_record* parse_fld_param(std::string_view input,
     return it;
 }
 
-const ast_record* parse_ext_part(std::string_view input,
-                                 const ast_record* begin,
-                                 const ast_record* end,
-                                 msg_attr_body_structure_t::body_ext_part_t& out_ext_part) {
+const ast_record* parse_ext_part_impl(
+    std::string_view input,
+    const ast_record* begin,
+    const ast_record* end,
+    std::variant<wip::BodyExt1Part, wip::BodyExtMPart>& out_result) {
     assert(begin->uiIndex == IMAP_PARSER_APG_IMPL_BODY_EXT_1PART ||
            begin->uiIndex == IMAP_PARSER_APG_IMPL_BODY_EXT_MPART);
 
-    msg_attr_body_structure_t::body_ext_part_t parsed_ext_part;
+    const std::string_view match_text{input.data() + begin->uiPhraseOffset, begin->uiPhraseLength};
+
+    std::optional<std::string> maybe_parsed_md5;
+    std::optional<std::vector<param_value_t>> maybe_parsed_body_fld_params;
+    wip::BodyFieldDSP parsed_body_field_dsp;
 
     // this parser works with two very similar rules which has first element different.
     const auto part_rule_index = begin->uiIndex;
@@ -914,28 +920,21 @@ const ast_record* parse_ext_part(std::string_view input,
             switch (it->uiIndex) {
                 case IMAP_PARSER_APG_IMPL_BODY_FLD_MD5: {
                     // This is 1part
-                    std::string md5_n_string_value;
-                    it = parse_nstring(input, it + 1, end, md5_n_string_value);
-                    if (!md5_n_string_value.empty()) {
-                        parsed_ext_part.md5_or_fld_param =
-                            msg_attr_body_structure_t::body_fld_md5{std::move(md5_n_string_value)};
-                    } else {
-                        // NIL -> nullopt
-                    }
+                    maybe_parsed_md5 = std::string{};
+                    it = parse_nstring(input, it + 1, end, *maybe_parsed_md5);
                     break;
                 }
                 case IMAP_PARSER_APG_IMPL_BODY_FLD_PARAM: {
                     // This is mpart (body-fld-parm may appear down in body-fld-dsp but since we are
-                    // parsing in recursive descent manner it should be unique  indication of mpart)
-                    msg_attr_body_structure_t::body_fld_param fld_param;
-                    it = parse_fld_param(input, it, end, fld_param);
-                    parsed_ext_part.md5_or_fld_param =
-                        msg_attr_body_structure_t::body_fld_param{std::move(fld_param)};
+                    // parsing in recursive descent manner it should be unique indication of mpart)
+                    // msg_attr_body_structure_t::body_fld_param fld_param;
+                    maybe_parsed_body_fld_params = std::vector<param_value_t>{};
+                    it = parse_fld_param(input, it, end, *maybe_parsed_body_fld_params);
                     break;
                 }
                 case IMAP_PARSER_APG_IMPL_BODY_FLD_DSP: {
-                    it = parse_fld_dsp(input, it, end, parsed_ext_part.dsp.field_dsp_string,
-                                       parsed_ext_part.dsp.field_params);
+                    it = parse_fld_dsp(input, it, end, parsed_body_field_dsp.field_dsp_string,
+                                       parsed_body_field_dsp.field_params);
                     break;
                 }
                     // TODO: body-fld-lang
@@ -945,117 +944,154 @@ const ast_record* parse_ext_part(std::string_view input,
         }
     }
 
-    out_ext_part = std::move(parsed_ext_part);
+    if (maybe_parsed_md5) {
+        // 1part
+        if (*maybe_parsed_md5 == "NIL") {
+            maybe_parsed_md5->clear();
+        }
+
+        out_result = wip::BodyExt1Part{.md5 = std::move(*maybe_parsed_md5),
+                                       .body_field_dsp = std::move(parsed_body_field_dsp)};
+    } else {
+        // mpart
+        // TODO: check!
+        assert(maybe_parsed_body_fld_params);
+        out_result = wip::BodyExtMPart{.body_fld_params = std::move(*maybe_parsed_body_fld_params),
+                                       .body_field_dsp = std::move(parsed_body_field_dsp)};
+    }
+
+    if (it != end) {
+        ++it;
+    }
+
+    assert((it - 1)->uiIndex == IMAP_PARSER_APG_IMPL_BODY_EXT_1PART ||
+           (it - 1)->uiIndex == IMAP_PARSER_APG_IMPL_BODY_EXT_MPART);
 
     return it;
 }
 
-const ast_record* parse_bodystructure(std::string_view input,
+const ast_record* parse_ext_1part(std::string_view input,
+                                  const ast_record* begin,
+                                  const ast_record* end,
+                                  wip::BodyExt1Part& out_ext_part) {
+    std::variant<wip::BodyExt1Part, wip::BodyExtMPart> ext_part;
+    auto it = parse_ext_part_impl(input, begin, end, ext_part);
+    assert(std::holds_alternative<wip::BodyExt1Part>(ext_part));
+    out_ext_part = std::get<wip::BodyExt1Part>(ext_part);
+    return it;
+}
+
+const ast_record* parse_ext_mpart(std::string_view input,
+                                  const ast_record* begin,
+                                  const ast_record* end,
+                                  wip::BodyExtMPart& out_ext_part) {
+    std::variant<wip::BodyExt1Part, wip::BodyExtMPart> ext_part;
+    auto it = parse_ext_part_impl(input, begin, end, ext_part);
+    assert(std::holds_alternative<wip::BodyExtMPart>(ext_part));
+    out_ext_part = std::get<wip::BodyExtMPart>(ext_part);
+    return it;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Declarations
+const ast_record* parse_body(std::string_view input,
+                             const ast_record* begin,
+                             const ast_record* end,
+                             wip::Body& out_result);
+const ast_record* parse_nstring(std::string_view input,
+                                const ast_record* begin,
+                                const ast_record* end,
+                                std::string& out_result);
+const ast_record* parse_string(std::string_view input,
+                               const ast_record* begin,
+                               const ast_record* end,
+                               std::string& out_result);
+const ast_record* parse_ext_part(std::string_view input,
+                                 const ast_record* begin,
+                                 const ast_record* end,
+                                 std::variant<wip::BodyExt1Part, wip::BodyExtMPart>& out_result);
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Utilities
+const ast_record* skip_until(const ast_record* begin,
+                             const ast_record* end,
+                             unsigned until_index,
+                             unsigned state) {
+    while (begin != end && !(begin->uiIndex == until_index && begin->uiState == state)) {
+        begin++;
+    }
+    return begin;
+}
+
+#define RETURN_IF_END(It) \
+    do {                  \
+        auto it__ = (It); \
+        if (it__ == end)  \
+            return it__;  \
+    } while (false)
+
+const ast_record* parse_media_subtype(std::string_view input,
                                       const ast_record* begin,
                                       const ast_record* end,
-                                      msg_attr_body_structure_t& out_body_structure) {
-    log_info("bodystructure max tokens count: {}", end - begin);
+                                      std::string& out_result) {
+    log_debug("parsing media subtype");
+    assert(begin->uiIndex == IMAP_PARSER_APG_IMPL_MEDIA_SUBTYPE);
 
-    msg_attr_body_structure_t body_structure;
-    std::optional<msg_attr_body_structure_t::body_type_part> current_part_opt;
-    std::optional<msg_attr_body_structure_t::body_type_text_t> current_body_type_text;
-    std::optional<msg_attr_body_structure_t::body_type_basic_t> current_body_type_basic;
-    std::optional<msg_attr_body_structure_t::body_type_msg_t> current_body_type_msg;
-    std::optional<msg_attr_body_structure_t::body_ext_part_t> current_body_ext_part;
-    std::optional<msg_attr_body_structure_t::body_fields_t> current_body_fields;
+    auto it = begin + 1;
 
-    std::optional<msg_attr_body_structure_t::body_type_part> parsed_part;
+    assert(it->uiIndex == IMAP_PARSER_APG_IMPL_STRING);
 
-    const ast_record* it = begin + 1;
-    for (; it != end && it->uiIndex != IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_BODY_STRUCTURE; ++it) {
-        const std::string_view match_text{input.data() + it->uiPhraseOffset, it->uiPhraseLength};
+    const std::string_view match_text{input.data() + it->uiPhraseOffset, it->uiPhraseLength};
+    out_result = emailkit::utils::strip_double_quotes(match_text);
 
+    it = skip_until(it, end, IMAP_PARSER_APG_IMPL_MEDIA_SUBTYPE, ID_AST_POST);
+    RETURN_IF_END(it);
+
+    assert(it->uiIndex == IMAP_PARSER_APG_IMPL_MEDIA_SUBTYPE);
+
+    return it + 1;
+}
+
+// const ast_record* parse_body_ext_mpart(std::string_view input,
+//                                        const ast_record* begin,
+//                                        const ast_record* end,
+//                                        std::string& out_result) {
+//     assert(begin != end && begin->uiIndex == IMAP_PARSER_APG_IMPL_BODY_EXT_MPART);
+//     return begin;
+// }
+
+const ast_record* parse_body_fields(std::string_view input,
+                                    const ast_record* begin,
+                                    const ast_record* end,
+                                    wip::BodyFields& out_result) {
+    // body-fields     = body-fld-param SP body-fld-id SP body-fld-desc SP body-fld-enc SP
+    //                   body-fld-octets
+
+    assert(begin != end && begin->uiIndex == IMAP_PARSER_APG_IMPL_BODY_FIELDS);
+
+    auto it = begin + 1;
+
+    for (; it != end && it->uiIndex != IMAP_PARSER_APG_IMPL_BODY_FIELDS; ++it) {
         if (it->uiState == ID_AST_PRE) {
+            const std::string_view match_text{input.data() + it->uiPhraseOffset,
+                                              it->uiPhraseLength};
             switch (it->uiIndex) {
-                case IMAP_PARSER_APG_IMPL_BODY_TYPE_1PART: {
-                    current_part_opt = msg_attr_body_structure_t::body_type_part{};
-                    break;
-                }
-                case IMAP_PARSER_APG_IMPL_BODY_TYPE_MPART: {
-                    // body-type-mpart = 1*body SP media-subtype [SP body-ext-mpart]
-                    // TODO: find out what whether indeed there could be multiple bodies.
-                    // log_warning("IMAP_PARSER_APG_IMPL_BODY_TYPE_MPART: {}", match_text);
-                    break;
-                }
-                case IMAP_PARSER_APG_IMPL_BODY_TYPE_TEXT: {
-                    current_body_type_text = msg_attr_body_structure_t::body_type_text_t{};
-                    break;
-                }
-                case IMAP_PARSER_APG_IMPL_BODY_TYPE_BASIC: {
-                    current_body_type_basic = msg_attr_body_structure_t::body_type_basic_t{};
-                    break;
-                }
-                case IMAP_PARSER_APG_IMPL_BODY_TYPE_MSG: {
-                    current_body_type_msg = msg_attr_body_structure_t::body_type_msg_t{};
-                    break;
-                }
-                case IMAP_PARSER_APG_IMPL_BODY_EXT_1PART: {
-                    current_body_ext_part = msg_attr_body_structure_t::body_ext_part_t{};
-                    it = parse_ext_part(input, it, end, *current_body_ext_part);
-                    break;
-                }
-                case IMAP_PARSER_APG_IMPL_MEDIA_TEXT: {
-                    log_info("message text: {}", match_text);
-                    break;
-                }
-                case IMAP_PARSER_APG_IMPL_MEDIA_BASIC: {
-                    log_info("message basic: {}", match_text);
-                    break;
-                }
-                case IMAP_PARSER_APG_IMPL_MEDIA_MESSAGE: {
-                    log_info("message message: {}", match_text);
-                    break;
-                }
-                case IMAP_PARSER_APG_IMPL_MEDIA_SUBTYPE: {
-                    if (current_body_type_text.has_value()) {
-                        current_body_type_text->media_subtype =
-                            emailkit::utils::strip_double_quotes(match_text);
-                    } else if (current_body_type_basic.has_value()) {
-                        current_body_type_basic->media_subtype =
-                            emailkit::utils::strip_double_quotes(match_text);
-                    } else if (current_body_type_msg.has_value()) {
-                        // TODO: implement
-                    }
-                    break;
-                }
-                case IMAP_PARSER_APG_IMPL_MEDIA_BASIC_TYPE_TAG: {
-                    assert(current_body_type_basic.has_value());
-                    if (current_body_type_basic.has_value()) {
-                        log_info("got basic media type: {}", match_text);
-                        current_body_type_basic->media_type = match_text;
-                    }
-                    break;
-                }
-                case IMAP_PARSER_APG_IMPL_BODY_FIELDS: {
-                    log_info("body fields: '{}'", match_text);
-                    current_body_fields = msg_attr_body_structure_t::body_fields_t{};
-                    // body-fields     = body-fld-param SP body-fld-id SP body-fld-desc SP
-                    // body-fld-enc SP body-fld-octets
-                    break;
-                }
                 case IMAP_PARSER_APG_IMPL_BODY_FLD_PARAM: {
-                    // body-fld-param  = "(" string SP string *(SP string SP string) ")" / nil
-                    log_info("body fld param: '{}'", match_text);
+                    // body-fld-param  = "(" body-fld-param-name SP body-fld-param-value *(SP
+                    // body-fld-param-name SP body-fld-param-value) ")" / nil
                     break;
                 }
                 case IMAP_PARSER_APG_IMPL_BODY_FLD_ID: {
                     // body-fld-id     = nstring
-                    assert(current_body_fields.has_value());
-                    assert((end - it) > 1);
-                    assert((it + 1)->uiIndex == IMAP_PARSER_APG_IMPL_NSTRING);
-                    it = parse_nstring(input, it + 1, end, current_body_fields->field_id);
+
+                    // TODO: change semantics to the following: in the remaining stream parse
+                    // closest NSTRING and return either end or token after nstring.
+                    it = parse_nstring(input, it + 1, end, out_result.field_id);
                     break;
                 }
                 case IMAP_PARSER_APG_IMPL_BODY_FLD_DESC: {
                     // body-fld-desc     = nstring
-                    assert(current_body_fields.has_value());
-                    assert((end - it) > 1 && (it + 1)->uiIndex == IMAP_PARSER_APG_IMPL_NSTRING);
-                    it = parse_nstring(input, it + 1, end, current_body_fields->field_desc);
+                    it = parse_nstring(input, it + 1, end, out_result.field_desc);
                     break;
                 }
                 case IMAP_PARSER_APG_IMPL_BODY_FLD_ENC: {
@@ -1064,178 +1100,318 @@ const ast_record* parse_bodystructure(std::string_view input,
                     //                  "QUOTED-PRINTABLE") DQUOTE) / string
                     // But I changed it to:
                     // body-fld-enc = string
-                    assert(current_body_fields.has_value());
-                    assert((end - it) > 1 && (it + 1)->uiIndex == IMAP_PARSER_APG_IMPL_STRING);
-                    it = parse_string(input, it + 1, end, current_body_fields->encoding);
+                    it = parse_string(input, it + 1, end, out_result.encoding);
                     break;
                 }
                 case IMAP_PARSER_APG_IMPL_BODY_FLD_OCTETS: {
-                    assert(current_body_fields.has_value());
-                    assert((end - it) > 1 && (it + 1)->uiIndex == IMAP_PARSER_APG_IMPL_NUMBER);
-                    it = parse_number(input, it + 1, end, current_body_fields->octets);
+                    it = parse_number(input, it + 1, end, out_result.octets);
                     break;
                 }
                 case IMAP_PARSER_APG_IMPL_BODY_FLD_PARAM_NAME: {
-                    if (current_body_fields.has_value()) {
-                        current_body_fields->params.emplace_back(match_text, "");
-                    } else {
-                        log_warning("ignoring body-fld-param-name");
-                    }
+                    out_result.params.emplace_back(match_text, "");
                     break;
                 }
                 case IMAP_PARSER_APG_IMPL_BODY_FLD_PARAM_VALUE: {
-                    if (current_body_fields.has_value()) {
-                        current_body_fields->params.back().second = match_text;
-                    } else {
-                        log_warning("ignoring body-fld-param-value");
-                    }
+                    out_result.params.back().second = match_text;
                     break;
                 }
-                case IMAP_PARSER_APG_IMPL_ENVELOPE: {
-                    assert(current_body_type_msg.has_value());
-                    if (current_body_type_msg.has_value()) {
-                        it = parse_envelope(input, it, end, current_body_type_msg->envelope);
-                    }
-                    break;
-                }
-
-                case IMAP_PARSER_APG_IMPL_BODY_EXT_MPART: {
-                    // log_warning("ignored body-ext-mpart: {}", match_text);
-                    msg_attr_body_structure_t::body_ext_part_t mpart;
-                    it = parse_ext_part(input, it, end, mpart);
-                    log_warning("parsed mpart but ignoring anyway");
-                    if (std::holds_alternative<msg_attr_body_structure_t::body_fld_md5>(
-                            mpart.md5_or_fld_param)) {
-                        auto& md5_opt = std::get<msg_attr_body_structure_t::body_fld_md5>(
-                            mpart.md5_or_fld_param);
-                        log_info("md5: {}", md5_opt ? *md5_opt : "null");
-                    } else {
-                        auto& field_param =
-                            std::get<std::vector<param_value_t>>(mpart.md5_or_fld_param);
-                        log_info("params:");
-                        for (auto& [p, v] : field_param) {
-                            log_info("{}: {}", p, v);
-                        }
-                    }
-
-                    log_info("dsp-value: {}", mpart.dsp.field_dsp_string);
-                    log_info("dsp params:");
-                    for (auto& [p, v] : mpart.dsp.field_params) {
-                        log_info("{}: {}", p, v);
-                    }
-
-                    break;
-                }
-
-                default:
-                    break;
             }
-        } else if (it->uiState == ID_AST_POST) {
+        }
+    }
+    if (it != end) {
+        it++;
+    }
+
+    assert((it - 1)->uiIndex == IMAP_PARSER_APG_IMPL_BODY_FIELDS &&
+           (it - 1)->uiState == ID_AST_POST);
+
+    return it;
+}
+
+const ast_record* parse_body_type_text(std::string_view input,
+                                       const ast_record* begin,
+                                       const ast_record* end,
+                                       wip::BodyTypeText& out_result) {
+    // body-type-text  = media-text SP body-fields SP body-fld-lines
+    // media-text      = DQUOTE "TEXT" DQUOTE SP media-subtype
+
+    log_debug("parsing body-type-text");
+
+    assert(begin != end && begin->uiIndex == IMAP_PARSER_APG_IMPL_BODY_TYPE_TEXT);
+    auto it = begin + 1;
+
+    while (it != end && it->uiIndex != IMAP_PARSER_APG_IMPL_MEDIA_SUBTYPE) {
+        ++it;
+    }
+    if (it == end) {
+        log_error("reached end unexpectedly");
+        return it;
+    }
+
+    std::string media_subtype;
+    it = parse_media_subtype(input, it, end, media_subtype);
+    if (it == end) {
+        log_error("reached end unexpectedly");
+        return it;
+    }
+    out_result.media_subtype = media_subtype;
+
+    // media-subtype must be the last token of media-text
+    assert(it->uiIndex == IMAP_PARSER_APG_IMPL_MEDIA_TEXT && it->uiState == ID_AST_POST);
+
+    it = skip_until(it, end, IMAP_PARSER_APG_IMPL_BODY_FIELDS, ID_AST_PRE);
+    RETURN_IF_END(it);
+
+    parse_body_fields(input, it, end, out_result.body_fields);
+
+    // skip body-fld-lines
+    it = skip_until(it, end, IMAP_PARSER_APG_IMPL_BODY_TYPE_TEXT, ID_AST_POST);
+    RETURN_IF_END(it);
+    ++it;
+
+    assert((it - 1)->uiIndex == IMAP_PARSER_APG_IMPL_BODY_TYPE_TEXT &&
+           (it - 1)->uiState == ID_AST_POST);
+
+    // log_info("parsed body type text. media_subtype: {}, body_fields: {}", media_subtype,
+    //          body_fields);
+    return it;
+}
+
+const ast_record* parse_body_type_basic(std::string_view input,
+                                        const ast_record* begin,
+                                        const ast_record* end,
+                                        wip::BodyTypeBasic& out_result) {
+    // body-type-basic = media-basic SP body-fields ; MESSAGE subtype MUST NOT be "RFC822"
+    // media-basic-type-tag = string
+    // media-basic     = media-basic-type-tag SP media-subtype
+    // media-subtype   = string ; Defined in [MIME-IMT]
+
+    log_debug("parsing body-type-basic");
+
+    assert(begin != end && begin->uiIndex == IMAP_PARSER_APG_IMPL_BODY_TYPE_BASIC);
+    auto it = begin + 1;
+
+    // media type
+    it = skip_until(it, end, IMAP_PARSER_APG_IMPL_MEDIA_BASIC_TYPE_TAG, ID_AST_PRE);
+    RETURN_IF_END(it);
+
+    it++;  // new macros ENSURE_NEXT_OR_RETURN
+    assert(it != end && it->uiIndex == IMAP_PARSER_APG_IMPL_STRING);
+
+    it = parse_string(input, it, end, out_result.media_type);
+
+    // media subtype
+    it = skip_until(it, end, IMAP_PARSER_APG_IMPL_MEDIA_SUBTYPE, ID_AST_PRE);
+    RETURN_IF_END(it);
+    it++;  // new macros ENSURE_NEXT_OR_RETURN
+    assert(it != end && it->uiIndex == IMAP_PARSER_APG_IMPL_STRING);
+
+    it = parse_string(input, it, end, out_result.media_subtype);
+
+    // body_field
+    it = skip_until(it, end, IMAP_PARSER_APG_IMPL_BODY_FIELDS, ID_AST_PRE);
+    RETURN_IF_END(it);
+
+    it = parse_body_fields(input, it, end, out_result.body_fields);
+
+    if (it != end) {
+        ++it;
+    }
+
+    // log_info("parsed body type basic. media_type: {}, media_subtype: {}, body_fields: {}",
+    //          media_type, media_subtype, body_fields);
+
+    assert((it - 1)->uiIndex == IMAP_PARSER_APG_IMPL_BODY_TYPE_BASIC &&
+           (it - 1)->uiState == ID_AST_POST);
+
+    return it;
+}
+
+const ast_record* parse_body_type_msg(std::string_view input,
+                                      const ast_record* begin,
+                                      const ast_record* end,
+                                      wip::BodyTypeMsg& out_result) {
+    log_debug("parsing body-type-msg");
+
+    assert(begin != end && begin->uiIndex == IMAP_PARSER_APG_IMPL_BODY_TYPE_MSG);
+    auto it = begin + 1;
+
+    it = skip_until(it, end, IMAP_PARSER_APG_IMPL_BODY_TYPE_MSG, ID_AST_POST);
+    RETURN_IF_END(it);
+    it++;
+
+    log_error("parsed for body-type-msg not implemented, skipping {} tokens", it - begin);
+
+    assert((it - 1)->uiIndex == IMAP_PARSER_APG_IMPL_BODY_TYPE_MSG &&
+           (it - 1)->uiState == ID_AST_POST);
+
+    return it;
+}
+
+const ast_record* parse_body_1part(std::string_view input,
+                                   const ast_record* begin,
+                                   const ast_record* end,
+                                   wip::BodyType1Part& out_result) {
+    // body-type-1part = (body-type-text / body-type-basic / body-type-msg) [SP body-ext-1part]
+
+    log_debug("parsing body-type-1part");
+
+    assert(begin != end && begin->uiIndex == IMAP_PARSER_APG_IMPL_BODY_TYPE_1PART);
+    auto it = begin + 1;
+
+    switch (it->uiIndex) {
+        case IMAP_PARSER_APG_IMPL_BODY_TYPE_TEXT: {
+            log_debug("IMAP_PARSER_APG_IMPL_BODY_TYPE_TEXT");
+            wip::BodyTypeText text_body;
+            it = parse_body_type_text(input, it, end, text_body);
+
+            out_result.part_body = std::move(text_body);
+            break;
+        }
+        case IMAP_PARSER_APG_IMPL_BODY_TYPE_BASIC: {
+            log_debug("IMAP_PARSER_APG_IMPL_BODY_TYPE_BASIC");
+            wip::BodyTypeBasic basic_body;
+            it = parse_body_type_basic(input, it, end, basic_body);
+
+            out_result.part_body = std::move(basic_body);
+            break;
+        }
+        case IMAP_PARSER_APG_IMPL_BODY_TYPE_MSG: {
+            log_debug("IMAP_PARSER_APG_IMPL_BODY_TYPE_MSG");
+            wip::BodyTypeMsg message_body;
+            it = parse_body_type_msg(input, it, end, message_body);
+
+            out_result.part_body = std::move(message_body);
+            break;
+        }
+        default: {
+            assert(false);
+            // TODO: how to report error? (idea: return end and get all upstream parsers propagate
+            // if end; we can have also context which is referenced by all parsers).
+        }
+    }
+
+    if (it->uiIndex == IMAP_PARSER_APG_IMPL_BODY_EXT_1PART) {
+        out_result.part_body_ext = wip::BodyExt1Part{};
+        it = parse_ext_1part(input, it, end, *(out_result.part_body_ext));
+        if (it != end) {
+            ++it;
+        }
+    } else {
+        ++it;
+    }
+
+    assert((it - 1)->uiIndex == IMAP_PARSER_APG_IMPL_BODY_TYPE_1PART &&
+           (it - 1)->uiState == ID_AST_POST);
+
+    return it;
+}  // namespace emailkit::imap_parser
+
+const ast_record* parse_body_mpart(std::string_view input,
+                                   const ast_record* begin,
+                                   const ast_record* end,
+                                   wip::BodyTypeMPart& out_result) {
+    // body-type-mpart = 1*body SP media-subtype [SP body-ext-mpart]
+
+    assert(begin != end && begin->uiIndex == IMAP_PARSER_APG_IMPL_BODY_TYPE_MPART);
+
+    auto it = begin + 1;
+
+    // next we expect one of more body elements.
+    do {
+        wip::Body next_body;
+        it = parse_body(input, it, end, next_body);
+
+        out_result.body_ptrs.emplace_back(std::move(next_body));
+
+        // by convention, parsed should stop at the node after the last one, so for body it should
+        // be the one next after POST/body.
+        assert((it - 1)->uiIndex == IMAP_PARSER_APG_IMPL_BODY &&
+               (it - 1)->uiState == ID_AST_POST);  // TODO: consider removing.
+
+    } while (it != end && it->uiIndex == IMAP_PARSER_APG_IMPL_BODY);
+
+    if (it != end && it->uiIndex == IMAP_PARSER_APG_IMPL_MEDIA_SUBTYPE) {
+        it = parse_media_subtype(input, it, end, out_result.media_subtype);
+    }
+
+    if (it->uiIndex == IMAP_PARSER_APG_IMPL_BODY_EXT_MPART) {
+        out_result.multipart_body_ext = wip::BodyExtMPart{};
+        it = parse_ext_mpart(input, it, end, *(out_result.multipart_body_ext));
+        if (it != end) {
+            it++;
+        }
+    }
+
+    // TODO: this should rather be: it == end || (it-1)-> ...
+    assert((it - 1)->uiIndex == IMAP_PARSER_APG_IMPL_BODY_TYPE_MPART &&
+           (it - 1)->uiState == ID_AST_POST);
+
+    return it;
+}
+
+const ast_record* parse_body(std::string_view input,
+                             const ast_record* begin,
+                             const ast_record* end,
+                             wip::Body& out_result) {
+    log_debug("parsing body at token {} from end", end - begin);
+    // body            = "(" (body-type-1part / body-type-mpart) ")"
+    assert(begin->uiIndex == IMAP_PARSER_APG_IMPL_BODY);
+
+    const ast_record* it = begin + 1;
+
+    for (; it != end && it->uiIndex != IMAP_PARSER_APG_IMPL_BODY;) {
+        const std::string_view match_text{input.data() + it->uiPhraseOffset, it->uiPhraseLength};
+
+        if (it->uiState == ID_AST_PRE) {
             switch (it->uiIndex) {
                 case IMAP_PARSER_APG_IMPL_BODY_TYPE_1PART: {
-                    assert(parsed_part.has_value());
-                    body_structure.parts.emplace_back(std::move(parsed_part.value()));
-                    parsed_part = std::nullopt;
+                    auto part_ptr = std::make_unique<wip::BodyType1Part>();
+                    it = parse_body_1part(input, it, end, *part_ptr);
+                    out_result = std::move(part_ptr);
                     break;
                 }
-                case IMAP_PARSER_APG_IMPL_BODY_TYPE_TEXT: {
-                    assert(current_body_type_text.has_value());
-                    parsed_part = msg_attr_body_structure_t::body_type_part{
-                        std::move(current_body_type_text.value())};
-                    current_body_type_text = {};
-                    break;
-                }
-                case IMAP_PARSER_APG_IMPL_BODY_TYPE_BASIC: {
-                    // assert(false);
-                    assert(current_body_type_basic.has_value());
-                    parsed_part = msg_attr_body_structure_t::body_type_part{
-                        std::move(current_body_type_basic.value())};
-                    current_body_type_basic = {};
-                    break;
-                }
-                case IMAP_PARSER_APG_IMPL_BODY_TYPE_MSG: {
-                    assert(current_body_type_msg.has_value());
-                    parsed_part = msg_attr_body_structure_t::body_type_part{
-                        std::move(current_body_type_msg.value())};
-                    current_body_type_msg = {};
-                    break;
-                }
-                case IMAP_PARSER_APG_IMPL_BODY_EXT_1PART: {
-                    assert(current_body_ext_part.has_value());
-                    assert(parsed_part.has_value());
-                    parsed_part->ext_part = std::move(current_body_ext_part);
-                    current_body_ext_part = {};
-                    break;
-                }
-                case IMAP_PARSER_APG_IMPL_BODY_FIELDS: {
-                    assert(current_body_fields.has_value());
+                case IMAP_PARSER_APG_IMPL_BODY_TYPE_MPART: {
+                    // TODO: check that there is at least one token.
+                    auto part_ptr = std::make_unique<wip::BodyTypeMPart>();
+                    it = parse_body_mpart(input, it, end, *part_ptr);
 
-                    if (current_body_type_text.has_value()) {
-                        current_body_type_text->body_fields =
-                            std::move(current_body_fields.value());
-                    } else if (current_body_type_basic.has_value()) {
-                        current_body_type_basic->body_fields =
-                            std::move(current_body_fields.value());
-                    } else if (current_body_type_msg.has_value()) {
-                        current_body_type_msg->body_fields = std::move(current_body_fields.value());
-                    } else {
-                        log_warning("unexpected body fields ending: {}", match_text);
-                    }
-
-                    current_body_fields = {};
-
+                    out_result = std::move(part_ptr);
                     break;
                 }
-                case IMAP_PARSER_APG_IMPL_BODY_FLD_PARAM: {
-                    break;
+                default: {
+                    assert(false);
                 }
-                case IMAP_PARSER_APG_IMPL_BODY_FLD_ID: {
-                    break;
-                }
-                case IMAP_PARSER_APG_IMPL_BODY_FLD_DESC: {
-                    break;
-                }
-                case IMAP_PARSER_APG_IMPL_BODY_FLD_ENC: {
-                    break;
-                }
-                case IMAP_PARSER_APG_IMPL_BODY_FLD_OCTETS: {
-                    break;
-                }
-
-                default:
-                    break;
             }
         }
     }
 
     if (it != end) {
-        assert(it->uiIndex == IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_BODY_STRUCTURE);
-        assert(it->uiState == ID_AST_POST);
-    } else {
-        log_error("POST/IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_BODY_STRUCTURE has not been reached");
+        ++it;
     }
 
-    log_info("actual tokens count: {}", it - begin);
+    assert((it - 1)->uiIndex == IMAP_PARSER_APG_IMPL_BODY && (it - 1)->uiState == ID_AST_POST);
 
-    out_body_structure = std::move(body_structure);
+    return it;
+}
 
-    log_info("parsed parts count: {}", out_body_structure.parts.size());
-    for (auto& p : out_body_structure.parts) {
-        const auto type = std::visit(
-            overload{
-                [](const msg_attr_body_structure_t::body_type_text_t&) -> std::string_view {
-                    return "body_type_msg_t";
-                },
-                [](const msg_attr_body_structure_t::body_type_basic_t&) -> std::string_view {
-                    return "body_type_basic_t";
-                },
-                [](const msg_attr_body_structure_t::body_type_msg_t&) -> std::string_view {
-                    return "body_type_msg_t";
-                },
-            },
-            p.body_type);
-        log_debug("{} ({})", type, p.ext_part.has_value() ? "has ext type" : " no ext type");
+const ast_record* parse_bodystructure(std::string_view input,
+                                      const ast_record* begin,
+                                      const ast_record* end,
+                                      wip::Body& out_result) {
+    // msg-att-static-body-structure = "BODY" ["STRUCTURE"] SP body
+
+    assert(begin->uiIndex == IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_BODY_STRUCTURE);
+    assert(end - begin > 2);
+
+    auto it = parse_body(input, begin + 1, end, out_result);
+
+    if (it != end) {
+        ++it;
     }
+
+    assert((it - 1)->uiIndex == IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_BODY_STRUCTURE &&
+           (it - 1)->uiState == ID_AST_POST);
 
     return it;
 }
@@ -1289,7 +1465,7 @@ expected<std::vector<message_data_t>> parse_message_data_records(std::string_vie
             IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_BODY_STRUCTURE,
             IMAP_PARSER_APG_IMPL_BODY,
             IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_UID,
-            IMAP_PARSER_APG_IMPL_UNIQUEID,
+            IMAP_PARSER_APG_IMPL_UNIQUEID,            
 
             IMAP_PARSER_APG_IMPL_BODY_TYPE_1PART,
             IMAP_PARSER_APG_IMPL_BODY_TYPE_TEXT,
@@ -1316,6 +1492,7 @@ expected<std::vector<message_data_t>> parse_message_data_records(std::string_vie
             IMAP_PARSER_APG_IMPL_BODY_FLD_PARAM_VALUE,
             IMAP_PARSER_APG_IMPL_BODY_FLD_DSP,
             IMAP_PARSER_APG_IMPL_BODY_FLD_DSP_STRING,
+            IMAP_PARSER_APG_IMPL_BODY_FLD_MD5,
             IMAP_PARSER_APG_IMPL_BODY_EXT_MPART,
             // Envelope
             IMAP_PARSER_APG_IMPL_ENV_DATE,
@@ -1401,10 +1578,10 @@ expected<std::vector<message_data_t>> parse_message_data_records(std::string_vie
                                    IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC,
                                    IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_BODY_STRUCTURE)) {
                         log_info("static attribute, body-structure: '{}'", match_text);
-                        msg_attr_body_structure_t parsed_body_struct;
+                        wip::Body parsed_body_struct;
                         it = parse_bodystructure(input_text, it, end, parsed_body_struct);
                         // TODO: do we need to check errors somehow?
-                        pased_static_attrs.emplace_back(parsed_body_struct);
+                        pased_static_attrs.emplace_back(std::move(parsed_body_struct));
 
                     } else if (current_path_is_superset_of(
                                    IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC,

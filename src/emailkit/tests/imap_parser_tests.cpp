@@ -310,6 +310,156 @@ TEST(imap_parser_test_, parse_bodystructure_response) {
         "A4 OK Success\r\n";
     auto message_data_or_err = imap_parser::parse_message_data_records(response);
     ASSERT_TRUE(message_data_or_err);
+
+    auto& message_data = *message_data_or_err;
+    ASSERT_EQ(message_data.size(), 1);
+
+    auto& message_data_item = message_data[0];
+    EXPECT_EQ(message_data_item.message_number, 32);
+    // // body-structure is the only attribute in this response
+    ASSERT_EQ(message_data_item.static_attrs.size(), 1);
+
+    using namespace emailkit::imap_parser::wip;
+
+    ASSERT_TRUE(std::holds_alternative<Body>(message_data_item.static_attrs[0]));
+    const Body& body_attribute = std::get<Body>(message_data_item.static_attrs[0]);
+
+    // We expect four parts in total: text/plain, text/html, image/png, application/octet-stream
+
+    // 1
+    ASSERT_TRUE(std::holds_alternative<std::unique_ptr<BodyTypeMPart>>(body_attribute));
+
+    auto& body_mpart1 = std::get<std::unique_ptr<BodyTypeMPart>>(body_attribute);
+
+    EXPECT_EQ(body_mpart1->media_subtype, "MIXED");
+    ASSERT_TRUE(body_mpart1->multipart_body_ext.has_value());
+    EXPECT_EQ(body_mpart1->multipart_body_ext->body_field_dsp.field_dsp_string, "");
+    EXPECT_EQ(body_mpart1->multipart_body_ext->body_field_dsp.field_params.size(), 0);
+
+    ASSERT_EQ(body_mpart1->body_ptrs.size(), 2);
+
+    // 2
+    ASSERT_TRUE(std::holds_alternative<std::unique_ptr<BodyTypeMPart>>(body_mpart1->body_ptrs[0]));
+    ASSERT_TRUE(std::holds_alternative<std::unique_ptr<BodyType1Part>>(body_mpart1->body_ptrs[1]));
+
+    // 2.1
+    auto& body_mpart2_1 = std::get<std::unique_ptr<BodyTypeMPart>>(body_mpart1->body_ptrs[0]);
+    auto& body_mpart2_2 = std::get<std::unique_ptr<BodyType1Part>>(body_mpart1->body_ptrs[1]);
+
+    EXPECT_EQ(body_mpart2_1->media_subtype, "RELATED");
+    ASSERT_TRUE(body_mpart2_1->multipart_body_ext.has_value());
+    EXPECT_EQ(body_mpart2_1->multipart_body_ext->body_field_dsp.field_dsp_string, "");
+    EXPECT_EQ(body_mpart2_1->multipart_body_ext->body_field_dsp.field_params.size(), 0);
+    ASSERT_EQ(body_mpart2_1->body_ptrs.size(), 2);
+
+    ASSERT_TRUE(
+        std::holds_alternative<std::unique_ptr<BodyTypeMPart>>(body_mpart2_1->body_ptrs[0]));
+    ASSERT_TRUE(
+        std::holds_alternative<std::unique_ptr<BodyType1Part>>(body_mpart2_1->body_ptrs[1]));
+
+    // 2.1.1
+    auto& body_mpart2_1_1 = std::get<std::unique_ptr<BodyTypeMPart>>(body_mpart2_1->body_ptrs[0]);
+    auto& body_mpart2_1_2 = std::get<std::unique_ptr<BodyType1Part>>(body_mpart2_1->body_ptrs[1]);
+
+    EXPECT_EQ(body_mpart2_1_1->media_subtype, "ALTERNATIVE");
+    ASSERT_TRUE(body_mpart2_1_1->multipart_body_ext.has_value());
+    EXPECT_EQ(body_mpart2_1_1->multipart_body_ext->body_field_dsp.field_dsp_string, "");
+    EXPECT_EQ(body_mpart2_1_1->multipart_body_ext->body_field_dsp.field_params.size(), 0);
+    ASSERT_EQ(body_mpart2_1_1->body_ptrs.size(), 2);
+
+    ASSERT_TRUE(
+        std::holds_alternative<std::unique_ptr<BodyType1Part>>(body_mpart2_1_1->body_ptrs[0]));
+    ASSERT_TRUE(
+        std::holds_alternative<std::unique_ptr<BodyType1Part>>(body_mpart2_1_1->body_ptrs[1]));
+
+    {
+        auto& body_mpart2_1_1_1 =
+            std::get<std::unique_ptr<BodyType1Part>>(body_mpart2_1_1->body_ptrs[0]);
+        auto& body_mpart2_1_1_2 =
+            std::get<std::unique_ptr<BodyType1Part>>(body_mpart2_1_1->body_ptrs[1]);
+
+        {
+            ASSERT_TRUE(std::holds_alternative<BodyTypeText>(body_mpart2_1_1_1->part_body));
+            auto& body_mpart2_1_1_1_part_body =
+                std::get<BodyTypeText>(body_mpart2_1_1_1->part_body);
+            EXPECT_EQ(body_mpart2_1_1_1_part_body.media_subtype, "PLAIN");
+            EXPECT_EQ(body_mpart2_1_1_1_part_body.body_fields.encoding, "BASE64");
+            EXPECT_EQ(body_mpart2_1_1_1_part_body.body_fields.field_desc, "");
+            EXPECT_EQ(body_mpart2_1_1_1_part_body.body_fields.field_id, "NIL");
+            EXPECT_EQ(body_mpart2_1_1_1_part_body.body_fields.octets, 664);
+            ASSERT_EQ(body_mpart2_1_1_1_part_body.body_fields.params.size(), 1);
+            EXPECT_EQ(body_mpart2_1_1_1_part_body.body_fields.params[0].first, "\"CHARSET\"");
+            EXPECT_EQ(body_mpart2_1_1_1_part_body.body_fields.params[0].second, "\"UTF-8\"");
+
+            EXPECT_EQ(body_mpart2_1_1_1->part_body_ext->md5, "");
+            EXPECT_EQ(body_mpart2_1_1_1->part_body_ext->body_field_dsp.field_dsp_string, "");
+            EXPECT_EQ(body_mpart2_1_1_1->part_body_ext->body_field_dsp.field_params.size(), 0);
+        }
+        {
+            ASSERT_TRUE(std::holds_alternative<BodyTypeText>(body_mpart2_1_1_2->part_body));
+            auto& body_mpart2_1_1_2_part_body =
+                std::get<BodyTypeText>(body_mpart2_1_1_2->part_body);
+            EXPECT_EQ(body_mpart2_1_1_2_part_body.media_subtype, "HTML");
+            EXPECT_EQ(body_mpart2_1_1_2_part_body.body_fields.encoding, "BASE64");
+            EXPECT_EQ(body_mpart2_1_1_2_part_body.body_fields.field_desc, "");
+            EXPECT_EQ(body_mpart2_1_1_2_part_body.body_fields.field_id, "");
+            EXPECT_EQ(body_mpart2_1_1_2_part_body.body_fields.octets, 1596);
+            ASSERT_EQ(body_mpart2_1_1_2_part_body.body_fields.params.size(), 1);
+            EXPECT_EQ(body_mpart2_1_1_2_part_body.body_fields.params[0].first, "\"CHARSET\"");
+            EXPECT_EQ(body_mpart2_1_1_2_part_body.body_fields.params[0].second, "\"UTF-8\"");
+
+            EXPECT_EQ(body_mpart2_1_1_2->part_body_ext->md5, "");
+            EXPECT_EQ(body_mpart2_1_1_2->part_body_ext->body_field_dsp.field_dsp_string, "");
+            EXPECT_EQ(body_mpart2_1_1_2->part_body_ext->body_field_dsp.field_params.size(), 0);
+        }
+    }
+
+    {
+        ASSERT_TRUE(std::holds_alternative<BodyTypeBasic>(body_mpart2_1_2->part_body));
+        auto& body_mpart2_1_2_part_body = std::get<BodyTypeBasic>(body_mpart2_1_2->part_body);
+
+        EXPECT_EQ(body_mpart2_1_2_part_body.media_type, "IMAGE");
+        EXPECT_EQ(body_mpart2_1_2_part_body.media_subtype, "PNG");
+        EXPECT_EQ(body_mpart2_1_2_part_body.body_fields.encoding, "BASE64");
+        EXPECT_EQ(body_mpart2_1_2_part_body.body_fields.field_desc, "");
+        EXPECT_EQ(body_mpart2_1_2_part_body.body_fields.field_id, "<ii_lm9l1man0>");
+        EXPECT_EQ(body_mpart2_1_2_part_body.body_fields.octets, 35050);
+        ASSERT_EQ(body_mpart2_1_2_part_body.body_fields.params.size(), 1);
+        EXPECT_EQ(body_mpart2_1_2_part_body.body_fields.params[0].first, "\"NAME\"");
+        EXPECT_EQ(body_mpart2_1_2_part_body.body_fields.params[0].second, "\"image.png\"");
+
+        EXPECT_EQ(body_mpart2_1_2->part_body_ext->md5, "");
+        EXPECT_EQ(body_mpart2_1_2->part_body_ext->body_field_dsp.field_dsp_string,
+                  "\"ATTACHMENT\"");
+        ASSERT_EQ(body_mpart2_1_2->part_body_ext->body_field_dsp.field_params.size(), 1);
+        EXPECT_EQ(body_mpart2_1_2->part_body_ext->body_field_dsp.field_params[0].first,
+                  "\"FILENAME\"");
+        EXPECT_EQ(body_mpart2_1_2->part_body_ext->body_field_dsp.field_params[0].second,
+                  "\"image.png\"");
+    }
+
+    {
+        ASSERT_TRUE(std::holds_alternative<BodyTypeBasic>(body_mpart2_2->part_body));
+        auto& body_mpart2_2_part_body = std::get<BodyTypeBasic>(body_mpart2_2->part_body);
+
+        EXPECT_EQ(body_mpart2_2_part_body.media_type, "APPLICATION");
+        EXPECT_EQ(body_mpart2_2_part_body.media_subtype, "OCTET-STREAM");
+        EXPECT_EQ(body_mpart2_2_part_body.body_fields.encoding, "BASE64");
+        EXPECT_EQ(body_mpart2_2_part_body.body_fields.field_desc, "");
+        EXPECT_EQ(body_mpart2_2_part_body.body_fields.field_id, "<f_lm9l2vv01>");
+        EXPECT_EQ(body_mpart2_2_part_body.body_fields.octets, 28385390);
+        ASSERT_EQ(body_mpart2_2_part_body.body_fields.params.size(), 1);
+        EXPECT_EQ(body_mpart2_2_part_body.body_fields.params[0].first, "\"NAME\"");
+        EXPECT_EQ(body_mpart2_2_part_body.body_fields.params[0].second, "\"DSC07119.arw\"");
+
+        EXPECT_EQ(body_mpart2_2->part_body_ext->md5, "");
+        EXPECT_EQ(body_mpart2_2->part_body_ext->body_field_dsp.field_dsp_string, "\"ATTACHMENT\"");
+        ASSERT_EQ(body_mpart2_2->part_body_ext->body_field_dsp.field_params.size(), 1);
+        EXPECT_EQ(body_mpart2_2->part_body_ext->body_field_dsp.field_params[0].first,
+                  "\"FILENAME\"");
+        EXPECT_EQ(body_mpart2_2->part_body_ext->body_field_dsp.field_params[0].second,
+                  "\"DSC07119.arw\"");
+    }
 }
 
 // TODO: Test for when field param is NIL.
