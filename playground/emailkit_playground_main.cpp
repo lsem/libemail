@@ -402,6 +402,7 @@ static GMimeMessage* parse_message(int fd) {
 #include <sanitizer/lsan_interface.h>
 void handler(int signum) {
     __lsan_do_leak_check();
+    std::exit(-1);
 }
 void install_handlers() {
     signal(SIGINT, handler);
@@ -411,11 +412,12 @@ void install_handlers() {}
 #endif
 
 int main() {
+
     install_handlers();
 
     g_mime_init();
 
-    // g_object_new();
+    auto x = new int{};
 
     // int fd;
     // if ((fd = open ("google-fetch-response.txt", O_RDONLY, 0)) == -1) {

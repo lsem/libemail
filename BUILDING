@@ -1,9 +1,0 @@
-For Gcc 13 one need:
-https://gcc.gnu.org/bugzilla/show_bug.cgi?id=93082
-
-And create symlink if GCC cannot find headers.
-
-On MacOS use
-```
-export SDKROOT=(xcrun --sdk macosx --show-sdk-path)
-```
