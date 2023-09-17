@@ -1826,23 +1826,6 @@ const ast_record* parse_message_data(std::string_view input,
 expected<std::vector<MessageData>> parse_message_data_records(std::string_view input_text) {
     std::vector<MessageData> result;
 
-    std::vector<int> current_path;
-    current_path.reserve(1024);
-
-    std::string rfc822_data;
-
-    auto current_path_is = [&current_path](auto... l) {
-        const auto il = std::initializer_list<int>{l...};
-        return std::equal(current_path.begin(), current_path.end(), il.begin(), il.end());
-    };
-    auto current_path_is_superset_of = [&current_path](auto... l) {
-        return emailkit::utils::subset_match(std::initializer_list<int>{l...}, current_path);
-    };
-
-    std::vector<MsgAttrStatic> pased_static_attrs;
-
-    bool got_message_data = false;
-
     auto parsing_start_time = std::chrono::steady_clock::now();
 
     // NOTE, we parse as IMAP response. Because of this, if pass non message-data response the
@@ -1873,22 +1856,17 @@ expected<std::vector<MessageData>> parse_message_data_records(std::string_view i
             IMAP_PARSER_APG_IMPL_BODY,
             IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_UID,
             IMAP_PARSER_APG_IMPL_UNIQUEID,
-
             IMAP_PARSER_APG_IMPL_BODY_TYPE_1PART,
             IMAP_PARSER_APG_IMPL_BODY_TYPE_TEXT,
             IMAP_PARSER_APG_IMPL_BODY_TYPE_BASIC,
             IMAP_PARSER_APG_IMPL_BODY_TYPE_MSG,
             IMAP_PARSER_APG_IMPL_BODY_EXT_1PART,
-
             IMAP_PARSER_APG_IMPL_BODY_TYPE_MPART,
-
             IMAP_PARSER_APG_IMPL_MEDIA_TEXT,
             IMAP_PARSER_APG_IMPL_MEDIA_BASIC,
             IMAP_PARSER_APG_IMPL_MEDIA_MESSAGE,
-
             IMAP_PARSER_APG_IMPL_MEDIA_SUBTYPE,
             IMAP_PARSER_APG_IMPL_MEDIA_BASIC_TYPE_TAG,
-
             IMAP_PARSER_APG_IMPL_BODY_FIELDS,
             IMAP_PARSER_APG_IMPL_BODY_FLD_PARAM,
             IMAP_PARSER_APG_IMPL_BODY_FLD_ID,
@@ -1901,7 +1879,6 @@ expected<std::vector<MessageData>> parse_message_data_records(std::string_view i
             IMAP_PARSER_APG_IMPL_BODY_FLD_DSP_STRING,
             IMAP_PARSER_APG_IMPL_BODY_FLD_MD5,
             IMAP_PARSER_APG_IMPL_BODY_EXT_MPART,
-
             IMAP_PARSER_APG_IMPL_ENV_DATE,
             IMAP_PARSER_APG_IMPL_ENV_SUBJECT,
             IMAP_PARSER_APG_IMPL_ENV_FROM,
@@ -1912,7 +1889,6 @@ expected<std::vector<MessageData>> parse_message_data_records(std::string_view i
             IMAP_PARSER_APG_IMPL_ENV_BCC,
             IMAP_PARSER_APG_IMPL_ENV_IN_REPLY_TO,
             IMAP_PARSER_APG_IMPL_ENV_MESSAGE_ID,
-
         },
 
         [&](const ast_record* begin, const ast_record* end) {
