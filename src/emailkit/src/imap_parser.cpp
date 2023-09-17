@@ -1845,6 +1845,9 @@ expected<std::vector<MessageData>> parse_message_data_records(std::string_view i
 
     auto parsing_start_time = std::chrono::steady_clock::now();
 
+    // NOTE, we parse as IMAP response. Because of this, if pass non message-data response the
+    // parsing will be fine and we don't report this as error.
+
     auto ec = apg_invoke_parser__ast(
         IMAP_PARSER_APG_IMPL_RESPONSE, input_text,
         {
