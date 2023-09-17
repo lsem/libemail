@@ -7,3 +7,10 @@ On MacOS use
 ```
 export SDKROOT=(xcrun --sdk macosx --show-sdk-path)
 ```
+
+On Ubuntu:
+sudo apt install libssl-dev
+sudo apt install python3-distutils
+
+sudo apt install pkg-config 
+git submodule init --recursive --update
