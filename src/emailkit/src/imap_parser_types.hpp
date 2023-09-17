@@ -55,6 +55,27 @@ using mailbox_data_t = std::variant<flags_mailbox_data_t,
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 // message-data
+
+struct Address {
+    std::string addr_name;
+    std::string addr_adl;
+    std::string addr_mailbox;
+    std::string addr_host;
+};
+
+struct Envelope {
+    std::string date;
+    std::string subject;
+    std::vector<Address> from;
+    std::vector<Address> sender;
+    std::vector<Address> reply_to;
+    std::vector<Address> to;
+    std::vector<Address> cc;
+    std::vector<Address> bcc;
+    std::string in_reply_to;
+    std::string message_id;
+};
+
 struct envelope_t {
     // Date in format defined in rfc2822.
     // optional because server may return NIL for this field.
@@ -159,77 +180,23 @@ struct BodyTypeMPart {
 
 }  // namespace wip
 
-// struct msg_attr_body_structure_t {
-//     // TODO: what does dsp stand for: display? disposition? digital-signal-processing?
-//     struct body_field_dsp_t {
-//         std::string field_dsp_string;
-//         std::vector<param_value_t> field_params;
-//     };
+struct MsgAttrBodySection {};
+struct MsgAttrRFC822 {};
+struct MsgAttrRFC822Size {
+    uint32_t value = 0;
+};
 
-//     struct body_fields_t {
-//         std::vector<param_value_t> params;  // body-fld-param
+using MsgAttrStatic = std::variant<Envelope,
+                                   msg_attr_uid_t,
+                                   msg_attr_internaldate_t,
+                                   wip::Body,
+                                   MsgAttrBodySection,
+                                   MsgAttrRFC822,
+                                   MsgAttrRFC822Size>;
 
-//         std::string field_id;    // body-fld-id
-//         std::string field_desc;  // body-fld-desc
-//         std::string encoding;    // body-fld-enc (see standard_field_encodings)
-//         uint32_t octets;         // body-fld-octets
-//     };
-
-//     struct body_type_text_t {
-//         // media_type is "TEXT" here.
-//         std::string media_subtype;
-//         body_fields_t body_fields;
-//     };
-//     struct body_type_basic_t {
-//         std::string media_type;  // see standard_basic_media_types
-//         std::string media_subtype;
-//         body_fields_t body_fields;
-//     };
-//     struct body_type_msg_t {
-//         envelope_t envelope;
-//         body_fields_t body_fields;
-//     };
-//     // body-ext-1part
-//     // NOTE: this structure is used for both 1-part and m-part which differ only in first parameter
-//     // where it is md5 for one part and body-fld-param for mpart. One should differentiate.
-//     using body_fld_md5 =
-//         std::optional<std::string>;  // since it is NSTRING, optional should be treated as NIL.
-//     using body_fld_param = std::vector<param_value_t>;
-//     struct body_ext_part_t {
-//         std::variant<body_fld_md5, body_fld_param> md5_or_fld_param;
-//         body_field_dsp_t dsp;
-//         // body-fld-lang
-//         // body-fld-loc
-//         // *body-extension
-//     };
-
-//     struct body_type_part {
-//         std::variant<body_type_text_t, body_type_basic_t, body_type_msg_t> body_type;
-//         std::optional<body_ext_part_t> ext_part;
-//     };
-
-//     std::vector<body_type_part> parts;
-// };
-struct msg_attr_body_section_t {};
-struct msg_attr_rfc822_t {};
-struct msg_attr_rfc822_size_t {};
-
-using msg_static_attr_t = std::variant<msg_attr_envelope_t,
-                                       msg_attr_uid_t,
-                                       msg_attr_internaldate_t,
-                                       wip::Body,
-                                       msg_attr_body_section_t,
-                                       msg_attr_rfc822_t,
-                                       msg_attr_rfc822_size_t>;
-
-// Roughly corresponds to message-data in the Grammar and represents any possible data for the
-// message returned from fetch imap command. Because fetch may have different form, response itself
-// can also have different form.
-struct message_data_t {
-    // std::vector<std::string> dynamic_attributes; // TODO: do we need special type for flag-fetch
-    // here?
-    uint32_t message_number{};
-    std::vector<msg_static_attr_t> static_attrs;
+struct MessageData {
+    uint32_t message_number = 0;
+    std::vector<MsgAttrStatic> static_attributes;
 };
 
 struct envelope_fields_t {
@@ -336,10 +303,12 @@ DEFINE_FMT_FORMATTER(
 //     emailkit::imap_parser::msg_attr_body_structure_t::body_type_part,
 //     "body_type_part(body_type: {})",
 //     std::visit(
-//         overload{[](const emailkit::imap_parser::msg_attr_body_structure_t::body_type_text_t& x) {
+//         overload{[](const emailkit::imap_parser::msg_attr_body_structure_t::body_type_text_t& x)
+//         {
 //                      return fmt::format("{}", x);
 //                  },
-//                  [](const emailkit::imap_parser::msg_attr_body_structure_t::body_type_basic_t& x) {
+//                  [](const emailkit::imap_parser::msg_attr_body_structure_t::body_type_basic_t& x)
+//                  {
 //                      return fmt::format("{}", x);
 //                  },
 //                  [](const emailkit::imap_parser::msg_attr_body_structure_t::body_type_msg_t& x) {
@@ -360,18 +329,21 @@ DEFINE_FMT_FORMATTER(
 //                         [](const emailkit::imap_parser::msg_attr_uid_t& x) -> std::string {
 //                             return "msg_attr_uid_t";
 //                         },
-//                         [](const emailkit::imap_parser::msg_attr_internaldate_t& x) -> std::string {
+//                         [](const emailkit::imap_parser::msg_attr_internaldate_t& x) ->
+//                         std::string {
 //                             return "msg_attr_internaldate_t";
 //                         },
 //                         [](const emailkit::imap_parser::msg_attr_body_structure_t& x)
 //                             -> std::string { return fmt::format("{}", x); },
-//                         [](const emailkit::imap_parser::msg_attr_body_section_t& x) -> std::string {
+//                         [](const emailkit::imap_parser::msg_attr_body_section_t& x) ->
+//                         std::string {
 //                             return "msg_attr_body_section_t";
 //                         },
 //                         [](const emailkit::imap_parser::msg_attr_rfc822_t& x) -> std::string {
 //                             return "msg_attr_rfc822_t";
 //                         },
-//                         [](const emailkit::imap_parser::msg_attr_rfc822_size_t& x) -> std::string {
+//                         [](const emailkit::imap_parser::msg_attr_rfc822_size_t& x) -> std::string
+//                         {
 //                             return "msg_attr_rfc822_size_t";
 //                         }},
 //                arg));

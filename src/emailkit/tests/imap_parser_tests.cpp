@@ -22,8 +22,8 @@ TEST(imap_parser_test, basic_test) {
         "* OK [UIDNEXT 10] Predicted next UID.\r\n"
         "* OK [HIGHESTMODSEQ 1909]\r\n"  // Note, this ignored by parser (TODO: implement)
         "A3 OK [READ-ONLY] INBOX selected. (Success)\r\n";
-    "A3 OK [READ-WRITE] INBOX selected. (Success)\r\n";  // Note, this is not seen by parser (TODO:
-                                                         // separate test)
+        "A3 OK [READ-WRITE] INBOX selected. (Success)\r\n";  // Note, this is not seen by parser
+                                                             // (TODO: separate test)
 
     auto records_or_err = imap_parser::parse_mailbox_data_records(select_command_result);
     ASSERT_TRUE(records_or_err);
@@ -156,27 +156,27 @@ TEST(imap_parser_test, parse_message_data_records_envelope_multiple) {
     EXPECT_EQ(message_data_records[2].message_number, 3);
 
     // envelop is the only statis attribute we are expecting for each record
-    ASSERT_EQ(message_data_records[0].static_attrs.size(), 1);
-    ASSERT_EQ(message_data_records[1].static_attrs.size(), 1);
-    ASSERT_EQ(message_data_records[2].static_attrs.size(), 1);
+    ASSERT_EQ(message_data_records[0].static_attributes.size(), 1);
+    ASSERT_EQ(message_data_records[1].static_attributes.size(), 1);
+    ASSERT_EQ(message_data_records[2].static_attributes.size(), 1);
 
-    ASSERT_TRUE(std::holds_alternative<imap_parser::msg_attr_envelope_t>(
-        message_data_records[0].static_attrs[0]));
-    ASSERT_TRUE(std::holds_alternative<imap_parser::msg_attr_envelope_t>(
-        message_data_records[1].static_attrs[0]));
-    ASSERT_TRUE(std::holds_alternative<imap_parser::msg_attr_envelope_t>(
-        message_data_records[2].static_attrs[0]));
+    ASSERT_TRUE(std::holds_alternative<imap_parser::Envelope>(
+        message_data_records[0].static_attributes[0]));
+    ASSERT_TRUE(std::holds_alternative<imap_parser::Envelope>(
+        message_data_records[1].static_attributes[0]));
+    ASSERT_TRUE(std::holds_alternative<imap_parser::Envelope>(
+        message_data_records[2].static_attributes[0]));
 
     auto& env_attr_r1 =
-        std::get<imap_parser::msg_attr_envelope_t>(message_data_records[0].static_attrs[0]);
+        std::get<imap_parser::Envelope>(message_data_records[0].static_attributes[0]);
     auto& env_attr_r2 =
-        std::get<imap_parser::msg_attr_envelope_t>(message_data_records[1].static_attrs[0]);
+        std::get<imap_parser::Envelope>(message_data_records[1].static_attributes[0]);
     auto& env_attr_r3 =
-        std::get<imap_parser::msg_attr_envelope_t>(message_data_records[2].static_attrs[0]);
+        std::get<imap_parser::Envelope>(message_data_records[2].static_attributes[0]);
 
-    EXPECT_EQ(*env_attr_r1.date_opt, "\"Sat, 5 Aug 2023 14:53:18 +0300\"");
-    EXPECT_EQ(*env_attr_r2.date_opt, "\"Sat, 05 Aug 2023 11:54:58 GMT\"");
-    EXPECT_EQ(*env_attr_r3.date_opt, "\"Sun, 06 Aug 2023 07:23:30 GMT\"");
+    EXPECT_EQ(env_attr_r1.date, "Sat, 5 Aug 2023 14:53:18 +0300");
+    EXPECT_EQ(env_attr_r2.date, "Sat, 05 Aug 2023 11:54:58 GMT");
+    EXPECT_EQ(env_attr_r3.date, "Sun, 06 Aug 2023 07:23:30 GMT");
 }
 
 TEST(imap_parser_test, parse_message_data_records_fetch_fast_test) {
@@ -316,13 +316,13 @@ TEST(imap_parser_test_, parse_bodystructure_response) {
 
     auto& message_data_item = message_data[0];
     EXPECT_EQ(message_data_item.message_number, 32);
-    // // body-structure is the only attribute in this response
-    ASSERT_EQ(message_data_item.static_attrs.size(), 1);
+    // body-structure is the only attribute in this response
+    ASSERT_EQ(message_data_item.static_attributes.size(), 1);
 
     using namespace emailkit::imap_parser::wip;
 
-    ASSERT_TRUE(std::holds_alternative<Body>(message_data_item.static_attrs[0]));
-    const Body& body_attribute = std::get<Body>(message_data_item.static_attrs[0]);
+    ASSERT_TRUE(std::holds_alternative<Body>(message_data_item.static_attributes[0]));
+    const Body& body_attribute = std::get<Body>(message_data_item.static_attributes[0]);
 
     // We expect four parts in total: text/plain, text/html, image/png, application/octet-stream
 

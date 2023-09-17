@@ -10,7 +10,7 @@ expected<list_response_t> parse_list_response_line(std::string_view input);
 
 expected<std::vector<mailbox_data_t>> parse_mailbox_data_records(std::string_view input_text);
 
-expected<std::vector<message_data_t>> parse_message_data_records(std::string_view input_text);
+expected<std::vector<MessageData>> parse_message_data_records(std::string_view input_text);
 
 expected<void> parse_rfc822_message(std::string_view input_text);
 
