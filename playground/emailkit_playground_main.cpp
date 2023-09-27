@@ -43,7 +43,8 @@ class EmailAppListener {
 // once being started, it should porbably somehow check what is current status of current cache (if
 // there is any). if there is no cache at all, the app lists some emails.
 
-class EmailApp {
+
+class EmailApp : public EnableUseThis<EmailApp> {
    public:
     explicit EmailApp(asio::io_context& ctx) : m_ctx(ctx), m_imap_client() {}
     bool initialize() {
@@ -63,20 +64,32 @@ class EmailApp {
 
     void async_run(async_callback<void> cb) {
         // initialize
-        async_authenticate([cb = std::move(cb)](std::error_code ec) mutable {
-            if (ec) {
-                log_error("failed to authenticate: {}", ec);
-                // TODO: what we are supposed to do in this case?
-                // I guess we should switch interface to authentication.
-                // But it would be better if we can handle specific error. What if we just don't
-                // have an internet and that is why we cannot authenticate.
-                std::abort();
-            }
 
-            cb({});
+        // at application start we should check if we have some records. And if we don't have
+        // anything we can just ask user to add sometning.
 
-            // So we authenticated, what next?
-        });
+        // auto db = load-database( )
+        // if (db.accounts.size() > 0) {
+        //     async_connect_in_seuqence(
+        //         db..., use_this(std::move(cb), [](auto& this_, std::error_code ec, auto cb) {
+        //             RETURN_ON_ERROR(ec);
+        //         }));
+        // }
+
+//         async_authenticate(
+//             use_this(std::move(cb), [](auto& this_, std::error_code ec, auto cb) mutable {
+// //                RETURN_ON_ERROR(ec);
+//                 // if (ec) {
+//                 //     log_error("failed to authenticate: {}", ec);
+//                 //     // TODO: what we are supposed to do in this case?
+//                 //     // I guess we should switch interface to authentication.
+//                 //     // But it would be better if we can handle specific error. What if we just don't
+//                 //     // have an internet and that is why we cannot authenticate.
+//                 //     cb(ec);
+//                 //     return;
+//                 // }
+//                 cb({});
+//             }));
     }
 
     void async_authenticate(async_callback<void> cb) {

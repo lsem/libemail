@@ -1,0 +1,1 @@
+#include "../../src/emailapp_core.hpp"

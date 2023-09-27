@@ -2,19 +2,18 @@
 
 #include <asio/io_context.hpp>
 #include <async_kit/async_callback.hpp>
+#include <chrono>
 #include <emailkit/log.hpp>
 #include <memory>
 #include <system_error>
 #include <tl/expected.hpp>
 #include <type_traits>
-#include <chrono>
 
 using std::shared_ptr;
 
 template <class T>
 using expected = tl::expected<T, std::error_code>;
 using unexpected = tl::unexpected<std::error_code>;
-
 
 using namespace std::literals;
 using namespace std::literals::chrono_literals;
@@ -42,14 +41,53 @@ void call_cb(async_callback<T>& cb, std::error_code ec) {
 }
 }  // namespace details
 
+/////////////////////////////////////////////////////////////////////
+// EnableUseThis
+template <class T>
+class EnableUseThis : public std::enable_shared_from_this<T> {
+   public:
+    template <class Cb, class Fn>
+    auto use_this(Cb cb, Fn fn) {
+        auto this_weak = EnableUseThis<T>::weak_from_this();
+        if constexpr (std::is_invocable_v<Fn, T&, std::error_code, Cb>) {
+            return [cb = std::move(cb), this_weak = std::move(this_weak),
+                    fn = std::move(fn)](std::error_code ec) mutable {
+                auto this_shared = this_weak.lock();
+                if (!this_shared) {
+                    cb(make_error_code(std::errc::owner_dead));
+                } else {
+                    fn(*this_shared, ec, std::move(cb));
+                }
+            };
+        } else {
+            return [cb = std::move(cb), this_weak = std::move(this_weak), fn = std::move(fn)](
+                       std::error_code ec, auto r) mutable {
+                auto this_shared = this_weak.lock();
+                if (!this_shared) {
+                    cb(make_error_code(std::errc::owner_dead));
+                } else {
+                    fn(*this_shared, ec, std::move(r), std::move(cb));
+                }
+            };
+        }
+    }
+};
+
+#define ASYNC_RETURN_ON_ERROR(Ec, Cb, Msg) \
+    do {                                   \
+        if (ec) {                          \
+            log_error("{}: {}", Msg, ec);  \
+            cb(ec);                        \
+            return;                        \
+        }                                  \
+    } while (false)
 
 template <typename... Ts>
 struct overload : Ts... {
     using Ts::operator()...;
 };
 template <class... Ts>
-overload(Ts...)->overload<Ts...>;
-
+overload(Ts...) -> overload<Ts...>;
 
 #define PROPAGATE_ERROR_VIA_CB(ec, Message, Cb) \
     do {                                        \
