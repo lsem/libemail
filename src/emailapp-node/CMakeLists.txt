@@ -34,8 +34,8 @@ file(GLOB_RECURSE CPP_FILES "src/*.cpp")
 add_library(EmailApp SHARED ${HPP_FILES} ${CPP_FILES})
 target_include_directories(EmailApp PUBLIC ${CMAKE_JS_INC})
 target_compile_definitions(EmailApp PUBLIC -DNAPI_VERSION=4)
+target_link_libraries(EmailApp emailapp::core ${CMAKE_JS_LIB})
 set_target_properties(EmailApp PROPERTIES PREFIX "" SUFFIX ".node")
-target_link_libraries(EmailApp ${CMAKE_JS_LIB})
 
 # if(MSVC AND CMAKE_JS_NODELIB_DEF AND CMAKE_JS_NODELIB_TARGET)
 #   # Generate node.lib
