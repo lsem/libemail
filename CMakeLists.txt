@@ -4,6 +4,7 @@ cmake_minimum_required(VERSION 3.5)
 
 set (CMAKE_CXX_STANDARD 20)
 
+option(EXCLUDE_NODE_MODULE "Do not include nodejs module for EmalApp to the build" OFF)
 
 # add_compile_options("-fcolor-diagnostics")
 add_compile_options("-fdiagnostics-color=always")
@@ -25,7 +26,9 @@ add_subdirectory(src/global)
 add_subdirectory(src/log)
 add_subdirectory(src/emailkit)
 add_subdirectory(src/emailapp-core)
-add_subdirectory(src/emailapp-node)
+if (NOT EXCLUDE_NODE_MODULE)
+    add_subdirectory(src/emailapp-node)
+endif()
 add_subdirectory(src/tools/bin2cpplit)
 add_subdirectory(src/tools/abnf-helper)
 add_subdirectory(playground)

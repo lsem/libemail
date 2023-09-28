@@ -2,14 +2,28 @@
 
 include(FetchContent)
 
-FetchContent_Declare(
-    node_api_headers
-    # can this be dynamic? in general it seems like we don't need to have this really specific
-    # to the node we are going to use in our electron app. But in case we need to, then we should find a way
-    # to decide on this dynamically during configure time depending on node version that is used.
-    URL https://nodejs.org/dist/v18.18.0/node-v18.18.0-headers.tar.gz
-)
+set(node_cmd "node")
+set(node_args "--version")
 
+if (NODE_JS_BINARY)
+    message("using NODE_JS_BINARY provided as configure option: ${NODE_JS_BINARY}")
+    set(node_cmd ${NODE_JS_BINARY})
+endif()
+
+execute_process(COMMAND ${node_cmd} ${node_args}
+    RESULT_VARIABLE node_version_exit_code
+    OUTPUT_VARIABLE node_version
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    COMMAND_ERROR_IS_FATAL ANY)
+
+if (node_version_exit_code AND NOT node_version_exit_code EQUAL 0)
+    message(FATAL_ERROR "nodejs has not been found in path. To specify nodejs binary location use -DNODE_JS_BINARY=<path-to-node-exe> variable or exclude emailapp-node extension use -DEXCLUDE_NODE_EXTENSION=true")
+endif()
+
+message("node version determined as: ${node_version}")
+
+set(node_headers_url "https://nodejs.org/dist/${node_version}/node-${node_version}-headers.tar.gz")
+FetchContent_Declare(node_api_headers URL ${node_headers_url})
 FetchContent_MakeAvailable(node_api_headers)
 
 set(CMAKE_JS_INC ${CMAKE_BINARY_DIR}/_deps/node_api_headers-src/include/node)
