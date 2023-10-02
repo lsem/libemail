@@ -1,5 +1,4 @@
-/bld
-/bld-debug
-/bld-release
-/build
-*.o
+bld/
+bld-debug/
+bld-release/
+build/
