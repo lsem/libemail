@@ -23,6 +23,7 @@ endif()
 message("node version determined as: ${node_version}")
 
 set(node_headers_url "https://nodejs.org/dist/${node_version}/node-${node_version}-headers.tar.gz")
+message(STATUS "node_headers_url: ${node_headers_url}")
 FetchContent_Declare(node_api_headers URL ${node_headers_url})
 FetchContent_MakeAvailable(node_api_headers)
 

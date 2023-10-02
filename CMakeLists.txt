@@ -3,6 +3,8 @@ project(emailkit)
 cmake_minimum_required(VERSION 3.5)
 
 set (CMAKE_CXX_STANDARD 20)
+cmake_policy(SET CMP0063 NEW)
+cmake_policy(SET CMP0135 NEW)
 
 option(EXCLUDE_NODE_MODULE "Do not include nodejs module for EmalApp to the build" OFF)
 
