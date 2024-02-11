@@ -54,7 +54,31 @@ class http_srv_impl_t : public http_srv_t, public std::enable_shared_from_this<h
         return {};
     }
 
-    virtual void register_handler(std::string method, std::string pattern, handler_func_t func) override {
+    virtual std::error_code stop() override {
+        std::error_code ec;
+        m_acceptor.close(ec);
+
+        if (ec) {
+            return ec;
+        }
+
+        // If we have some connections, close them.
+        // for (auto& [s, conn_ptr] : m_active_conns) {
+        //     log_warning("closing active connections on http server {}", s);
+
+        // auto ec = conn_ptr->stop();
+        // if (ec) {
+        //     log_error("failed closing one of the connecitons");
+        //     return ec;
+        // }
+        //        }
+
+        return {};
+    }
+
+    virtual void register_handler(std::string method,
+                                  std::string pattern,
+                                  handler_func_t func) override {
         // TODO: we should better have somehow not sorted them here but sort before matching.
         m_registered_handelrs.emplace_back(
             handler_tuple{.method = method, .pattern = pattern, .func = std::move(func)});
@@ -110,8 +134,8 @@ class http_srv_impl_t : public http_srv_t, public std::enable_shared_from_this<h
                              req, [cb = std::move(cb)](std::error_code ec,
                                                        emailkit::http_srv::reply reply) mutable {
                                  // TODO: map not-called errror into HTTP 500.
-				 
-				 log_debug("handler executed, have a reply: {}", (int)reply.status);
+
+                                 log_debug("handler executed, have a reply: {}", (int)reply.status);
                                  cb(ec, std::move(reply));
                              });
                      } else {

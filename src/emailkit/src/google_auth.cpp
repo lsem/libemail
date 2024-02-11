@@ -498,7 +498,7 @@ void async_request_userinfo(asio::io_context& ctx,
         });
 }
 
-const std::string auth_page_template = R"(p
+const std::string auth_page_template = R"(
 <!doctype html>
 <html lang="en"
 <head> <meta charset="UTF-8"> </head>
@@ -571,7 +571,23 @@ class google_auth_t_impl : public google_auth_t,
                                    async_callback<auth_data_t> cb) override {
         const auto scopes_encoded = fmt::format("{}", fmt::join(scopes, " "));
 
-        m_callback = std::move(cb);
+        // wrap callback so that before returning we close the server. Regardless of result we
+        // should close it.
+        m_callback = [cb = std::move(cb), this_weak = weak_from_this()](std::error_code ec,
+                                                                        auth_data_t d) mutable {
+            auto this_ = this_weak.lock();
+            if (!this_) {
+                cb(make_error_code(std::errc::owner_dead), {});
+                return;
+            }
+            auto stop_ec = this_->m_srv->stop();
+            if (stop_ec) {
+                log_warning("failed stopping http server: {}", ec.message());
+                // TODO: do we really want to ignore error here?
+            }
+
+            cb(ec, std::move(d));
+        };
 
         m_srv->register_handler(
             "get", "/",
@@ -585,6 +601,7 @@ class google_auth_t_impl : public google_auth_t,
                 reply.headers.emplace_back(http_srv::header{"Content-Type", "text/html"});
                 reply.content = html_page;
                 reply.status = http_srv::reply::ok;
+
                 cb({}, reply);
             });
         m_srv->register_handler(

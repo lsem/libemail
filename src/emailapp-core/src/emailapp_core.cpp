@@ -3,7 +3,7 @@
 #include <emailkit/imap_client.hpp>
 
 namespace emailapp::core {
-class EmailAppCoreImpl : public EmailAppCore, EnableUseThis<EmailAppCoreImpl> {
+class EmailAppCoreImpl : public EmailAppCore, public EnableUseThis<EmailAppCoreImpl> {
    public:
     explicit EmailAppCoreImpl(asio::io_context& ctx, EmailAppCoreCallbacks& cbs)
         : m_ctx(ctx), m_cbs(cbs), m_imap_client() {}
@@ -29,25 +29,83 @@ class EmailAppCoreImpl : public EmailAppCore, EnableUseThis<EmailAppCoreImpl> {
             use_this(std::move(cb), [](auto& this_, std::error_code ec, auto cb) mutable {
                 ASYNC_RETURN_ON_ERROR(ec, cb, "async_authenticate failed");
                 log_info("authenticated");
-
                 this_.start_autonomous_activities();
                 cb({});
             }));
     }
 
     void start_autonomous_activities() {
+        // What are App activities?
+        // First, we need to find if we have a database for this account already. If so, then we
+        // should find out if our local version (if any) is the same. If we don't have one, we
+        // rebuild build the cache from stratch by first downloading all data and then processing
+        // it.
+        // virtual void async_execute_command(imap_commands::namespace_t, async_callback<void> cb) =
+        // 0;
+
+        // virtual void async_execute_command(imap_commands::list_t,
+        //                                    async_callback<types::list_response_t> cb) = 0;
+
+        // virtual void async_execute_command(imap_commands::select_t,
+        //                                    async_callback<types::select_response_t> cb) = 0;
+
+        // virtual void async_execute_command(imap_commands::fetch_t,
+        //                                    async_callback<types::fetch_response_t> cb) = 0;
+
         async_callback<void> local_sink_cb = [](std::error_code ec) {
             // ..
         };
 
-        if (m_accounts.empty()) {
-            // The following call is supposed to be capable to obtain some starting credentails.
-            m_cbs.async_provide_credentials(use_this(
-                std::move(local_sink_cb),
-                [](auto& this_, std::error_code ec, std::vector<Account> accounts, auto cb) {
-                    // ..
+        using namespace emailkit::imap_client;
+
+        // list_t command returns a list of folders on mail server.
+        // Typical Gmail mail server can look like:
+        //     {inbox_path: ["INBOX"], flags: ["\\HasNoChildren"]}
+        //     {inbox_path: ["[Gmail]"], flags: ["\\HasChildren", "\\Noselect"]}
+        //     {inbox_path: ["[Gmail]", "Із зірочкою"], flags: ["\\Flagged", "\\HasNoChildren"]}
+        //     {inbox_path: ["[Gmail]", "Важливо"], flags: ["\\HasNoChildren", "\\Important"]}
+        //     {inbox_path: ["[Gmail]", "Кошик"], flags: ["\\HasNoChildren", "\\Trash"]}
+        //     {inbox_path: ["[Gmail]", "Надіслані"], flags: ["\\HasNoChildren", "\\Sent"]}
+        //     {inbox_path: ["[Gmail]", "Спам"], flags: ["\\HasNoChildren", "\\Junk"]}
+        //     {inbox_path: ["[Gmail]", "Уся пошта"], flags: ["\\All", "\\HasNoChildren"]}
+        //     {inbox_path: ["[Gmail]", "Чернетки"], flags: ["\\Drafts", "\\HasNoChildren"]}
+
+        m_imap_client->async_execute_command(
+            imap_commands::list_t{.reference_name = "", .mailbox_name = "*"},
+            use_this(
+                std::move(local_sink_cb), [](auto& this_, std::error_code ec,
+                                             types::list_response_t response, auto cb) mutable {
+                    ASYNC_RETURN_ON_ERROR(ec, cb, "async_authenticate failed");
+
+                    log_info("executed list command:\n{}", fmt::join(response.inbox_list, "\n"));
+
+                    // The next step is to select some folder. We select INBOX first for this demo.
+                    // But sholud select all folders to build the cache.
+                    this_.m_imap_client->async_execute_command(
+                        imap_commands::select_t{.mailbox_name = "INBOX"},
+                        this_.use_this(
+                            std::move(cb), [](auto& this_, std::error_code ec,
+                                              types::select_response_t response, auto cb) mutable {
+                                ASYNC_RETURN_ON_ERROR(ec, cb, "async_authenticate failed");
+
+                                log_info("selected INBOX folder (exists: {}, recents: {})",
+                                         response.exists, response.recents);
+
+                                // The nest step after selection is fetching emails or heders for
+                                // emails.
+
+                                cb({});
+                            }));
                 }));
-        }
+
+        // if (m_accounts.empty()) {
+        //     // The following call is supposed to be capable to obtain some starting credentails.
+        //     m_cbs.async_provide_credentials(use_this(
+        //         std::move(local_sink_cb),
+        //         [](auto& this_, std::error_code ec, std::vector<Account> accounts, auto cb) {
+        //             // ..
+        //         }));
+        // }
     }
 
     virtual void add_acount(Account acc) override {
@@ -77,6 +135,8 @@ class EmailAppCoreImpl : public EmailAppCore, EnableUseThis<EmailAppCoreImpl> {
                     return;
                 }
                 log_info("authenticated in Google");
+
+                // now we can shutdown google auth server.
 
                 // This means that user permitted all scopes we requested so we can proceed.
                 // With permissions, google gave us all infromatiom we requested so the next step
@@ -111,6 +171,7 @@ class EmailAppCoreImpl : public EmailAppCore, EnableUseThis<EmailAppCoreImpl> {
                                 log_info("authenticated on IMAP server");
                                 // TODO: consider having some kind of connection info state which
                                 // would indicate information about all current connections.
+
                                 cb({});
                             });
                     });

@@ -31,7 +31,7 @@ std::vector<std::string> decode_mailbox_path_from_list_response(const list_respo
             }
         }
 
-        log_info("decoded path: {}", decoded_path_tokens);
+        log_debug("decoded path: {}", decoded_path_tokens);
     }
 
     return decoded_path_tokens;

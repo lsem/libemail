@@ -1,7 +1,7 @@
 #pragma once
+#include <emailkit/global.hpp>
 #include <asio/io_context.hpp>
 #include <asio/ip/tcp.hpp>
-#include <emailkit/global.hpp>
 #include <memory>
 
 #include "reply.hpp"
@@ -13,7 +13,7 @@ class connection_t {
    public:
     virtual ~connection_t() = default;
     virtual void start() = 0;
-    virtual void stop() = 0;
+    virtual std::error_code stop() = 0;
 };
 
 // interface for calling back host

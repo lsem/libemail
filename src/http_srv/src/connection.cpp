@@ -18,9 +18,11 @@ class connection_t_impl : public connection_t,
         do_read();
     }
 
-    virtual void stop() override {
+    virtual std::error_code stop() override {
         log_debug("closing socket: {}", m_socket.local_endpoint().address().to_string());
-        m_socket.close();
+	std::error_code ec;
+        m_socket.close(ec);
+	return ec;
     }
 
     void do_read() {

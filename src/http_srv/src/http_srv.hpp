@@ -15,6 +15,7 @@ class http_srv_t {
    public:
     virtual ~http_srv_t() = default;
     virtual std::error_code start() = 0;
+    virtual std::error_code stop() = 0;
     virtual void register_handler(std::string method, std::string pattern, handler_func_t) = 0;
 };
 
