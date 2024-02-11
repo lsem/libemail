@@ -37,6 +37,26 @@ bool launch_system_browser(std::string uri) {
 #endif
 }
 
+expected<std::string> parse_userinfo_reply(const std::string& userinfo_json) {
+    rapidjson::Document d;
+    d.Parse(userinfo_json.c_str());
+    if (d.HasParseError()) {
+        log_error("JSON parse error: '{}'", userinfo_json);
+        return unexpected(make_error_code(std::errc::io_error));
+    }
+
+    auto as_str_or = [&d](const char* key, std::string _default) -> std::string {
+        return d.HasMember(key) && d[key].IsString() ? d[key].GetString() : _default;
+    };
+
+    if (d.HasMember("email") && d["email"].IsString()) {
+        return d["email"].GetString();
+    } else {
+        log_error("parsing email field from userinfo failed");
+        return unexpected(make_error_code(std::errc::io_error));
+    }
+}
+
 expected<auth_data_t> parase_google_oauth20_json(std::string j) {
     rapidjson::Document d;
     d.Parse(j.c_str());
@@ -414,7 +434,71 @@ https:  // mail.google.com
         });
 };
 
-const std::string auth_page_template = R"(
+void async_request_userinfo(asio::io_context& ctx,
+                            auth_data_t auth_data,
+                            async_callback<std::string> cb) {
+    const std::string host = "www.googleapis.com";
+    const std::string port = "443";
+
+    log_debug("making request...");
+
+    http_srv::request r;
+    r.http_version_major = 1;
+    r.http_version_minor = 1;
+
+    r.method = "GET";
+    r.uri = fmt::format("/oauth2/v3/userinfo?access_token=\"{}\"", auth_data.access_token);
+    r.body = "";
+
+    r.headers.emplace_back("Host", host);
+    r.headers.emplace_back("Connection", "close");
+    r.headers.emplace_back("Accept", "*/*");
+
+    log_debug("connecting...");
+
+    auto client = std::make_shared<https_client_t>(ctx);
+
+    // TODO: All this requests should have timeouts. And probably, the client should be held as
+    // member somwhere so this can be cancalled either by timeout or anytime when parent instance is
+    // destroyed.
+    client->async_connect(
+        host, port, [client, r = std::move(r), cb = std::move(cb)](std::error_code ec) mutable {
+            if (ec) {
+                log_error("post request failed: conected failed: {}", ec);
+                cb(ec, {});
+                return;
+            }
+
+            log_debug("connected, making request..");
+
+            client->async_make_request(
+                r, [client, cb = std::move(cb)](std::error_code ec, http_srv::reply reply) mutable {
+                    if (ec) {
+                        log_error("post request failed: async_make_request failed: {}", ec);
+                        cb(ec, {});
+                        return;
+                    }
+                    log_debug("got a reply");
+                    log_debug("status: {}", static_cast<int>(reply.status));
+                    log_debug("headers: {}", reply.headers);
+                    log_debug("content:\n'{}'", reply.content);
+
+                    if (reply.status == http_srv::reply::ok) {
+                        std::string user_email;
+                        auto email_or_err = parse_userinfo_reply(reply.content);
+                        if (!email_or_err) {
+                            cb(make_error_code(std::errc::io_error), "");
+                            return;
+                        }
+                        cb({}, *email_or_err);
+                    } else {
+                        cb(make_error_code(std::errc::io_error), "");
+                    }
+                });
+        });
+}
+
+const std::string auth_page_template = R"(p
 <!doctype html>
 <html lang="en"
 <head> <meta charset="UTF-8"> </head>
@@ -485,11 +569,6 @@ class google_auth_t_impl : public google_auth_t,
     virtual void async_handle_auth(google_auth_app_creds_t app_creds,
                                    std::vector<std::string> scopes,
                                    async_callback<auth_data_t> cb) override {
-        // for (auto& s : scopes) {
-        // s = encode_uri_component(s);
-        //}
-        // const auto scopes_encoded = encode_uri_component(fmt::format("{}", fmt::join(scopes, "
-        // ")));
         const auto scopes_encoded = fmt::format("{}", fmt::join(scopes, " "));
 
         m_callback = std::move(cb);
@@ -501,7 +580,11 @@ class google_auth_t_impl : public google_auth_t,
                 log_debug("page:\n'{}'", html_page);
                 http_srv::reply reply;
                 reply.headers.emplace_back(http_srv::header{"Connection", "Close"});
+                reply.headers.emplace_back(
+                    http_srv::header{"Content-Length", std::to_string(html_page.size())});
+                reply.headers.emplace_back(http_srv::header{"Content-Type", "text/html"});
                 reply.content = html_page;
+                reply.status = http_srv::reply::ok;
                 cb({}, reply);
             });
         m_srv->register_handler(
@@ -576,15 +659,38 @@ class google_auth_t_impl : public google_auth_t,
                         reply.content = auth_success_page;
                         cb({}, reply);
 
-                        asio::post(this_.m_ctx, [this_weak = this_.weak_from_this(),
-                                                 auth_data = std::move(auth_data)] {
-                            auto this_ptr = this_weak.lock();
-                            if (!this_ptr) {
-                                return;
-                            }
-                            auto& this_ = *this_ptr;
-                            this_.m_callback({}, std::move(auth_data));
-                        });
+                        log_debug("making request for userinfo (email)");
+
+                        async_request_userinfo(
+                            this_.m_ctx, auth_data,
+                            [auth_data, this_weak = this_.weak_from_this(), cb = std::move(cb)](
+                                std::error_code ec, std::string user_email) mutable {
+                                if (ec) {
+                                    log_error("async_request_userinfo failed: {}", ec);
+                                    cb(ec, http_srv::reply::stock_reply(
+                                               http_srv::reply::internal_server_error));
+                                    return;
+                                }
+
+                                auth_data.user_email = user_email;
+
+                                auto this_ptr = this_weak.lock();
+                                if (!this_ptr) {
+                                    cb(make_error_code(std::errc::owner_dead), {});
+                                    return;
+                                }
+                                auto& this_ = *this_ptr;
+
+                                asio::post(this_.m_ctx, [this_weak = this_.weak_from_this(),
+                                                         auth_data = std::move(auth_data)] {
+                                    auto this_ptr = this_weak.lock();
+                                    if (!this_ptr) {
+                                        return;
+                                    }
+                                    auto& this_ = *this_ptr;
+                                    this_.m_callback({}, std::move(auth_data));
+                                });
+                            });
                     });
             });
         m_srv->register_handler(

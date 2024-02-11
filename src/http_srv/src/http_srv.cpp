@@ -110,6 +110,8 @@ class http_srv_impl_t : public http_srv_t, public std::enable_shared_from_this<h
                              req, [cb = std::move(cb)](std::error_code ec,
                                                        emailkit::http_srv::reply reply) mutable {
                                  // TODO: map not-called errror into HTTP 500.
+				 
+				 log_debug("handler executed, have a reply: {}", (int)reply.status);
                                  cb(ec, std::move(reply));
                              });
                      } else {

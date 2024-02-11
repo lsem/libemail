@@ -1,10 +1,14 @@
 #include <assert.h>
 #include <node_api.h>
 
+#include <iostream>
+
 static napi_value Method(napi_env env, napi_callback_info info) {
     napi_status status;
     napi_value world;
-    status = napi_create_string_utf8(env, "Hello, world!", 13, &world);
+    //    *((int*)0) = 69;
+     std::cout << "HEY!!!\n";
+    status = napi_create_string_utf8(env, "Hello, world! *HEY", 13, &world);
     assert(status == napi_ok);
     return world;
 }

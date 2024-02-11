@@ -82,6 +82,7 @@ std::vector<asio::const_buffer> reply::to_buffers() {
     }
     buffers.push_back(asio::buffer(misc_strings::crlf));
     buffers.push_back(asio::buffer(content));
+
     return buffers;
 }
 

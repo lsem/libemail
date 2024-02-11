@@ -89,6 +89,7 @@ shared_ptr<google_auth_t> make_google_auth(asio::io_context& ctx,
                                            std::string host,
                                            std::string port);
 
+
 }  // namespace emailkit
 
 DEFINE_FMT_FORMATTER(

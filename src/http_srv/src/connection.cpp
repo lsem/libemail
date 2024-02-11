@@ -98,6 +98,7 @@ class connection_t_impl : public connection_t,
                               if (ec) {
                                   // TODO:
                                   // notify host that we have failed here.
+                                  log_error("async write into socket failed: {}", ec.message());
                                   return;
                               }
 

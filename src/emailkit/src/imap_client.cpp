@@ -255,6 +255,7 @@ class imap_client_impl_t : public imap_client_t {
                 if (line.tokens[1] == "OK") {
                     state.auth_success = true;
                 } else if (line.tokens[1] == "NO" || line.tokens[1] == "BAD") {
+		    log_debug("NO/BAD received during attempt to authinicate");
                     state.auth_success = false;
                 }
                 cb({}, state);

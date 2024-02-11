@@ -32,6 +32,7 @@ target_link_libraries(emailkit_playground
     PRIVATE
         emailkit::emailkit
         emailkit::http_srv
+	emailapp::core
         pthread
         folly::uri
         b64::b64
