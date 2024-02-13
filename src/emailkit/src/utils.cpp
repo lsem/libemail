@@ -7,6 +7,8 @@
 
 #include <utf7/utf7.h>
 
+#include <optional>
+
 namespace emailkit::utils {
 
 std::string replace_control_chars(const std::string& s) {
@@ -139,6 +141,117 @@ expected<std::string> decode_imap_utf7(std::string s) {
     }
 
     return res;
+}
+
+namespace {
+std::optional<std::pair<std::string_view, std::string_view>> split2(std::string_view s,
+                                                                    std::string_view tok) {
+    using namespace std;
+    // we need to find first occurence of tok in s.
+    size_t tok_idx = s.find(tok);
+    if (tok_idx != string_view::npos) {
+        auto head = s;
+        head.remove_suffix(s.size() - tok_idx);
+        auto tail = s;
+        tail.remove_prefix(tok_idx + tok.size());
+        return pair{head, tail};
+    } else {
+        return std::nullopt;
+    }
+}
+}  // namespace
+
+bool can_be_mime_encoded_word(std::string_view s) {
+    return s.size() > 4 && s[0] == '=' && s[1] == '?' && s[s.size() - 2] == '?' &&
+           s[s.size() - 1] == '=';
+}
+
+expected<std::string> decode_mime_encoded_word(std::string s) {
+    // Example: =?UTF-8?B?0J7QsdC70ZbQutC+0LLQuNC5INC30LDQv9C40YEg?=
+
+    std::string result;
+
+    std::string_view tail = s;
+
+    while (!tail.empty()) {
+        if (auto res = split2(tail, "=?")) {
+            tail = std::get<1>(*res);
+        } else {
+            log_error("no starting =?");
+            return unexpected(make_error_code(std::errc::io_error));
+        }
+
+        std::string charset, encoding, encoded_text;
+
+        // Charset
+        if (auto res = split2(tail, "?")) {
+            tail = std::get<1>(*res);
+            charset = std::get<0>(*res);
+            std::transform(charset.begin(), charset.end(), charset.begin(), ::toupper);
+        } else {
+            log_error("no charset marker");
+            return unexpected(make_error_code(std::errc::io_error));
+        }
+
+        // Encoding
+        if (auto res = split2(tail, "?")) {
+            tail = std::get<1>(*res);
+            encoding = std::get<0>(*res);
+            std::transform(encoding.begin(), encoding.end(), encoding.begin(), ::toupper);
+        } else {
+            log_error("no encoding marker");
+            return unexpected(make_error_code(std::errc::io_error));
+        }
+
+        // Encoded text
+        if (auto res = split2(tail, "?=")) {
+            tail = std::get<1>(*res);
+            encoded_text = std::get<0>(*res);
+        } else {
+            log_error("no encoding marker");
+            return unexpected(make_error_code(std::errc::io_error));
+        }
+
+        log_debug("charset: '{}', encoding: '{}', text: '{}', tail: '{}'", charset, encoding,
+                  encoded_text, tail);
+
+        if (encoding == "B") {
+            // BASE64
+            if (charset == "UTF-8") {
+                result += base64_naive_decode(std::string(encoded_text));
+            } else {
+                log_error("unsupported charset for mime encoded word: '{}'", charset);
+                return unexpected(make_error_code(std::errc::io_error));
+            }
+        } else if (encoding == "Q") {
+            log_error("Q encoding is not supported");
+            return unexpected(make_error_code(std::errc::io_error));
+        } else {
+            log_error("unsupported encoding: '{}'", encoding);
+            return unexpected(make_error_code(std::errc::io_error));
+        }
+
+        // In the beginning of the loop lets skip any whitespaces or CRLF. Normally, they should not
+        // be there but if we hit limit of 75 characters servers usually break up and join. GMail
+        // seems to be joining with SPACE only. But the spec says CRLF SPACE. Furthermore, on the
+        // Internet there are examples where encoded words are concatenated without any delimiter at
+        // all. Lets try to parse all these cases by having optional CRLF spaces in the beginning
+        // for our grammar.
+        // Section 2:
+        //   An 'encoded-word' may not be more than 75 characters long, including
+        //   'charset', 'encoding', 'encoded-text', and delimiters.  If it is
+        //   desirable to encode more text than will fit in an 'encoded-word' of
+        //   75 characters, multiple 'encoded-word's (separated by CRLF SPACE) may
+        //   be used.
+
+        if (auto res = split2(tail, "\r\n")) {
+            tail = std::get<1>(*res);
+        } else if (auto res = split2(tail, " ")) {
+            tail = std::get<1>(*res);
+        }
+    }
+
+    return result;
 }
 
 bool can_be_utf7_encoded_text(std::string_view s) {

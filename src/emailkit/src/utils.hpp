@@ -19,6 +19,10 @@ std::string base64_naive_encode(const std::string& s);
 expected<std::string> decode_imap_utf7(std::string s);
 bool can_be_utf7_encoded_text(std::string_view s);
 
+// https://datatracker.ietf.org/doc/html/rfc2047
+bool can_be_mime_encoded_word(std::string_view s);
+expected<std::string> decode_mime_encoded_word(std::string s);
+
 std::string_view strip_double_quotes(std::string_view s);
 
 // sublime-text like match of one array against another
@@ -35,10 +39,9 @@ bool subset_match(const Collection1& c1, const Collection2& c2) {
     return true;
 }
 
-template<class StringOrStringView>
+template <class StringOrStringView>
 bool starts_with(const StringOrStringView& s, std::string_view prefix) {
     return s.rfind(prefix) == 0;
 }
-
 
 }  // namespace emailkit::utils

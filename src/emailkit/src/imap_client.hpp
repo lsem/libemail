@@ -84,8 +84,8 @@ struct full_t {};
 
 using fetch_items_raw_string_t = std::string;
 using fetch_item_t = std::variant<fetch_items::body_t,
-                                //   fetch_items::body_part_t,
-                                //   fetch_items::body_peek_t,
+                                  //   fetch_items::body_part_t,
+                                  //   fetch_items::body_peek_t,
                                   fetch_items::body_structure_t,
                                   fetch_items::envelope_t,
                                   fetch_items::flags_t,

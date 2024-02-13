@@ -255,7 +255,7 @@ class imap_client_impl_t : public imap_client_t {
                 if (line.tokens[1] == "OK") {
                     state.auth_success = true;
                 } else if (line.tokens[1] == "NO" || line.tokens[1] == "BAD") {
-		    log_debug("NO/BAD received during attempt to authinicate");
+                    log_debug("NO/BAD received during attempt to authinicate");
                     state.auth_success = false;
                 }
                 cb({}, state);
@@ -561,9 +561,47 @@ class imap_client_impl_t : public imap_client_t {
                 cb(make_error_code(std::errc::protocol_error), {});
                 return;
             }
-            // log_info("message data records: {}", *message_data_records_or_err);
 
-            cb({}, {});
+            cb({}, types::fetch_response_t{.message_data_items =
+                                               std::move(*message_data_records_or_err)});
+
+            // WIP: this fetched data now needs to be somehow delivered to the caller.
+
+            // for (auto& m : *message_data_records_or_err) {
+            //     log_info("message {}: ", m.message_number);
+
+            // TODO: subject field is encoded with some new encoding type:
+            // https://datatracker.ietf.org/doc/html/rfc2047
+            // =?UTF-8?B?0J7QsdC70ZbQutC+0LLQuNC5INC30LDQv9C40YEg?=
+            // =?UTF-8?B?R29vZ2xlINCy0ZbQtNC90L7QstC70LXQvdC+?=
+            // https://www.rfc-editor.org/info/rfc3629
+            // https://www.rfc-editor.org/rfc/rfc3629.txt
+
+            // NOTE: subject is defined as subject/NIL. TODO: check this.
+
+            // for (auto& att : m.static_attributes) {
+            //     if (std::holds_alternative<imap_parser::Envelope>(att)) {
+            //         auto& x = std::get<imap_parser::Envelope>(att);
+
+            //         if (utils::can_be_mime_encoded_word(x.subject)) {
+            //             auto decoded_or_err =
+            //                 emailkit::utils::decode_mime_encoded_word(x.subject);
+            //             if (decoded_or_err) {
+            //                 log_debug("subject: {}", x.subject);
+            //                 x.subject = *decoded_or_err;
+            //             }
+            //         }
+            //         // EXPECT_TRUE(emailkit::utils::can_be_mime_encoded_word(
+            //         //     "=?UTF-8?B?0J7QsdC70ZbQutC+0LLQuNC5INC30LDQv9C40YEg?="));
+            //         // auto decoded_or_err = emailkit::utils::decode_mime_encoded_word(
+            //         //     "=?UTF-8?B?0J7QsdC70ZbQutC+0LLQuNC5INC30LDQv9C40YEg?=");
+
+            //         log_info("date: {}\nsubject: {}", x.date, x.subject);
+            //     }
+            // }
+            //            }
+
+            //            cb({}, {});
         });
     }
 
@@ -583,8 +621,8 @@ class imap_client_impl_t : public imap_client_t {
 
             log_debug("received raw line");
 
-            // check if line is tagged response (TODO: do it right, with parser or make sure it is
-            // correct according to the grammar)
+            // check if line is tagged response (TODO: do it right, with parser or make sure it
+            // is correct according to the grammar)
             bool stop_reading = false;
             if (line.rfind(tag, 0) == 0) {
                 log_debug("got tagged reply in line '{}', stop reading..", line);

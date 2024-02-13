@@ -1,1 +1,32 @@
 Testing Areas: SSL/HTTPS/Certificates.
+
+#1 Handling Errors from server.
+
+
+C: A0 AUTHENTICATE XOAUTH2 dXNlcj1saXVib215ci5zZW1raXYudGVzdEBnbWFpbC5jb20BYXV0aD1CZWFyZXIgeWEyOS5hMEFmQl9ieUQyeWloS3g5TUFXTjFadWIxclRHQXZ4cUM2a2lBb0NOSU9jaXhuTGNmdnpYc0ROWXBnOXQta1JMWm1aa096UUl5MDZhQWg2NXhYMXZwZHUtVVB4TVRWeHpsWi0zLWNncWhZQ3NocEhCcUVqOHJETEhuWHc4REJad2xycW9pdE9lenIzOHZEaGFlSWdvYWlrbC1lSFl1R0xrT29za3FNYUNnWUtBUVlTQVJNU0ZRSEdYMk1pT3NTSVBta1I1cXU1MTdxQ3VkUFdnZzAxNzEBAQ==
+S: * OK Gimap ready for requests from 45.12.26.52 2adb3069b0e04-511616c9f19mb42339141e87
+S: * CAPABILITY IMAP4rev1 UNSELECT IDLE NAMESPACE QUOTA ID XLIST CHILDREN X-GM-EXT-1 UIDPLUS COMPRESS=DEFLATE ENABLE MOVE CONDSTORE ESEARCH UTF8=ACCEPT LIST-EXTENDED LIST-STATUS LITERAL- SPECIAL-USE APPENDLIMIT=35651584
+S: A0 OK liubomyr.semkiv.test@gmail.com authenticated (Success)
+C: A1 list "" "*"
+S: * LIST (\HasNoChildren) "/" "INBOX"
+S: * LIST (\HasChildren \Noselect) "/" "[Gmail]"
+S: * LIST (\Flagged \HasNoChildren) "/" "[Gmail]/&BAYENw- &BDcEVgRABD4ERwQ6BD4ETg-"
+S: * LIST (\HasNoChildren \Important) "/" "[Gmail]/&BBIEMAQ2BDsEOAQyBD4-"
+S: * LIST (\HasNoChildren \Trash) "/" "[Gmail]/&BBoEPgRIBDgEOg-"
+S: * LIST (\HasNoChildren \Sent) "/" "[Gmail]/&BB0EMAQ0BFYEQQQ7BDAEPQRW-"
+S: * LIST (\HasNoChildren \Junk) "/" "[Gmail]/&BCEEPwQwBDw-"
+S: * LIST (\All \HasNoChildren) "/" "[Gmail]/&BCMEQQRP- &BD8EPgRIBEIEMA-"
+S: * LIST (\Drafts \HasNoChildren) "/" "[Gmail]/&BCcENQRABD0ENQRCBDoEOA-"
+S: A1 OK Success
+C: A2 select INBOX
+S: * FLAGS (\Answered \Flagged \Draft \Deleted \Seen $NotPhishing $Phishing)
+S: * OK [PERMANENTFLAGS (\Answered \Flagged \Draft \Deleted \Seen $NotPhishing $Phishing \*)] Flags permitted.
+S: * OK [UIDVALIDITY 1] UIDs valid.
+S: * 19 EXISTS
+S: * 0 RECENT
+S: * OK [UIDNEXT 20] Predicted next UID.
+S: * OK [HIGHESTMODSEQ 3385]
+S: A2 OK [READ-WRITE] INBOX selected. (Success)
+C: A3 fetch 1:* (BODY.PEEK[MIME])
+S: A3 BAD Could not parse command
+

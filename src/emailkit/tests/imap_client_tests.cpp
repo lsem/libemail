@@ -1354,3 +1354,4 @@ TEST(imap_parser_test, encode_fetch_command_test) {
                   "rfc822.header rfc822.size rfc822.text uid)");
     }
 }
+

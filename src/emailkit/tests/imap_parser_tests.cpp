@@ -22,8 +22,8 @@ TEST(imap_parser_test, basic_test) {
         "* OK [UIDNEXT 10] Predicted next UID.\r\n"
         "* OK [HIGHESTMODSEQ 1909]\r\n"  // Note, this ignored by parser (TODO: implement)
         "A3 OK [READ-ONLY] INBOX selected. (Success)\r\n";
-        "A3 OK [READ-WRITE] INBOX selected. (Success)\r\n";  // Note, this is not seen by parser
-                                                             // (TODO: separate test)
+    "A3 OK [READ-WRITE] INBOX selected. (Success)\r\n";  // Note, this is not seen by parser
+                                                         // (TODO: separate test)
 
     auto records_or_err = imap_parser::parse_mailbox_data_records(select_command_result);
     ASSERT_TRUE(records_or_err);
@@ -460,6 +460,36 @@ TEST(imap_parser_test_, parse_bodystructure_response) {
         EXPECT_EQ(body_mpart2_2->part_body_ext->body_field_dsp.field_params[0].second,
                   "\"DSC07119.arw\"");
     }
+}
+
+TEST(imap_parser_test_, uid) {
+    // C: A3 fetch 1:* (bodystructure uid envelope)
+
+    const std::string response = "* 2 FETCH (UID 2)\r\nA3 OK Success\r\n";
+
+    // clang-format on
+    auto message_data_or_err = imap_parser::parse_message_data_records(response);
+    ASSERT_TRUE(message_data_or_err);
+
+    auto& message_data = *message_data_or_err;
+    ASSERT_EQ(message_data.size(), 1);
+}
+
+TEST(imap_parser_test_, DISABLED_parse_bodystructure_uid_envelope) {  // Disabled because is not
+                                                                      // working for some reason.
+    // C: A3 fetch 1:* (bodystructure uid envelope)
+    const std::string response =
+        R"(* 5 FETCH (UID 5 ENVELOPE ("Mon, 31 Jul 2023 16:22:11 GMT" "=?UTF-8?B?0KHQv9C+0LLRltGJ0LXQvdC90Y8g0YHQuA==?= =?UTF-8?B?0YHRgtC10LzQuCDQsdC10LfQv9C10LrQuA==?=" (("Google" NIL "no-reply" "accounts.google.com")) (("Google" NIL "no-reply" "accounts.google.com")) (("Google" NIL "no-reply" "accounts.google.com")) ((NIL NIL "liubomyr.semkiv.test" "gmail.com")) NIL NIL NIL "<1hYnffoH3Obfnoeje5ecMw@notifications.google.com>") BODYSTRUCTURE (("TEXT" "PLAIN" ("CHARSET" "UTF-8" "DELSP" "yes" "FORMAT" "flowed") NIL NIL "BASE64" 1320 27 NIL NIL NIL)("TEXT" "HTML" ("CHARSET" "UTF-8") NIL NIL "QUOTED-PRINTABLE" 6486 130 NIL NIL NIL) "ALTERNATIVE" ("BOUNDARY" "0000000000002c939d0601cad5ca") NIL NIL)))"
+        "\r\n"
+        R"(* 19 FETCH (UID 19 ENVELOPE ("Tue, 13 Feb 2024 10:08:06 +0200" "=?UTF-8?B?0LvQuNGB0YIg0Lcg0LLQutC70LDQtNC10L3QvdGP0LzQuA==?=" (("Liubomyr" NIL "liubomyr.semkiv.test" "gmail.com")) (("Liubomyr" NIL "liubomyr.semkiv.test" "gmail.com")) (("Liubomyr" NIL "liubomyr.semkiv.test" "gmail.com")) (("Liubomyr" NIL "liubomyr.semkiv.test" "gmail.com")) NIL NIL NIL "<CA+n06n=V6FqCudRF0iO=-sc8ZFEMiDXGYcTrdTGH-irq=HhjVw@mail.gmail.com>") BODYSTRUCTURE ((("TEXT" "PLAIN" ("CHARSET" "UTF-8") NIL NIL "7BIT"v 2 1 NIL NIL NIL)("TEXT" "HTML" ("CHARSET" "UTF-8") NIL NIL "7BIT" 27 1 NIL NIL NIL) "ALTERNATIVE" ("BOUNDARY" "000000000000f5dbd206113ee45f") NIL NIL)("APPLICATION" "VND.OASIS.OPENDOCUMENT.SPREADSHEET" ("NAME" "metrics_all.xlsx_0.ods") "<f_lsk2zdg20>" NIL "BASE64" 158338 NIL ("ATTACHMENT" ("FILENAME" "metrics_all.xlsx_0.ods")) NIL) "MIXED" ("BOUNDARY" "000000000000f5dbd406113ee461") NIL NIL)))"
+        "\r\n"
+        "A3 OK Success\r\n";
+    // clang-format on
+    auto message_data_or_err = imap_parser::parse_message_data_records(response);
+    ASSERT_TRUE(message_data_or_err);
+
+    auto& message_data = *message_data_or_err;
+    ASSERT_EQ(message_data.size(), 1);
 }
 
 // TODO: Test for when field param is NIL.

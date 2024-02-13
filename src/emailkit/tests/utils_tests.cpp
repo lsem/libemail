@@ -191,4 +191,42 @@ TEST(utils_test, subset_match_test) {
     EXPECT_FALSE((emailkit::utils::subset_match<sw, sw>("iertypex", "imap_parser_types.cpp")));
 }
 
+TEST(utils_test, mime_encoded_word_test) {
+    // https://datatracker.ietf.org/doc/html/rfc2047
+
+    EXPECT_FALSE(emailkit::utils::can_be_mime_encoded_word("just some text"));
+    EXPECT_FALSE(emailkit::utils::can_be_mime_encoded_word(""));
+
+    {
+        EXPECT_TRUE(emailkit::utils::can_be_mime_encoded_word(
+            "=?UTF-8?B?0J7QsdC70ZbQutC+0LLQuNC5INC30LDQv9C40YEg?="));
+        auto decoded_or_err = emailkit::utils::decode_mime_encoded_word(
+            "=?UTF-8?B?0J7QsdC70ZbQutC+0LLQuNC5INC30LDQv9C40YEg?=");
+        ASSERT_TRUE(decoded_or_err);
+        EXPECT_EQ(*decoded_or_err, "Обліковий запис ");
+    }
+
+    {
+        auto decoded_or_err = emailkit::utils::decode_mime_encoded_word(
+            "=?UTF-8?B?0KHQv9C+0LLRltGJ0LXQvdC90Y8g0YHQuA==?= "
+            "=?UTF-8?B?0YHRgtC10LzQuCDQsdC10LfQv9C10LrQuA==?=");
+        EXPECT_TRUE(decoded_or_err);
+        EXPECT_EQ(*decoded_or_err, "Сповіщення системи безпеки");
+    }
+    {
+        auto decoded_or_err = emailkit::utils::decode_mime_encoded_word(
+            "=?UTF-8?B?0KHQv9C+0LLRltGJ0LXQvdC90Y8g0YHQuA==?==?UTF-8?B?"
+            "0YHRgtC10LzQuCDQsdC10LfQv9C10LrQuA==?=");
+        EXPECT_TRUE(decoded_or_err);
+        EXPECT_EQ(*decoded_or_err, "Сповіщення системи безпеки");
+    }
+    {
+        auto decoded_or_err = emailkit::utils::decode_mime_encoded_word(
+            "=?UTF-8?B?0KHQv9C+0LLRltGJ0LXQvdC90Y8g0YHQuA==?=\r\n =?UTF-8?B?"
+            "0YHRgtC10LzQuCDQsdC10LfQv9C10LrQuA==?=");
+        EXPECT_TRUE(decoded_or_err);
+        EXPECT_EQ(*decoded_or_err, "Сповіщення системи безпеки");
+    }
+}
+
 }  // namespace

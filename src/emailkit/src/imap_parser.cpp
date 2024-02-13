@@ -739,9 +739,15 @@ const ast_record* parse_envelope(std::string_view input,
             switch (it->uiIndex) {
                 case IMAP_PARSER_APG_IMPL_ENV_DATE: {
                     parsed_envelope.date_opt = match_text;
+
+                    // TODO: the data here is in the same format as SMTP I guess:
+                    // https://datatracker.ietf.org/doc/html/rfc2822#section-3.3
                     break;
                 }
                 case IMAP_PARSER_APG_IMPL_ENV_SUBJECT: {
+                    // TODO: subject is MIME encoded here. We shold either find gmime function for
+                    // decoding or do it on our own.
+
                     parsed_envelope.subject = match_text;
                     break;
                 }
@@ -1577,10 +1583,23 @@ const ast_record* parse_msg_att_static_envelope(std::string_view input,
 
 const ast_record* parse_msg_att_static_uid(std::string_view input,
                                            const ast_record* begin,
-                                           const ast_record* end) {
+                                           const ast_record* end,
+                                           unsigned& out_uid) {
+    // msg-att-static-uid = "UID" SP uniqueid
+    // uniqueid        = nz-number ; Strictly ascending
     assert(begin->uiIndex == IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_UID);
 
     auto it = begin + 1;
+
+    it = skip_until(it, end, IMAP_PARSER_APG_IMPL_NZ_NUMBER, ID_AST_PRE);
+    RETURN_IF_END(it);
+
+    it = parse_number(input, it, end, out_uid);
+    RETURN_IF_END(it);
+
+    it = skip_until(it, end, IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_UID, ID_AST_POST);
+    RETURN_IF_END(it);
+    ++it;
 
     assert((it - 1)->uiIndex == IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_UID &&
            (it - 1)->uiState == ID_AST_POST);
@@ -1696,7 +1715,10 @@ const ast_record* parse_msg_att_static(std::string_view input,
             break;
         }
         case IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_UID: {
-            it = parse_msg_att_static_uid(input, it, end);
+            msg_attr_uid_t parsed_uid;
+            it = parse_msg_att_static_uid(input, it, end, parsed_uid.value);
+
+            out_result = std::move(parsed_uid);	    
             break;
         }
         case IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_INTERNALDATE: {
@@ -1722,6 +1744,9 @@ const ast_record* parse_msg_att_static(std::string_view input,
             it = parse_msg_att_static_rfc822_size(input, it, end, parsed_size);
             out_result = MsgAttrRFC822Size{.value = parsed_size};
             break;
+        }
+        default: {
+            log_warning("unexpected attribute returned:\r\n{}", input);
         }
     }
 

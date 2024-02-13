@@ -92,7 +92,9 @@ struct envelope_t {
     std::string message_id;
 };
 
-struct msg_attr_uid_t {};
+struct msg_attr_uid_t {
+    unsigned value;
+};
 struct msg_attr_internaldate_t {};
 using msg_attr_envelope_t = envelope_t;
 
@@ -284,7 +286,7 @@ DEFINE_FMT_FORMATTER(
 //     arg.encoding,
 //     arg.octets);
 
-// DEFINE_FMT_FORMATTER(emailkit::imap_parser::msg_attr_body_structure_t::body_type_text_t,
+// DEFINE_FMT_FORMATTER(emailkit::imap_parser::msg_attr_body_structure_t::body_type_text_t,p
 //                      "body_type_text_t(media_subtype: {}, body_fields: {})",
 //                      arg.media_subtype,
 //                      arg.body_fields);
