@@ -31,6 +31,37 @@ constexpr std::string_view strip_fpath(std::string_view fpath) {
 
 static_assert(strip_fpath("a/b/c") == "c");
 
+namespace {
+struct rgb_color {
+    rgb_color() = default;
+    rgb_color(int r, int g, int b) : r(r), g(g), b(b) {}
+    int r = 0;
+    int g = 0;
+    int b = 0;
+};
+
+rgb_color to_rgb(fmt::color c) {
+    const uint32_t color_value = static_cast<uint32_t>(c);
+    auto b = static_cast<uint8_t>(color_value & 0x000000FF);
+    auto g = static_cast<uint8_t>((color_value & 0x0000FF00) >> 8);
+    auto r = static_cast<uint8_t>((color_value & 0x00FF0000) >> 16);
+    return rgb_color(r, g, b);
+}
+
+fmt::color from_rgb(rgb_color c) {
+    return static_cast<fmt::color>(c.r << 16 | c.g << 8 | c.b);
+}
+
+fmt::color lighter(fmt::color c, double percents) {
+    // assert(percents >= 0.0 && percents <= 1.0);
+    auto [r, g, b] = to_rgb(c);
+    r = std::clamp(r + static_cast<unsigned>(r * percents), 0u, 255u);
+    g = std::clamp(g + static_cast<unsigned>(g * percents), 0u, 255u);
+    b = std::clamp(b + static_cast<unsigned>(b * percents), 0u, 255u);
+    return from_rgb(rgb_color(r, g, b));
+}
+}  // namespace
+
 template <class Fmt, class... Args>
 void log_impl(log_level_t level, int line, std::string_view file_name, Fmt fmt, Args&&... args) {
     static bool log_level_read = false;
@@ -74,6 +105,22 @@ void log_impl(log_level_t level, int line, std::string_view file_name, Fmt fmt, 
         }
         return fmt::text_style{};
     })();
+    const auto darker_style = ([level, at_tty] {
+        if (!at_tty) {
+            return fmt::text_style{};
+        }
+        switch (level) {
+            case log_level_t::debug:
+                return fmt::fg(lighter(fmt::color::light_gray, -0.3));
+            case log_level_t::info:
+                return fmt::fg(lighter(fmt::color::gray, -0.3));
+            case log_level_t::warning:
+                return fmt::bg(fmt::color::yellow) | fmt::fg(fmt::color::black);
+            case log_level_t::error:
+                return fmt::bg(fmt::color::indian_red) | fmt::fg(fmt::color::white);
+        }
+        return fmt::text_style{};
+    })();
 
     const auto lvl_s = [level]() -> std::string_view {
         switch (level) {
@@ -95,7 +142,7 @@ void log_impl(log_level_t level, int line, std::string_view file_name, Fmt fmt, 
 
     fmt::print(stdout, style, "{:<4}:  {}  ", curr_ms, lvl_s);
     fmt::vprint(stdout, style, fmt, fmt::make_format_args(args...));
-    fmt::print(stdout, style, " ({}:{}) ", strip_fpath(file_name), line);
+    fmt::print(stdout, darker_style, " ({}:{}) ", strip_fpath(file_name), line);
     fmt::print(stdout, "\n");
 }
 

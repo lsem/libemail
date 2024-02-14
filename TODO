@@ -1,2 +1,3 @@
 1) parse rfc headers and bodies with gmime.
 2) write a program which can display a list of items in UI with email subjects (decoded unicode and flags). QT can be used I guess or cmdline.
+3) handle threads by using References and In-Reply-To (https://stackoverflow.com/questions/45690336/do-all-email-clients-use-in-reply-to-field-in-email-header)

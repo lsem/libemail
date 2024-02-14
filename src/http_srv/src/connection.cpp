@@ -12,6 +12,8 @@ class connection_t_impl : public connection_t,
     explicit connection_t_impl(asio::io_context& ctx, asio::ip::tcp::socket s, host_callbacks_t cbs)
         : m_ctx(ctx), m_socket(std::move(s)), m_cbs(std::move(cbs)) {}
 
+    ~connection_t_impl() { log_debug("connection_t_impl"); }
+
     virtual void start() override {
         log_debug("starting communication on socket: {}",
                   m_socket.local_endpoint().address().to_string());
@@ -20,9 +22,9 @@ class connection_t_impl : public connection_t,
 
     virtual std::error_code stop() override {
         log_debug("closing socket: {}", m_socket.local_endpoint().address().to_string());
-	std::error_code ec;
+        std::error_code ec;
         m_socket.close(ec);
-	return ec;
+        return ec;
     }
 
     void do_read() {
@@ -31,7 +33,12 @@ class connection_t_impl : public connection_t,
                                                              std::error_code ec,
                                                              size_t bytes_transfered) {
             if (ec) {
-                log_error("async_read_some failed: {}", ec);
+                if (ec != asio::error::eof) {
+                    log_error("async_read_some failed: {}", ec);
+                } else {
+                    log_debug("async_read_some got eof");
+                }
+
                 // TODO: raise error up to host to indicate that this one has failed.
                 // TODO: handle a case when connection was closed by server (eof).
                 // operation aborted may be OK for us, in case it is we who initiated closing.
@@ -118,6 +125,7 @@ class connection_t_impl : public connection_t,
                               std::error_code ignored_ec;
                               this_.m_socket.shutdown(asio::ip::tcp::socket::shutdown_both,
                                                       ignored_ec);
+                              log_debug("shutdown done: {}", ignored_ec);
                           });
     }
 

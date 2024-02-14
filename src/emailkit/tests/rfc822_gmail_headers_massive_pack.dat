@@ -1,0 +1,84 @@
+Delivered-To: liubomyr.semkiv.test@gmail.com
+Received: by 2002:a05:6022:4216:b0:4d:e64e:7241 with SMTP id r22csp2529100laa;
+ Tue, 13 Feb 2024 22:58:55 -0800 (PST)
+X-Received: by 2002:ae9:e017:0:b0:783:f7ab:a6ac with SMTP id
+ m23-20020ae9e017000000b00783f7aba6acmr1569403qkk.40.1707893935662; Tue, 13
+ Feb 2024 22:58:55 -0800 (PST)
+ARC-Seal: i=1; a=rsa-sha256; t=1707893935; cv=none; d=google.com;
+ s=arc-20160816;
+ b=f00SZO43EDbz2uxuFwaoY0OV29pkvjHqlc8b1GRsEofJ23iNAzF2nI0VN1IhIw+yzG
+ 98tCz6XjmbAHDXw0e8lN7Pje26r4JbdZxvHkSz0ohJWoRpegVotrGG/dAYfbKlQbWAvn
+ LMLX9CXqNlX1Us+gP/pQg1PV1BSt1NANhpoehHSzD99L6ipiFLHFTXDIZxiUNfJCIDsP
+ LY0P9W6HY3X7ZQSprS6OVlANtuaE7t1Ck/JRnyddaqbwqOgJT25x1Oq/O5LbM0EHvshA
+ cYMCPsyEuKZTmUkIZx0LACyvs+cS66qJz1x8aGQQaRpMXNzpXLaFmn5vulNAhXdPGeYD ZDQQ==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=google.com;
+ s=arc-20160816; h=to:from:subject:message-id:feedback-id:date:mime-version
+ :dkim-signature; bh=WGIb/N4dYjHx82cjLvjEiUnw+Eerca30htptwsX0doQ=;
+ fh=1zkAi9o+vzD85vq3JArTIZeR0b1cTGuq48lTYIBsJYE=;
+ b=NFlz+9rQXv+gXH2o8uAFnZfVG4UFoyEb+FHqhymDh4VeiMqpm5Fbm2uOsOZzhaodI/
+ Zrj5kxCX254iGytau2FHH7SC2yLHirtc17uEf0OxwCR0qH/mtbX6JM2x2nVVgnMTsYb+
+ wbqszisxug+JUilI1Bz8jEzp3hWa6qUnG/aRjBWwUJDq6lb1w9BUogLfkNMJUF/pcVVY
+ o+m2uPOyqkYa1RTGf0WiJ37j9DBCbuLbM8DQdUWkEwjOr+aU4aOZD0bVm9HjOo2ahKS0
+ 8wJ4HIXqj2+cjSXM/PxV4+mGhGuazN7tvygbWmn1G2MAGYIY5B0TOuuwwhcoz/itXV5V N1zQ==;
+ dara=google.com
+ARC-Authentication-Results: i=1; mx.google.com; dkim=pass
+ header.i=@accounts.google.com header.s=20230601 header.b=C4kf1O0W; spf=pass
+ (google.com: domain of
+ 3r2tmzqgtan4no-replyaccounts.google.com@gaia.bounces.google.com designates
+ 209.85.220.73 as permitted sender)
+ smtp.mailfrom=3r2TMZQgTAN4NO-REPLYACCOUNTS.GOOGLE.COM@gaia.bounces.google.com;
+ dmarc=pass (p=REJECT sp=REJECT dis=NONE) header.from=accounts.google.com
+Return-Path: <3r2TMZQgTAN4NO-REPLYACCOUNTS.GOOGLE.COM@gaia.bounces.google.com>
+Received: from mail-sor-f73.google.com (mail-sor-f73.google.com.
+ [209.85.220.73]) by mx.google.com with SMTPS id
+ vu18-20020a05620a561200b00785d8db7b7bsor360964qkn.10.2024.02.13.22.58.55 for
+ <liubomyr.semkiv.test@gmail.com> (Google Transport Security); Tue, 13 Feb
+ 2024 22:58:55 -0800 (PST)
+Received-SPF: pass (google.com: domain of
+ 3r2tmzqgtan4no-replyaccounts.google.com@gaia.bounces.google.com designates
+ 209.85.220.73 as permitted sender) client-ip=209.85.220.73;
+Authentication-Results: mx.google.com; dkim=pass header.i=@accounts.google.com
+ header.s=20230601 header.b=C4kf1O0W; spf=pass (google.com: domain of
+ 3r2tmzqgtan4no-replyaccounts.google.com@gaia.bounces.google.com designates
+ 209.85.220.73 as permitted sender)
+ smtp.mailfrom=3r2TMZQgTAN4NO-REPLYACCOUNTS.GOOGLE.COM@gaia.bounces.google.com;
+ dmarc=pass (p=REJECT sp=REJECT dis=NONE) header.from=accounts.google.com
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=accounts.google.com;
+ s=20230601; t=1707893935; x=1708498735; dara=google.com;
+ h=to:from:subject:message-id:feedback-id:date:mime-version:from:to:cc
+ :subject:date:message-id:reply-to;
+ bh=WGIb/N4dYjHx82cjLvjEiUnw+Eerca30htptwsX0doQ=;
+ b=C4kf1O0WW19JWOafZ5sQsh3ACzAIX6mj123nSQqw0QKNYXhhnjJergYYsAFYkxoF+r
+ NywLTcyAe++rqWt+RnbZItpyOth+wZW2RU+wNfV3RNnhz37XT3WxX+R4ETISZL8VpaAc
+ 0iNiGcif+uTxIdIpjui664f7TZTgZqJezKjV9i3Ial3SiiFKOfyw/exiP+LI40kkp4Y5
+ 4l/iGBmxz+5ZpR2Cevx66I2aTvl6FQ1uMFTeWwnJjUGXhpZWMei95jRUZIPaCn87PN9W
+ N4qaIBzG29V9bQgRPLwcgSS8Xgqq1WQEevWypMhzYkAWwl9eISC8Th7v6TQz8qgfq8f/ SHJw==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=1e100.net;
+ s=20230601; t=1707893935; x=1708498735;
+ h=to:from:subject:message-id:feedback-id:date:mime-version
+ :x-gm-message-state:from:to:cc:subject:date:message-id:reply-to;
+ bh=WGIb/N4dYjHx82cjLvjEiUnw+Eerca30htptwsX0doQ=;
+ b=XSO3jvdiUvx0ffKKfQxqFf4O9qQjeyH7ibizA1CzLuJKntfG6NjrKXgq6U1Yxs/tib
+ jX78SqYsxBFnmfPP4li4qIEST9wHSq2x7wUwFTVGdrfNvPJvJ0OdpPKC93ZedQaRHRxE
+ oI5rmCgJrq/5nALuizh25eKq6uIiuSkhdwhG8izzq3+WGTy0v5RuB9vIUjlcpwkGBBPA
+ abTxI6oBitEj/HkUnOvH06TlsZlE0j1OoyGlZWIT7zivikcEp/Cj3zk81CrtgGXLqYsQ
+ hV6Ca1JYrRMbZN+ViKpmiZKeT0AT1vtzBkUtLycldvAxyeJIiL+madu+lTs3g1AWDayh G00Q==
+X-Gm-Message-State: AOJu0YzBz87Vlhiji17c1HJhw2AkVWYX5VQ4YFmwMUowjzQrBSaWFWRb
+ PR1q9T+/NJr2Ea58KQzqja1S+9fO0fTchwikYQukotZuPhHU/gmqRSCxx2wZBw5/0RELO6LpcuC
+ 1oBDmtPU1pILPwBVHi0hPijXtFkjdh8ygsHZohQ==
+X-Google-Smtp-Source: AGHT+IHrrULe2+8ceWq6ipZcMckJgYDVlNPtASDzl6/lA/pGnz85NEEbXSbY8yCIT8CysGNkwMU39kZzi1m5+4KigANTkg==
+MIME-Version: 1.0
+X-Received: by 2002:a05:620a:4ada:b0:785:cd6a:27ce with SMTP id
+ sq26-20020a05620a4ada00b00785cd6a27cemr1793415qkn.26.1707893935230; Tue, 13
+ Feb 2024 22:58:55 -0800 (PST)
+Date: Wed, 14 Feb 2024 06:58:54 GMT
+X-Account-Notification-Type: 127
+Feedback-ID: 127:account-notifier
+X-Notifications: 8c084bc755cc0000
+X-Notifications-Bounce-Info: AaJ7rEos4q9ELB9zvHRgvvnm7Hu3gD55nGCADaZ_8B--ZBNfUNdhZkLzJp__xRg56SVOPHrIKOi-ljsAdIInNbJBoNWmJC6uoq6TAiKokOsFfvfIbcxZcB1sOcQ0W4AWHM5Rb303Ae4iFPRjbKROvxzTiu2v2Kvw9r0wyrbtmYd8-jrhz6rmWWRgiGs3uOcMxFnqxJGFuSPmYvHwT-2y5pieceBANjAwNjA0MDQxNTM1NTk2OTMzMg
+Message-ID: <W4coKWvd8dMGVXhGXVWxjA@notifications.google.com>
+Subject: =?UTF-8?B?0KHQv9C+0LLRltGJ0LXQvdC90Y8g0YHQuNGB0YLQtdC80Lgg0LHQtdC30L/QtdC60Lg=?=
+From: Google <no-reply@accounts.google.com>
+To: liubomyr.semkiv.test@gmail.com
+Content-Type: multipart/alternative; boundary="00000000000052cfaf0611520bad"
+

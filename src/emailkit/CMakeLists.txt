@@ -58,3 +58,6 @@ target_link_options(emailkit-tests PRIVATE "-fsanitize=address")
 configure_file(tests/newcert.pem ${CMAKE_BINARY_DIR}/)
 configure_file(tests/privkey.pem ${CMAKE_BINARY_DIR}/)
 configure_file(tests/rfc822_gmail_msg.dat ${CMAKE_BINARY_DIR}/)
+configure_file(tests/rfc822_gmail_headers_massive_pack.dat ${CMAKE_BINARY_DIR}/)
+configure_file(tests/rfc822_gmail_msg__utf8_subject.dat ${CMAKE_BINARY_DIR}/)
+

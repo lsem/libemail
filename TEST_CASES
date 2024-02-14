@@ -30,3 +30,4 @@ S: A2 OK [READ-WRITE] INBOX selected. (Success)
 C: A3 fetch 1:* (BODY.PEEK[MIME])
 S: A3 BAD Could not parse command
 
+# We are using 8089 for authentication but in fact it may be already in use. So we should have a feature that intellectually probes different ports until it finds free one. It also worth to check with Internet if there are better solutions.
