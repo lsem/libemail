@@ -1,0 +1,12 @@
+# ROADMAP
+
+1. Create IMAP Client of descent quality.
+2. Create MailerApp C++ app,  minimal MailerAppCache (+persistance for it), Minimal MailerTree, MailerEmailsList.
+3. Create UI and make it usable for read-only mode. At this moment, the App can be evaluated by Valera and Me. Whether we like it or not.
+4. If it is nice, the next step would be to support creating and sending emails. Still minimal.
+5. If we still like it, make a phase for improving quality. Manual tests and bug fixing, unit tests, TODOs, etc.. After this phase, the application should be noticeablt more stable. Stable enough so we can share it with some volounters for testing (3-5 people).
+6. Based on initial feadback, implementing some features and fixing some bugs, adding planned yet not implemented yet basic features. At this point we should have 95% feature complete App that can we ask money for.
+7. Stabilization. We should fix all bugs that can be found at this stage. Real QA phase and real bug fixing.
+8. Marketing strategy development, discussing with knowledgable people.
+9. Plan for support, moneyback, bug reporting, SLA, etc.. This should become a product.
+10. Release and first sells.
