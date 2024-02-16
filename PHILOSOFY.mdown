@@ -1,0 +1,8 @@
+# PHILOSOFY
+
+- It should look great. This is one of the reasons why a category of people pay for applications.
+- It should be correct. It should not crash, it should not have a ton of bugs. It should feel as high quality, commercial product.
+- It should be modern. It should have modern features, modern settings, modern implementation (async, fast, sophisticated).
+- It should support two models: Subscription and Pay-For-Version.
+- You don't pay for what you don't use. If we add a feature, it should ideally be not super visible. It should be somehow discoverable but if my use cases and my style does not require this feature, it should be possible to not see it.
+- Reasonable settings. In modern Apps usually there are less settings but IOS and Mac are known to have good balance of settings. E.g. we may have a setting that defines what is preferable style of writing mails (Markdown or HTML) (just an example, we can alternatively use last-recently-used selection approach). Settings are good when we cannot make strong assumption about user behavior.

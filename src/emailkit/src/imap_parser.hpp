@@ -6,6 +6,10 @@
 
 namespace emailkit::imap_parser {
 
+expected<void> initialize();
+
+expected<void> finalize();
+
 expected<list_response_t> parse_list_response_line(std::string_view input);
 
 expected<std::vector<mailbox_data_t>> parse_mailbox_data_records(std::string_view input_text);
@@ -24,7 +28,7 @@ enum class parser_errc {
     parser_fail_l1,
 
     // at grammar level parsing is OK, but downstream parsers provided by 3rd-party parsers failed.
-    parser_fail_l2,    
+    parser_fail_l2,
 };
 
 std::error_code make_error_code(parser_errc);

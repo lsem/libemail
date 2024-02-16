@@ -11,8 +11,8 @@ using namespace emailkit::imap_parser;
 
 class rfc822_parser_tests : public ::testing::Test {
    public:
-    static void SetUpTestCase()  { ASSERT_TRUE(rfc822::initialize()); }
-    static void TearDownTestCase()  { ASSERT_TRUE(rfc822::finalize()); }
+    static void SetUpTestCase() { ASSERT_TRUE(rfc822::initialize()); }
+    static void TearDownTestCase() { ASSERT_TRUE(rfc822::finalize()); }
 };
 
 TEST_F(rfc822_parser_tests, parse_headers_from_full_message_test) {

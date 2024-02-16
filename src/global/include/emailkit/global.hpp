@@ -54,7 +54,11 @@ class EnableUseThis : public std::enable_shared_from_this<T> {
                     fn = std::move(fn)](std::error_code ec) mutable {
                 auto this_shared = this_weak.lock();
                 if (!this_shared) {
-                    cb(make_error_code(std::errc::owner_dead));
+                    if constexpr (std::is_invocable_v<decltype(cb), std::error_code>) {
+                        cb(make_error_code(std::errc::owner_dead));
+                    } else {
+                        cb(make_error_code(std::errc::owner_dead), {});
+                    }
                 } else {
                     fn(*this_shared, ec, std::move(cb));
                 }
@@ -64,7 +68,11 @@ class EnableUseThis : public std::enable_shared_from_this<T> {
                        std::error_code ec, auto r) mutable {
                 auto this_shared = this_weak.lock();
                 if (!this_shared) {
-                    cb(make_error_code(std::errc::owner_dead));
+                    if constexpr (std::is_invocable_v<decltype(cb), std::error_code>) {
+                        cb(make_error_code(std::errc::owner_dead));
+                    } else {
+                        cb(make_error_code(std::errc::owner_dead), {});
+                    }
                 } else {
                     fn(*this_shared, ec, std::move(r), std::move(cb));
                 }
@@ -73,13 +81,16 @@ class EnableUseThis : public std::enable_shared_from_this<T> {
     }
 };
 
-#define ASYNC_RETURN_ON_ERROR(Ec, Cb, Msg) \
-    do {                                   \
-        if (ec) {                          \
-            log_error("{}: {}", Msg, ec);  \
-            cb(ec);                        \
-            return;                        \
-        }                                  \
+#define ASYNC_RETURN_ON_ERROR(Ec, Cb, Msg)                                    \
+    do {                                                                      \
+        if (ec) {                                                             \
+            log_error("{}: {}", Msg, ec);                                     \
+            if constexpr (std::is_invocable_v<decltype(Cb), std::error_code>) \
+                cb(ec);                                                       \
+            else                                                              \
+                cb(ec, {});                                                   \
+            return;                                                           \
+        }                                                                     \
     } while (false)
 
 template <typename... Ts>

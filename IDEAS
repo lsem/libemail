@@ -18,3 +18,5 @@ while data is send/received and see that we detected problems, communicated them
 is avaialble again, continuted transfer and connection health became green. Or dynamic network switching between networks to ensure that socket wotks as expected even though underlying connection has changed.
 
 # Non functional feature: measure how fast parsing of responses is. Profiling.
+
+# Is there something very minimal in terms of scripting that some user may benefit from? E.g. what if the client can be run as a script to do some work like downloading all emails? Isn't that is cool? Or we can have some scripts that allow use to automate they work. There could be a number of programmers that would buy the program if this fature is availalble.

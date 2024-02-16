@@ -1,8 +1,10 @@
+#include <emailkit/global.hpp>
 #include "imap_client.hpp"
 #include "imap_socket.hpp"
 #include "utils.hpp"
 
 #include "imap_parser.hpp"
+#include "imap_parser__rfc822.hpp"
 #include "imap_parser_utils.hpp"
 
 #include <rapidjson/document.h>
@@ -75,7 +77,7 @@ expected<std::string> encode_cmd(const fetch_t& cmd) {
 }  // namespace imap_commands
 
 namespace {
-class imap_client_impl_t : public imap_client_t {
+class imap_client_impl_t : public imap_client_t, public EnableUseThis<imap_client_impl_t> {
    public:
     explicit imap_client_impl_t(asio::io_context& ctx) : m_ctx(ctx) {}
 
@@ -562,6 +564,17 @@ class imap_client_impl_t : public imap_client_t {
                 return;
             }
 
+            // TODO: parse rfc822.
+            // // The header may contain or not data. But headers should be there.
+            // auto headers_or_err =
+            // rfc822::parse_headers_from_rfc822_message(parsed_rfc822_message); if
+            // (!headers_or_err) {
+            //     log_error("failed parsing headers from rfc822: {}", headers_or_err.error());
+            //     // TODO: Fail?
+            // } else {
+            //     out_rfc822.headers = std::move(*headers_or_err);
+            // }
+
             cb({}, types::fetch_response_t{.message_data_items =
                                                std::move(*message_data_records_or_err)});
 
@@ -605,6 +618,102 @@ class imap_client_impl_t : public imap_client_t {
         });
     }
 
+    ////////////////////////////////////////////////////////////////////////////////////////
+
+    void async_list_mailboxes(async_callback<ListMailboxesResult> cb) override {
+        async_execute_command(
+            imap_commands::list_t{.reference_name = "", .mailbox_name = "*"},
+            use_this(std::move(cb), [](auto& this_, std::error_code ec,
+                                       types::list_response_t response, auto cb) mutable {
+                ASYNC_RETURN_ON_ERROR(ec, cb, "async list command failed");
+                // TODO: this is not final. Just a stupid remap for now.
+                // Here is a something looking like RFC for flags.
+                // It should be checked if this Standard/Extension is possible to query via
+                // CAPABILITIES command but it looks primising. If this is true, we can decode this
+                // names into enumeration. And know what is JUNK folder in RFC standard way:
+                // IMAP LIST extension for special-use mailboxes draft-ietf-morg-list-specialuse-02
+                // https://datatracker.ietf.org/doc/id/draft-ietf-morg-list-specialuse-02.html
+
+                cb({}, ListMailboxesResult{.raw_response = std::move(response)});
+            }));
+    }
+
+    void async_select_mailbox(std::string inbox_name,
+                              async_callback<SelectMailboxResult> cb) override {
+        async_execute_command(
+            imap_commands::select_t{.mailbox_name = inbox_name},
+            use_this(std::move(cb), [](auto& this_, std::error_code ec,
+                                       types::select_response_t response, auto cb) mutable {
+                ASYNC_RETURN_ON_ERROR(ec, cb, "async select command failed");
+
+                log_debug("selected INBOX folder (exists: {}, recents: {})", response.exists,
+                          response.recents);
+                cb({}, {.exists = response.exists, .recents = response.recents});
+            }));
+    }
+
+    void async_list_items(int from, std::optional<int> to, async_callback<void> cb) override {
+        async_execute_command(
+            imap_commands::fetch_t{
+                .sequence_set = imap_commands::raw_fetch_sequence_spec{fmt::format(
+                    "{}:{}", from, to.has_value() ? std::to_string(*to) : "*")},
+                .items =
+                    imap_commands::fetch_items_vec_t{
+                        imap_commands::fetch_items::uid_t{},
+                        imap_commands::fetch_items::body_structure_t{},
+                        imap_commands::fetch_items::rfc822_header_t{}}},
+            use_this(std::move(cb), [](auto& this_, std::error_code ec,
+                                       types::fetch_response_t response, auto cb) {
+                ASYNC_RETURN_ON_ERROR(ec, cb, "async fetch command failed");
+
+                for (auto& [message_number, static_attributes] : response.message_data_items) {
+                    unsigned uid_value = 0;
+                    if (static_attributes.size() > 3) {
+                        log_warning(
+                            "unexpected static attributes alongside of bodystructure, will be "
+                            "ignored ({})",
+                            static_attributes.size());
+                    }
+
+                    for (auto& sattr : static_attributes) {
+                        if (std::holds_alternative<emailkit::imap_parser::wip::Body>(sattr)) {
+                            auto& as_body = std::get<emailkit::imap_parser::wip::Body>(sattr);
+                            // traverse_body(as_body);
+                            log_info(
+                                "--------------------------------------------------------------");
+                        } else if (std::holds_alternative<emailkit::imap_parser::msg_attr_uid_t>(
+                                       sattr)) {
+                            auto& as_uid = std::get<emailkit::imap_parser::msg_attr_uid_t>(sattr);
+                            uid_value = as_uid.value;
+                            log_info("UID: {}", uid_value);
+
+                        } else if (std::holds_alternative<emailkit::imap_parser::MsgAttrRFC822>(
+                                       sattr)) {
+                            auto& as_rfc822 = std::get<emailkit::imap_parser::MsgAttrRFC822>(sattr);
+                            auto parsed_headers_or_err =
+                                imap_parser::rfc822::parse_headers_from_rfc822_message(
+                                    as_rfc822.msg_data);
+                            if (!parsed_headers_or_err) {
+                                // TODO: here we should be able to produce somehow an error item
+                                // instead of failing parsing completely. This will allow to have
+                                // special handling in the App and put bad item in the list.
+                                log_error("failed parsing rfc822 headers for a message: {}",
+                                          message_number);
+                                cb(make_error_code(std::errc::io_error));
+                                return;
+                            }
+                        } else {
+                            log_warning("ignoring unexpected non-bodystructure static attribute");
+                            continue;
+                        }
+                    }
+                }
+                cb({});
+            }));
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////
+
     // read input line by line until tagged line received. Returns raw, unparsed bytes.
     void async_receive_response_until_tagged_line(imap_socket_t& socket,
                                                   std::string tag,
@@ -621,8 +730,8 @@ class imap_client_impl_t : public imap_client_t {
 
             log_debug("received raw line");
 
-            // check if line is tagged response (TODO: do it right, with parser or make sure it
-            // is correct according to the grammar)
+            // check if line is tagged response (TODO: do it right, with parser or make sure
+            // it is correct according to the grammar)
             bool stop_reading = false;
             if (line.rfind(tag, 0) == 0) {
                 log_debug("got tagged reply in line '{}', stop reading..", line);

@@ -43,8 +43,7 @@ target_link_libraries(emailkit-tests
     PRIVATE
         emailkit::emailkit
         GTest::gtest
-        GTest::gmock
-        GTest::gtest_main)
+        GTest::gmock)
 
 target_compile_options(emailkit-tests PRIVATE "-fsanitize=address")
 target_link_options(emailkit-tests PRIVATE "-fsanitize=address")

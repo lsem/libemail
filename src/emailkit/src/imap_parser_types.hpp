@@ -95,6 +95,8 @@ struct envelope_t {
 struct msg_attr_uid_t {
     unsigned value;
 };
+
+using MsgAttrUID = msg_attr_uid_t;
 struct msg_attr_internaldate_t {};
 using msg_attr_envelope_t = envelope_t;
 
@@ -115,6 +117,9 @@ static const std::string enc_quoted_pritable = "QUOTED-PRINTABLE";
 }  // namespace standard_field_encodings
 
 using param_value_t = std::pair<std::string, std::string>;
+
+using rfc822_headers_t = std::vector<std::pair<std::string, std::string>>;
+using RFC822Headers = rfc822_headers_t;
 
 namespace wip {
 using namespace std;
@@ -183,7 +188,9 @@ struct BodyTypeMPart {
 }  // namespace wip
 
 struct MsgAttrBodySection {};
-struct MsgAttrRFC822 {};
+struct MsgAttrRFC822 {
+    std::string msg_data;
+};
 struct MsgAttrRFC822Size {
     uint32_t value = 0;
 };
@@ -239,8 +246,6 @@ static const std::string x_gm_message_state = "X-Gm-Message-State";
 static const std::string x_google_smtp_source = "X-Google-Smtp-Source";
 static const std::string mime_version = "MIME-Version";
 }  // namespace envelope_fields
-
-using rfc822_headers_t = std::vector<std::pair<std::string, std::string>>;
 
 namespace utils {
 std::vector<std::string> decode_mailbox_path_from_list_response(const list_response_t& r);

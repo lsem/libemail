@@ -93,147 +93,44 @@ class EmailAppCoreImpl : public EmailAppCore, public EnableUseThis<EmailAppCoreI
     }
 
     void start_autonomous_activities() {
-        // What are App activities?
-        // First, we need to find if we have a database for this account already. If so, then we
-        // should find out if our local version (if any) is the same. If we don't have one, we
-        // rebuild build the cache from stratch by first downloading all data and then processing
-        // it.
-
         async_callback<void> local_sink_cb = [](std::error_code ec) {
-            // ..
+            if (ec) {
+                log_error("cannot start autonomous activities, error occurred: {}", ec);
+            } else {
+                log_info("autonomous activities have been started");
+            }
         };
 
         using namespace emailkit::imap_client;
 
-        // list_t command returns a list of folders on mail server.
-        // Typical Gmail mail server can look like:
-        //     {inbox_path: ["INBOX"], flags: ["\\HasNoChildren"]}
-        //     {inbox_path: ["[Gmail]"], flags: ["\\HasChildren", "\\Noselect"]}
-        //     {inbox_path: ["[Gmail]", "Із зірочкою"], flags: ["\\Flagged", "\\HasNoChildren"]}
-        //     {inbox_path: ["[Gmail]", "Важливо"], flags: ["\\HasNoChildren", "\\Important"]}
-        //     {inbox_path: ["[Gmail]", "Кошик"], flags: ["\\HasNoChildren", "\\Trash"]}
-        //     {inbox_path: ["[Gmail]", "Надіслані"], flags: ["\\HasNoChildren", "\\Sent"]}
-        //     {inbox_path: ["[Gmail]", "Спам"], flags: ["\\HasNoChildren", "\\Junk"]}
-        //     {inbox_path: ["[Gmail]", "Уся пошта"], flags: ["\\All", "\\HasNoChildren"]}
-        //     {inbox_path: ["[Gmail]", "Чернетки"], flags: ["\\Drafts", "\\HasNoChildren"]}
+        m_imap_client->async_list_mailboxes(use_this(
+            std::move(local_sink_cb),
+            [](auto& this_, std::error_code ec, imap_client_t::ListMailboxesResult result,
+               auto cb) mutable {
+                ASYNC_RETURN_ON_ERROR(ec, cb, "async list mailboxes failed");
+                log_info("executed list_mailboxes:\n{}",
+                         fmt::join(result.raw_response.inbox_list, "\n"));
 
-        m_imap_client->async_execute_command(
-            imap_commands::list_t{.reference_name = "", .mailbox_name = "*"},
-            use_this(std::move(local_sink_cb), [](auto& this_, std::error_code ec,
-                                                  types::list_response_t response,
-                                                  auto cb) mutable {
-                ASYNC_RETURN_ON_ERROR(ec, cb, "async list command failed");
-
-                log_info("executed list command:\n{}", fmt::join(response.inbox_list, "\n"));
-
-                // The next step is to select some folder. We select INBOX first for this demo.
-                // But sholud select all folders to build the cache.
-                this_.m_imap_client->async_execute_command(
-                    imap_commands::select_t{.mailbox_name = "INBOX"},
+                // TODO: here we do select of hardcoded name which means 'default on this serverfor
+                // this user' but we should probably dig more into this.
+                this_.m_imap_client->async_select_mailbox(
+                    "INBOX",
                     this_.use_this(std::move(cb), [](auto& this_, std::error_code ec,
-                                                     types::select_response_t response,
+                                                     imap_client_t::SelectMailboxResult result,
                                                      auto cb) mutable {
-                        ASYNC_RETURN_ON_ERROR(ec, cb, "async select command failed");
+                        ASYNC_RETURN_ON_ERROR(ec, cb, "async select mailbox failed");
+                        log_info("selected INBOX folder (exists: {}, recents: {})", result.exists,
+                                 result.recents);
 
-                        log_info("selected INBOX folder (exists: {}, recents: {})", response.exists,
-                                 response.recents);
-
-                        // The nest step after selection is fetching emails or heders for
-                        // emails.
-
-                        // 			     IMAP was originally developed for the older
-                        // [RFC-822] standard, and as a consequence several fetch items in IMAP
-                        // incorporate "RFC822" in their name.  With the exception of
-                        // RFC822.SIZE, there are more modern replacements; for example, the
-                        // modern version of RFC822.HEADER is BODY.PEEK[HEADER].  In all cases,
-                        // "RFC822" should be interpreted as a reference to the updated
-                        // [RFC-2822] standard.
-
-                        // Normally we should load emails by portions, say 10, 10, 10..
-                        // If we hit a problem in some 10 with parsing, we can degrade to
-                        // parsing individual emails and find a one which is not working and
-                        // produce dummy entry instead so that in UI we can show something
-                        // meaningful. The parser should be implemented in separate process with
-                        // this design. This is going to be slow but we can probably optimize
-                        // this part as part of separate release. We just need to have async
-                        // interface to parser in the first place.
-
-                        // If we have async inrerface to a module that parses IMAP
-                        // and returns well known JSON, this can help to deal with parsing
-                        // errors. To be effective we should also have a system that if some
-                        // process crashes, we use spare process that is ready to accept data
-                        // from us. In the same time, we can keep two more spare processes. On
-                        // windows this is going to be slower. We can also detect hangs. With
-                        // this, we can build reliable system for working with emails that can
-                        // deal with things we cannot parse.
-                        // The question remains whether we should download data from the server
-                        // in the main process or not.
-                        // There are drawback of this approach:
-                        //  if we get helper process connected to the server, then it needs to
-                        // be authenticated and own a socket. If it crashes because of parsing
-                        // issue in individual email, we lose everything and need to reauth
-                        // again.
-                        // In the same time this creates even more isolation and encapsulation
-                        // which enables nice testing by issuing command to proxe process and
-                        // receive nice JSON's instead. This is like standalone cool piece of
-                        // software which works as IMAP relay.
-                        // Internally this piece of software can be orgianlized similarly to
-                        // Git. Where we have a set of low level functions and we can create
-                        // high level function using only low level. So whenever we have new use
-                        // case, we scale horizontally by adding completely new code that uses
-                        // well tested foundations of smaller functions.
-                        // One more appraoch to this is to have two level: one process per email
-                        // which owns a socket and set of processes that parse in separate
-                        // process. This is kind of grotescue approach and more complicated
-                        // but this way we can abstract out even more from things including
-                        // ASIO.
-                        // One of the questions with this design is how to communicate with
-                        // external program. IO can be done be stdin/stdout using JSON as data
-                        // format. But first lets prototype one simple idea: 1) Download and
-                        // parse bodystructures for all documents so we can understand what are
-                        // emails, what are their subjects, what are they attachments and what
-                        // types they are, and all other useful metadata. With this function we
-                        // can build local cache. Having this cache we next need to learn how to
-                        // maintain this cache in actual state and update it incrementally.
-                        // With this cache we can build some first UI that can display a list of
-                        // emails, and build a tree. If this works, we can then think how to
-                        // rework it into external process architecture.
-
-                        this_.m_imap_client->async_execute_command(
-                            imap_commands::fetch_t{
-                                .sequence_set = imap_commands::raw_fetch_sequence_spec{"1:*"},
-                                .items =
-                                    imap_commands::fetch_items_vec_t{
-                                        //					"BODY.PEEK[1.MIME]"}
-                                        imap_commands::fetch_items::body_structure_t{},
-                                        imap_commands::fetch_items::uid_t{},
-                                        //                                            imap_commands::fetch_items::envelope_t{},
-                                        imap_commands::fetch_items::rfc822_header_t{}}
-
-                            },
-                            this_.use_this(
-                                std::move(cb), [](auto& this_, std::error_code ec,
-                                                  types::fetch_response_t response, auto cb) {
-                                    ASYNC_RETURN_ON_ERROR(ec, cb, "async fetch command failed");
-
-                                    // Once we have bodystructure, we should parse it and create
-                                    // a prototype of local DB.
-
-                                    this_.process_bodystructure_response(response);
-
-                                    cb({});
-                                }));
+                        this_.m_imap_client->async_list_items(
+                            1, std::nullopt,
+                            this_.use_this(std::move(cb), [](auto& this_, std::error_code ec,
+                                                             auto cb) mutable {
+                                ASYNC_RETURN_ON_ERROR(ec, cb, "async list items failed");
+                                cb({});
+                            }));
                     }));
             }));
-
-        // if (m_accounts.empty()) {
-        //     // The following call is supposed to be capable to obtain some starting credentails.
-        //     m_cbs.async_provide_credentials(use_this(
-        //         std::move(local_sink_cb),
-        //         [](auto& this_, std::error_code ec, std::vector<Account> accounts, auto cb) {
-        //             // ..
-        //         }));
-        // }
     }
 
     void process_bodystructure_response(

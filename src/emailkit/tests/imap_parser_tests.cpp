@@ -477,15 +477,17 @@ TEST(imap_parser_test_, uid) {
     ASSERT_EQ(message_data.size(), 1);
 }
 
-TEST(imap_parser_test_, DISABLED_parse_bodystructure_uid_envelope) {  // Disabled because is not
-                                                                      // working for some reason.
+TEST(imap_parser_test_, parse_bodystructure_uid_envelope) {  // Disabled because is not
+                                                             // working for some reason.
     // C: A3 fetch 1:* (bodystructure uid envelope)
     const std::string response =
         R"(* 5 FETCH (UID 5 ENVELOPE ("Mon, 31 Jul 2023 16:22:11 GMT" "=?UTF-8?B?0KHQv9C+0LLRltGJ0LXQvdC90Y8g0YHQuA==?= =?UTF-8?B?0YHRgtC10LzQuCDQsdC10LfQv9C10LrQuA==?=" (("Google" NIL "no-reply" "accounts.google.com")) (("Google" NIL "no-reply" "accounts.google.com")) (("Google" NIL "no-reply" "accounts.google.com")) ((NIL NIL "liubomyr.semkiv.test" "gmail.com")) NIL NIL NIL "<1hYnffoH3Obfnoeje5ecMw@notifications.google.com>") BODYSTRUCTURE (("TEXT" "PLAIN" ("CHARSET" "UTF-8" "DELSP" "yes" "FORMAT" "flowed") NIL NIL "BASE64" 1320 27 NIL NIL NIL)("TEXT" "HTML" ("CHARSET" "UTF-8") NIL NIL "QUOTED-PRINTABLE" 6486 130 NIL NIL NIL) "ALTERNATIVE" ("BOUNDARY" "0000000000002c939d0601cad5ca") NIL NIL)))"
-        "\r\n"
+        "\r\n\r\n"
         R"(* 19 FETCH (UID 19 ENVELOPE ("Tue, 13 Feb 2024 10:08:06 +0200" "=?UTF-8?B?0LvQuNGB0YIg0Lcg0LLQutC70LDQtNC10L3QvdGP0LzQuA==?=" (("Liubomyr" NIL "liubomyr.semkiv.test" "gmail.com")) (("Liubomyr" NIL "liubomyr.semkiv.test" "gmail.com")) (("Liubomyr" NIL "liubomyr.semkiv.test" "gmail.com")) (("Liubomyr" NIL "liubomyr.semkiv.test" "gmail.com")) NIL NIL NIL "<CA+n06n=V6FqCudRF0iO=-sc8ZFEMiDXGYcTrdTGH-irq=HhjVw@mail.gmail.com>") BODYSTRUCTURE ((("TEXT" "PLAIN" ("CHARSET" "UTF-8") NIL NIL "7BIT"v 2 1 NIL NIL NIL)("TEXT" "HTML" ("CHARSET" "UTF-8") NIL NIL "7BIT" 27 1 NIL NIL NIL) "ALTERNATIVE" ("BOUNDARY" "000000000000f5dbd206113ee45f") NIL NIL)("APPLICATION" "VND.OASIS.OPENDOCUMENT.SPREADSHEET" ("NAME" "metrics_all.xlsx_0.ods") "<f_lsk2zdg20>" NIL "BASE64" 158338 NIL ("ATTACHMENT" ("FILENAME" "metrics_all.xlsx_0.ods")) NIL) "MIXED" ("BOUNDARY" "000000000000f5dbd406113ee461") NIL NIL)))"
         "\r\n"
         "A3 OK Success\r\n";
+
+    std::cerr << response;
     // clang-format on
     auto message_data_or_err = imap_parser::parse_message_data_records(response);
     ASSERT_TRUE(message_data_or_err);
@@ -495,3 +497,71 @@ TEST(imap_parser_test_, DISABLED_parse_bodystructure_uid_envelope) {  // Disable
 }
 
 // TODO: Test for when field param is NIL.
+
+TEST(imap_parser_test_, DISABLED_fetch_bodystructure_uid_rfc822_header) {
+    // C: A3 fetch 1:* (bodystructure uid rfc822.header)
+
+    // TODO: have a test for test client for this case because it involves parsing if literals which
+    // have special handling on socket level.
+
+    const std::string response =
+        "* 26 FETCH (UID 26 RFC822.HEADER {510}\r\n"
+        "MIME-Version: 1.0\r\n"
+        "Date: Wed, 14 Feb 2024 10:33:43 +0200\r\n"
+        "References: <CA+n06n=gaO4yss4F7H_AP2_iPdTDmGU2E0-41bhx3zxquwYbcw@mail.gmail.com>\r\n"
+        "In-Reply-To: <CA+n06n=gaO4yss4F7H_AP2_iPdTDmGU2E0-41bhx3zxquwYbcw@mail.gmail.com>\r\n"
+        "Message-ID: <CA+n06nkGjQikcWQ_pVR1BqbL1M_igb5Ks-kbyG2vBHkeBV4hVg@mail.gmail.com>\r\n"
+        "Subject: Re: new test email\r\n"
+        "From: Liubomyr <liubomyr.semkiv.test@gmail.com>\r\n"
+        "To: Liubomyr <liubomyr.semkiv.test@gmail.com>\r\n"
+        "Content-Type: multipart/alternative; boundary=\"000000000000600a820611535e3b\"\r\n"
+        "\r\n"
+        R"( BODYSTRUCTURE (("TEXT" "PLAIN" ("CHARSET" "UTF-8") NIL NIL "BASE64" 168 4 NIL NIL NIL)("TEXT" "HTML" ("CHARSET" "UTF-8") NIL NIL "QUOTED-PRINTABLE" 513 11 NIL NIL NIL) "ALTERNATIVE" ("BOUNDARY" "000000000000600a820611535e3b") NIL NIL)))"
+        "\r\n"
+        "A3 OK Success\r\n";
+
+    // auto message_data_or_err = imap_parser::parse_message_data_records(response);
+    // ASSERT_TRUE(message_data_or_err);
+
+    // auto& message_data = *message_data_or_err;
+    // ASSERT_EQ(message_data.size(), 1);
+
+    // using namespace emailkit::imap_parser;
+
+    // // We expect that there are three static attributes, bodystructure and parsed rfc822 headers.
+    // EXPECT_EQ(message_data[0].static_attributes.size(), 3);
+    // ASSERT_TRUE(std::holds_alternative<MsgAttrUID>(message_data[0].static_attributes[0]));
+    // ASSERT_TRUE(std::holds_alternative<MsgAttrRFC822>(message_data[0].static_attributes[1]));
+    // ASSERT_TRUE(std::holds_alternative<wip::Body>(message_data[0].static_attributes[2]));
+
+    // auto& rfc822_attr = std::get<MsgAttrRFC822>(message_data[0].static_attributes[1]);
+    // ASSERT_EQ(rfc822_attr.headers.size(), 8);
+    // EXPECT_EQ(rfc822_attr.headers[0].first, "MIME-Version");
+    // EXPECT_EQ(rfc822_attr.headers[0].second, "1.0");
+
+    // EXPECT_EQ(rfc822_attr.headers[1].first, "Date");
+    // EXPECT_EQ(rfc822_attr.headers[1].second, "Wed, 14 Feb 2024 10:33:43 +0200");
+
+    // EXPECT_EQ(rfc822_attr.headers[2].first, "References");
+    // EXPECT_EQ(rfc822_attr.headers[2].second,
+    //           "<CA+n06n=gaO4yss4F7H_AP2_iPdTDmGU2E0-41bhx3zxquwYbcw@mail.gmail.com>");
+
+    // EXPECT_EQ(rfc822_attr.headers[3].first, "In-Reply-To");
+    // EXPECT_EQ(rfc822_attr.headers[3].second,
+    //           "<CA+n06n=gaO4yss4F7H_AP2_iPdTDmGU2E0-41bhx3zxquwYbcw@mail.gmail.com>");
+
+    // EXPECT_EQ(rfc822_attr.headers[4].first, "Message-ID");
+    // EXPECT_EQ(rfc822_attr.headers[4].second,
+    //           "<CA+n06nkGjQikcWQ_pVR1BqbL1M_igb5Ks-kbyG2vBHkeBV4hVg@mail.gmail.com>");
+
+    // EXPECT_EQ(rfc822_attr.headers[5].first, "Subject");
+    // EXPECT_EQ(rfc822_attr.headers[5].second, "Re: new test emailx");
+    // EXPECT_EQ(rfc822_attr.headers[6].first, "From");
+    // EXPECT_EQ(rfc822_attr.headers[6].second, "Liubomyr <liubomyr.semkiv.test@gmail.com>");
+    // EXPECT_EQ(rfc822_attr.headers[7].first, "To");
+    // EXPECT_EQ(rfc822_attr.headers[7].second, "Liubomyr <liubomyr.semkiv.test@gmail.com>");
+
+    // NOTE: Gmime did not include Content-Type for some reason.
+    //    EXPECT_EQ(rfc822_attr.headers[8].first, "Content-Type");
+    //    EXPECT_EQ(rfc822_attr.headers[8].second, "multipart/alternative");
+}

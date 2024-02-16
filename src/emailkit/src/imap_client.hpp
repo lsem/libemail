@@ -114,36 +114,72 @@ expected<std::string> encode_cmd(const fetch_t& cmd);
 
 }  // namespace imap_commands
 
+// NOTE: this is not just imap_client in a way that it is imap protocol client. But it is IMAP Email
+// client. It provides both low level IMAP commands that directly represents IMAP RFC and can be
+// used for trying out some things on the server . And, a bit more capable commands that execute
+// IMAP commands underneath and make additional parsing like RFC822 so that we can build high-level
+// commands on top of that almost without additonal work except maybe some remapping. Note, one
+// should sill understand how IMAP works, its stateful nature and all pecularities of it. The class
+// is not smart in any way.
 class imap_client_t {
    public:
     virtual ~imap_client_t() = default;
-
     virtual void start() = 0;
-
     virtual void on_state_change(std::function<void(imap_client_state)>) = 0;
 
+   public:  // IMAP protocol commands
     virtual void async_connect(std::string host, std::string port, async_callback<void> cb) = 0;
-
     virtual void async_obtain_capabilities(async_callback<std::vector<std::string>> cb) = 0;
-
     virtual void async_authenticate(xoauth2_creds_t creds,
                                     async_callback<auth_error_details_t> cb) = 0;
-
+    virtual void async_execute_command(imap_commands::namespace_t, async_callback<void> cb) = 0;
+    virtual void async_execute_command(imap_commands::list_t,
+                                       async_callback<types::list_response_t> cb) = 0;
+    virtual void async_execute_command(imap_commands::select_t,
+                                       async_callback<types::select_response_t> cb) = 0;
+    virtual void async_execute_command(imap_commands::fetch_t,
+                                       async_callback<types::fetch_response_t> cb) = 0;
     // TODO: https://www.rfc-editor.org/rfc/rfc7628.html
     // virtual void async_authenticate(oauthbearer_creds_t creds,
     //                                 async_callback<auth_error_details_t> cb) {}
 
-    virtual void async_execute_command(imap_commands::namespace_t, async_callback<void> cb) = 0;
+   public:  // Higher level functions that execute standard IMAP commands and do additional parsing
+            // where needed.
+    struct ListMailboxesResult {
+        types::list_response_t raw_response;  // unprocessed response
+    };
+    virtual void async_list_mailboxes(async_callback<ListMailboxesResult> cb) = 0;
 
-    virtual void async_execute_command(imap_commands::list_t,
-                                       async_callback<types::list_response_t> cb) = 0;
+    struct SelectMailboxResult {
+        unsigned int exists;
+        unsigned int recents;
+    };
+    virtual void async_select_mailbox(std::string inbox_name,
+                                      async_callback<SelectMailboxResult> cb) = 0;
+    struct MailboxEmail {
+        // IDs: id in this mailbox, message-ID (if this is standard, or if it is extension then it
+        // should be optinal).x
+        // TODO:
 
-    virtual void async_execute_command(imap_commands::select_t,
-                                       async_callback<types::select_response_t> cb) = 0;
+        struct {
+            std::string subject;
+            // MailDate date;
+            // MailAddress from;
+            // MailAddress to;
+            // MailAddress in-reply-to;
+            // MailAddress cc;
+            // MailAddress bcc;
+            // ..
+        } envelope;
 
-    virtual void async_execute_command(imap_commands::fetch_t,
-                                       async_callback<types::fetch_response_t> cb) = 0;
+        // BodyStructure -- a structure of the document but no data itself. Or, alternatively we can
+        // load body sections as well but don't download attachments automatically. (TODO: make an
+        // optoon to download attachments, just in case person wants to downlaod attachments to have
+        // them offline anytime he or she needs it).
+    };
+    virtual void async_list_items(int from, std::optional<int> to, async_callback<void> cb) = 0;
 
+   public:
     // TODO: state change API (logical states + disconnected/failed)
 };
 

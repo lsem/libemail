@@ -2,21 +2,23 @@
 
 #include "imap_parser.hpp"
 
-#include <emailkit/log.hpp>
-#include <emailkit/utils.hpp>
-
-#include "utils.hpp"
-
 #include <ast.h>     // apg70
 #include <parser.h>  // apg70
 #include <utilities.h>
 #include "imap_parser_apg_impl.h"  // grammar generated for apg70
 
-#include <function2/function2.hpp>
-#include <vector>
+#include <emailkit/log.hpp>
+#include <emailkit/utils.hpp>
 
+#include "imap_parser__rfc822.hpp"
+#include "utils.hpp"
+
+#include <function2/function2.hpp>
+
+#include <any>
 #include <cstdlib>
 #include <set>
+#include <vector>
 
 #include <gmime/gmime.h>
 
@@ -46,6 +48,14 @@ class parser_err_category_t : public std::error_category {
 };
 const parser_err_category_t the_parser_err_cat{};
 }  // namespace
+
+expected<void> initialize() {
+    return rfc822::initialize();
+}
+
+expected<void> finalize() {
+    return rfc822::finalize();
+}
 
 std::error_code make_error_code(parser_errc ec) {
     return std::error_code(static_cast<int>(ec), the_parser_err_cat);
@@ -375,6 +385,7 @@ std::error_code apg_invoke_parser__ast(
     uint32_t starting_rule,
     std::string_view input_text,
     std::initializer_list<aint> rules,
+    //   std::map<std::string, std::any>& out_udt_values,
     fu2::function_view<void(const ast_record*, const ast_record*)> ast_cb) {
     struct apg_invoke_context {
         // registered callbacks for which we set parsers C-callbacks.
@@ -460,6 +471,8 @@ std::error_code apg_invoke_parser__ast(
             log_debug("translating AST");
             ::vAstTranslate(ast, &ctx);
             log_debug("translating AST -- done");
+
+            //	    out_udt_values[""]
 
             ast_info info;
             ::vAstInfo(ast, &info);
@@ -887,22 +900,22 @@ const ast_record* parse_nstring(std::string_view input,
                     break;
                 }
                 case IMAP_PARSER_APG_IMPL_LITERAL: {
-                    // TODO: implement
+                    log_warning("literal is ignored: {}", match_text);
                     break;
                 }
                 case IMAP_PARSER_APG_IMPL_U_LITERAL_SIZE: {
-                    // TODO: implement
+                    log_debug("literal size is ignored: {}", match_text);
                     break;
                 }
                 case IMAP_PARSER_APG_IMPL_U_LITERAL_DATA: {
-                    // TODO: implement
+                    out_result = match_text;
                     break;
                 }
             }
         }
     }
 
-    // TODO: RETURN_IF_END(it).
+    RETURN_IF_END(it);
     it++;
 
     assert((it - 1)->uiIndex == IMAP_PARSER_APG_IMPL_NSTRING && (it - 1)->uiState == ID_AST_POST);
@@ -1659,10 +1672,21 @@ const ast_record* parse_msg_att_static_body_section(std::string_view input,
 
 const ast_record* parse_msg_att_static_rfc822(std::string_view input,
                                               const ast_record* begin,
-                                              const ast_record* end) {
+                                              const ast_record* end,
+                                              MsgAttrRFC822& out_rfc822) {
     assert(begin->uiIndex == IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_RFC822);
 
     auto it = begin + 1;
+
+    // TODO: we need to check if it is HEADER or complete message by adding HEADER as separate token
+    // into ABNF. Having this makes possible to have proper expectation and parse only headers when
+    // we got only headers.
+
+    it = skip_until(it, end, IMAP_PARSER_APG_IMPL_NSTRING, ID_AST_PRE);
+    RETURN_IF_END(it);
+
+    std::string parsed_rfc822_message;
+    it = parse_nstring(input, it, end, out_rfc822.msg_data);
 
     it = skip_until(it, end, IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_RFC822, ID_AST_POST);
     it++;
@@ -1718,7 +1742,7 @@ const ast_record* parse_msg_att_static(std::string_view input,
             msg_attr_uid_t parsed_uid;
             it = parse_msg_att_static_uid(input, it, end, parsed_uid.value);
 
-            out_result = std::move(parsed_uid);	    
+            out_result = std::move(parsed_uid);
             break;
         }
         case IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_INTERNALDATE: {
@@ -1736,7 +1760,9 @@ const ast_record* parse_msg_att_static(std::string_view input,
             break;
         }
         case IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_RFC822: {
-            it = parse_msg_att_static_rfc822(input, it, end);
+            MsgAttrRFC822 parsed_rfc822;
+            it = parse_msg_att_static_rfc822(input, it, end, parsed_rfc822);
+            out_result = std::move(parsed_rfc822);
             break;
         }
         case IMAP_PARSER_APG_IMPL_MSG_ATT_STATIC_RFC822_SIZE: {
