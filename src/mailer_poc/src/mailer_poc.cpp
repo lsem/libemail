@@ -1,10 +1,15 @@
 #include "mailer_poc.hpp"
+#include <emailkit/emailkit.hpp>
 #include <emailkit/google_auth.hpp>
 #include <emailkit/imap_client.hpp>
 
-namespace mailer {
+#include <fmt/ranges.h>
 
-class MailerPOC_impl : public MailerPOC, EnableUseThis<MailerPOC_impl> {
+namespace mailer {
+using namespace emailkit;
+using emailkit::imap_client::types::list_response_entry_t;
+
+class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
    public:
     explicit MailerPOC_impl(asio::io_context& ctx) : m_ctx(ctx) {}
 
@@ -20,6 +25,11 @@ class MailerPOC_impl : public MailerPOC, EnableUseThis<MailerPOC_impl> {
             log_error("failed creating google auth");
             return false;
         }
+
+        if (!emailkit::initialize()) {
+            log_error("failed initializing emailkit");
+            return false;
+        }
         return true;
     }
 
@@ -30,9 +40,18 @@ class MailerPOC_impl : public MailerPOC, EnableUseThis<MailerPOC_impl> {
             use_this(std::move(cb), [](auto& this_, std::error_code ec, auto cb) mutable {
                 ASYNC_RETURN_ON_ERROR(ec, cb, "async_authenticate failed");
                 log_info("authenticated");
-                //                this_.start_autonomous_activities();
+                this_.run_background_activities();
                 cb({});
             }));
+    }
+
+    void run_background_activities() {
+        async_callback<void> cb = [](std::error_code ec) {
+
+        };
+
+        log_info("downloading all emails from all mailboxes..");
+        async_download_all_emails(std::move(cb));
     }
 
     void async_authenticate(async_callback<void> cb) {
@@ -102,6 +121,86 @@ class MailerPOC_impl : public MailerPOC, EnableUseThis<MailerPOC_impl> {
             });
     }
 
+    struct Email {
+        std::string subject;
+        std::string timestamp;
+    };
+
+    void async_download_all_emails(async_callback<void> cb) {
+        using namespace emailkit;
+        using namespace emailkit::imap_client;
+
+        m_imap_client->async_list_mailboxes(
+            use_this(std::move(cb), [](auto& this_, std::error_code ec,
+                                       imap_client_t::ListMailboxesResult result, auto cb) mutable {
+                ASYNC_RETURN_ON_ERROR(ec, cb, "async list mailboxes failed");
+                log_info("executed list_mailboxes:\n{}",
+                         fmt::join(result.raw_response.inbox_list, "\n"));
+
+                this_.async_download_all_mailboxes(result.raw_response.inbox_list, std::move(cb));
+            }));
+    }
+
+    void async_download_all_mailboxes(std::vector<list_response_entry_t> list_entries,
+                                      async_callback<void> cb) {
+        std::reverse(list_entries.begin(), list_entries.end());
+        async_download_all_mailboxes_it(std::move(list_entries), std::move(cb));
+    }
+
+    void async_download_all_mailboxes_it(std::vector<list_response_entry_t> list_entries,
+                                         async_callback<void> cb) {
+        if (list_entries.empty()) {
+            // done
+            cb({});
+            return;
+        }
+
+        auto e = std::move(list_entries.back());
+        list_entries.pop_back();
+
+        // process e
+        // struct list_response_entry_t {
+        //     std::string mailbox_raw;
+        //     std::vector<std::string> inbox_path;  // TODO: why it is called inbox path but not
+        //     mailbox path?
+        //                                           // we should have called it mailbox_path_parts
+        //     std::vector<std::string> flags;
+        // };
+
+        std::string mailbox_path = fmt::format("{}", fmt::join(e.inbox_path, "\\"));
+
+        m_imap_client->async_select_mailbox(
+            mailbox_path,
+            use_this(std::move(cb),
+                     [mailbox_path, list_entries = std::move(list_entries)](
+                         auto& this_, std::error_code ec,
+                         imap_client::imap_client_t::SelectMailboxResult result, auto cb) mutable {
+                         ASYNC_RETURN_ON_ERROR(ec, cb, "async select mailbox failed");
+                         log_info("selected {} folder (exists: {}, recents: {})", mailbox_path,
+                                  result.exists, result.recents);
+
+                         this_.async_download_emails_for_mailbox(this_.use_this(
+                             std::move(cb), [list_entries = std::move(list_entries)](
+                                                auto& this_, std::error_code ec, auto cb) {
+                                 ASYNC_RETURN_ON_ERROR(
+                                     ec, cb, "async downlaod emails for mailbox failed: {}");
+                                 this_.async_download_all_mailboxes_it(std::move(list_entries),
+                                                                       std::move(cb));
+                             }));
+                     }));
+    }
+
+    // Downlaods all emails from currenty selected inbox.
+    void async_download_emails_for_mailbox(async_callback<void> cb) {
+        // TODO: in real world program this should not be unbound list but some fixed bucket size.
+        m_imap_client->async_list_items(
+            1, std::nullopt,
+            use_this(std::move(cb), [](auto& this_, std::error_code ec, auto cb) mutable {
+                ASYNC_RETURN_ON_ERROR(ec, cb, "async list items failed");
+                cb({});
+            }));
+    }
+
    private:
     asio::io_context& m_ctx;
     std::shared_ptr<emailkit::google_auth_t> m_google_auth;
@@ -110,7 +209,7 @@ class MailerPOC_impl : public MailerPOC, EnableUseThis<MailerPOC_impl> {
 
 std::shared_ptr<MailerPOC> make_mailer_poc(asio::io_context& ctx) {
     auto inst = std::make_shared<MailerPOC_impl>(ctx);
-    if (!inst) {
+    if (!inst->initialize()) {
         log_error("failed creating instance of the app");
         return nullptr;
     }
