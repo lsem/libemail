@@ -20,3 +20,24 @@ is avaialble again, continuted transfer and connection health became green. Or d
 # Non functional feature: measure how fast parsing of responses is. Profiling.
 
 # Is there something very minimal in terms of scripting that some user may benefit from? E.g. what if the client can be run as a script to do some work like downloading all emails? Isn't that is cool? Or we can have some scripts that allow use to automate they work. There could be a number of programmers that would buy the program if this fature is availalble.
+
+
+# EmailClient that allows to transfer emails from one server to another.
+
+
+# I want to have different notification policies on each folder or subfolder.
+I want to select from old fashioned context menu settings for notifications for given folder.
+E.g. for a folder with gerrit reviews I mostly want to ignore new emails there.
+But for emails within folder MANAGEMENT I want to have SLA that if I'm not read an email in some time,
+I would like to have HARSH notifications, like in MacDonalds.
+
+It should help me to work in entreprise environment. As it should help Velera work in startup.
+
+
+# The app communocates to more advanced users what is going on. E.g. server connections status,
+internet reachability, amount of data downloaded, data location, current mode (idle or updating data), number of bytes, downloading data on mettered connection, etc..
+
+# Downloading data on meterred connection
+If we have meterred connection, we still may want to use the client. What if we have a mode that allows to download last N emails (say 100) but not download everhything.
+
+# Plain old Tree where all inboxes are standard without tree?

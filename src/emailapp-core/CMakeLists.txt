@@ -6,3 +6,4 @@ add_library(emailapp::core ALIAS emailapp_core)
 add_dependencies(emailapp_core external_glib external_gmime)
 target_link_libraries(emailapp_core PUBLIC emailkit::emailkit emailkit::global asio::asio)
 target_include_directories(emailapp_core PUBLIC include)
+

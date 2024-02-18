@@ -556,65 +556,17 @@ class imap_client_impl_t : public imap_client_t, public EnableUseThis<imap_clien
             }
             auto parse_took = std::chrono::steady_clock::now() - parse_start;
 
-            log_info("parsing successful, time take: {}ms", parse_took / 1.0ms);
+            log_info("parsing successful, time taken: {}ms", parse_took / 1.0ms);
 
+            // TODO: check if we really need this.
             if (message_data_records_or_err->empty()) {
                 log_error("no message data record in fetch response");
                 cb(make_error_code(std::errc::protocol_error), {});
                 return;
             }
 
-            // TODO: parse rfc822.
-            // // The header may contain or not data. But headers should be there.
-            // auto headers_or_err =
-            // rfc822::parse_headers_from_rfc822_message(parsed_rfc822_message); if
-            // (!headers_or_err) {
-            //     log_error("failed parsing headers from rfc822: {}", headers_or_err.error());
-            //     // TODO: Fail?
-            // } else {
-            //     out_rfc822.headers = std::move(*headers_or_err);
-            // }
-
             cb({}, types::fetch_response_t{.message_data_items =
                                                std::move(*message_data_records_or_err)});
-
-            // WIP: this fetched data now needs to be somehow delivered to the caller.
-
-            // for (auto& m : *message_data_records_or_err) {
-            //     log_info("message {}: ", m.message_number);
-
-            // TODO: subject field is encoded with some new encoding type:
-            // https://datatracker.ietf.org/doc/html/rfc2047
-            // =?UTF-8?B?0J7QsdC70ZbQutC+0LLQuNC5INC30LDQv9C40YEg?=
-            // =?UTF-8?B?R29vZ2xlINCy0ZbQtNC90L7QstC70LXQvdC+?=
-            // https://www.rfc-editor.org/info/rfc3629
-            // https://www.rfc-editor.org/rfc/rfc3629.txt
-
-            // NOTE: subject is defined as subject/NIL. TODO: check this.
-
-            // for (auto& att : m.static_attributes) {
-            //     if (std::holds_alternative<imap_parser::Envelope>(att)) {
-            //         auto& x = std::get<imap_parser::Envelope>(att);
-
-            //         if (utils::can_be_mime_encoded_word(x.subject)) {
-            //             auto decoded_or_err =
-            //                 emailkit::utils::decode_mime_encoded_word(x.subject);
-            //             if (decoded_or_err) {
-            //                 log_debug("subject: {}", x.subject);
-            //                 x.subject = *decoded_or_err;
-            //             }
-            //         }
-            //         // EXPECT_TRUE(emailkit::utils::can_be_mime_encoded_word(
-            //         //     "=?UTF-8?B?0J7QsdC70ZbQutC+0LLQuNC5INC30LDQv9C40YEg?="));
-            //         // auto decoded_or_err = emailkit::utils::decode_mime_encoded_word(
-            //         //     "=?UTF-8?B?0J7QsdC70ZbQutC+0LLQuNC5INC30LDQv9C40YEg?=");
-
-            //         log_info("date: {}\nsubject: {}", x.date, x.subject);
-            //     }
-            // }
-            //            }
-
-            //            cb({}, {});
         });
     }
 
@@ -648,6 +600,20 @@ class imap_client_impl_t : public imap_client_t, public EnableUseThis<imap_clien
 
                 log_debug("selected INBOX folder (exists: {}, recents: {})", response.exists,
                           response.recents);
+                // unsigned uid_validity{};
+                // unsigned unseen{};
+                // unsigned uidnext{};
+                // unsigned highestmodseq{};
+
+                // uint32_t recents{};
+                // uint32_t exists{};
+                // uint32_t uid_validity{};
+                // std::optional<uint32_t> opt_unseen;
+                // uint32_t uid_next{};
+                // std::vector<std::string> flags;
+                // std::vector<std::string> permanent_flags;
+                // read_write_mode_t read_write_mode = read_write_mode_t::na;
+
                 cb({}, {.exists = response.exists, .recents = response.recents});
             }));
     }

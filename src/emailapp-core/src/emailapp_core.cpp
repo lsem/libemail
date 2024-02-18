@@ -73,6 +73,7 @@ class EmailAppCoreImpl : public EmailAppCore, public EnableUseThis<EmailAppCoreI
             return false;
         }
 
+	// TODO: here should be more intellectuay way for selecting this IP/port combination.
         m_google_auth = emailkit::make_google_auth(m_ctx, "127.0.0.1", "8089");
         if (!m_google_auth) {
             log_error("failed creating google auth");

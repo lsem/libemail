@@ -1,0 +1,11 @@
+
+# PROTOTYPE
+
+## GOAL
+Prove that C++ based email application with native front-end and having SmartTree feature which works across devices without any backend.
+
+## SCOPE
+
+1. Simple app that can download emais in most simple way form real server after authentication.
+2. SmartTree which sorts emails based based on contact list.
+3. No search, no offline mode, no cache, no persitence, not settings, no real UI.
