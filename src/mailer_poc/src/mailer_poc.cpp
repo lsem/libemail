@@ -158,6 +158,8 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
         auto e = std::move(list_entries.back());
         list_entries.pop_back();
 
+        e.hierarchy_delimiter;
+
         // process e
         // struct list_response_entry_t {
         //     std::string mailbox_raw;
@@ -167,8 +169,26 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
         //     std::vector<std::string> flags;
         // };
 
-        std::string mailbox_path = fmt::format("{}", fmt::join(e.inbox_path, "\\"));
+        std::string mailbox_path =
+            fmt::format("{}", fmt::join(e.inbox_path, e.hierarchy_delimiter));
+        log_warning("delim: {}", e.hierarchy_delimiter);
+        log_info("selecting mailbox '{}'", mailbox_path);
 
+        // TODO: this should be done at imap client level involving corresponding RFC.
+        // The raw command should not interpret this fields. But non-raw command should be aware of
+        // RFC and can parse this into enum flags.
+        auto is_noselect_box = [](auto& x) {
+            return std::find(x.flags.begin(), x.flags.end(), "\\Noselect") != x.flags.end();
+        };
+
+        if (is_noselect_box(e)) {
+            log_warning("skip noselect folder: {}", mailbox_path);
+            async_download_all_mailboxes_it(std::move(list_entries), std::move(cb));
+            return;
+        }
+
+        // The IMAP protocol is inherently stateful. One should select a mailbox and do fetches on
+        // it. So download all the emails we need to select each folder and list one by one.
         m_imap_client->async_select_mailbox(
             mailbox_path,
             use_this(std::move(cb),
@@ -177,7 +197,7 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
                          imap_client::imap_client_t::SelectMailboxResult result, auto cb) mutable {
                          ASYNC_RETURN_ON_ERROR(ec, cb, "async select mailbox failed");
                          log_info("selected {} folder (exists: {}, recents: {})", mailbox_path,
-                                  result.exists, result.recents);
+                                  result.raw_response.exists, result.raw_response.recents);
 
                          this_.async_download_emails_for_mailbox(this_.use_this(
                              std::move(cb), [list_entries = std::move(list_entries)](

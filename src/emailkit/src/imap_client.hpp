@@ -151,12 +151,14 @@ class imap_client_t {
     virtual void async_list_mailboxes(async_callback<ListMailboxesResult> cb) = 0;
 
     struct SelectMailboxResult {
-        unsigned int exists{};
-        unsigned int recents{};
-        unsigned uid_validity{};
-        unsigned unseen{};
-        unsigned uidnext{};
-        unsigned highestmodseq{};
+	// Parsed server response without any interpretation
+	types::select_response_t raw_response;
+        // unsigned int exists{};
+        // unsigned int recents{};
+        // unsigned uid_validity{};
+        // unsigned unseen{};
+        // unsigned uidnext{};
+        // unsigned highestmodseq{};
     };
     virtual void async_select_mailbox(std::string inbox_name,
                                       async_callback<SelectMailboxResult> cb) = 0;

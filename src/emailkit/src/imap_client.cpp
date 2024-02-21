@@ -433,11 +433,13 @@ class imap_client_impl_t : public imap_client_t, public EnableUseThis<imap_clien
                                   parsed_line.hierarchy_delimiter);
 
                         command_result.inbox_list.emplace_back(types::list_response_entry_t{
+
                             .mailbox_raw = parsed_line.mailbox,
                             .inbox_path =
                                 imap_parser::utils::decode_mailbox_path_from_list_response(
                                     parsed_line),
-                            .flags = parsed_line.mailbox_list_flags});
+                            .flags = parsed_line.mailbox_list_flags,
+                            .hierarchy_delimiter = parsed_line.hierarchy_delimiter});
                     } else if (l.maybe_tagged_reply()) {
                         // this must be reply to our command, this should be guaranteed by
                         // execute_simple_command
@@ -472,7 +474,20 @@ class imap_client_impl_t : public imap_client_t, public EnableUseThis<imap_clien
                     return;
                 }
 
+                // TODO: check if this can be improved. Questions are: is it only first line that
+                // can be NO response?
+                // TODO: add test.
+                // TODO: check other commands for this mistake.
+                if (!imap_resp.lines.empty() && imap_resp.lines[0].is_no_response()) {
+                    log_error("got no response for select");
+                    cb(make_error_code(std::errc::io_error), {});
+                    return;
+                }
+
                 // Parsing response
+                // TODO: write a test for this
+                // 'A4 NO [NONEXISTENT] Unknown Mailbox: [Gmail] (now in authenticated state)
+                // (Failure)\r\n'
                 types::select_response_t select_resp;
                 auto records_or_err =
                     imap_parser::parse_mailbox_data_records(imap_resp.raw_response_bytes);
@@ -600,21 +615,8 @@ class imap_client_impl_t : public imap_client_t, public EnableUseThis<imap_clien
 
                 log_debug("selected INBOX folder (exists: {}, recents: {})", response.exists,
                           response.recents);
-                // unsigned uid_validity{};
-                // unsigned unseen{};
-                // unsigned uidnext{};
-                // unsigned highestmodseq{};
 
-                // uint32_t recents{};
-                // uint32_t exists{};
-                // uint32_t uid_validity{};
-                // std::optional<uint32_t> opt_unseen;
-                // uint32_t uid_next{};
-                // std::vector<std::string> flags;
-                // std::vector<std::string> permanent_flags;
-                // read_write_mode_t read_write_mode = read_write_mode_t::na;
-
-                cb({}, {.exists = response.exists, .recents = response.recents});
+                cb({}, {.raw_response = std::move(response)});
             }));
     }
 
@@ -732,7 +734,7 @@ class imap_client_impl_t : public imap_client_t, public EnableUseThis<imap_clien
             const auto& l = r.lines.back();
 
             if (l.first_token_is(r.tag)) {
-                log_debug("got tag, stoppig..");
+                log_debug("got tag, stopping..");
                 cb({}, std::move(r));
                 return;
             } else if (l.is_command_continiation_request()) {

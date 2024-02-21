@@ -18,6 +18,7 @@ struct list_response_entry_t {
     std::vector<std::string> inbox_path;  // TODO: why it is called inbox path but not mailbox path?
                                           // we should have called it mailbox_path_parts
     std::vector<std::string> flags;
+    std::string hierarchy_delimiter;
 };
 
 struct list_response_t {
