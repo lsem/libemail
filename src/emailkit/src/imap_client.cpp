@@ -14,6 +14,12 @@
 
 namespace emailkit::imap_client {
 
+namespace {
+// This actually is not going to be used at all.
+const emailkit::types::EmailAddress default_mail_addres{.raw_email_address = "user@example.com"};
+
+}  // namespace
+
 namespace imap_commands {
 expected<std::string> encode_cmd(const fetch_t& cmd) {
     const auto encoded_items = std::visit(
@@ -620,7 +626,9 @@ class imap_client_impl_t : public imap_client_t, public EnableUseThis<imap_clien
             }));
     }
 
-    void async_list_items(int from, std::optional<int> to, async_callback<void> cb) override {
+    void async_list_items(int from,
+                          std::optional<int> to,
+                          async_callback<std::vector<MailboxEmail>> cb) override {
         async_execute_command(
             imap_commands::fetch_t{
                 .sequence_set = imap_commands::raw_fetch_sequence_spec{fmt::format(
@@ -634,6 +642,16 @@ class imap_client_impl_t : public imap_client_t, public EnableUseThis<imap_clien
                                        types::fetch_response_t response, auto cb) {
                 ASYNC_RETURN_ON_ERROR(ec, cb, "async fetch command failed");
 
+                std::vector<MailboxEmail> result;
+
+                MailboxEmail current_email;
+
+                // int message_uid;
+                // emailkit::types::EmailAddress from;
+                // emailkit::types::EmailAddress to;
+                // emailkit::types::MessageID message_id;
+                // emailkit::types::MessageID in_reply_to;
+
                 for (auto& [message_number, static_attributes] : response.message_data_items) {
                     unsigned uid_value = 0;
                     if (static_attributes.size() > 3) {
@@ -644,39 +662,88 @@ class imap_client_impl_t : public imap_client_t, public EnableUseThis<imap_clien
                     }
 
                     for (auto& sattr : static_attributes) {
-                        if (std::holds_alternative<emailkit::imap_parser::wip::Body>(sattr)) {
-                            auto& as_body = std::get<emailkit::imap_parser::wip::Body>(sattr);
+                        if (std::holds_alternative<imap_parser::wip::Body>(sattr)) {
+                            auto& as_body = std::get<imap_parser::wip::Body>(sattr);
+                            // THIS IS BODYSTRUCTURE OR BODY DEPENDING ON MODE.
+                            // It seems like email can be kind of seen as detached entitiy. Or it
+                            // can be attached. So email is basically: RFC822 HEADERS +
+                            // BODY/BODYSTRCUTURE. This is what is prepared by client and uploaded
+                            // into the server. When we download an email, we get email in server
+                            // term, in server domain. This has additional attributes which identify
+                            // this email on the server. So we can see it as EmailData and
+                            // EmailServer. For the sake of simplicity in current MailerPOC we are
+                            // going to have this messed up completely and this assumed to be
+                            // properly modeleed so that it works.
                             // traverse_body(as_body);
                             log_info(
                                 "--------------------------------------------------------------");
-                        } else if (std::holds_alternative<emailkit::imap_parser::msg_attr_uid_t>(
-                                       sattr)) {
-                            auto& as_uid = std::get<emailkit::imap_parser::msg_attr_uid_t>(sattr);
-                            uid_value = as_uid.value;
-                            log_info("UID: {}", uid_value);
+                        } else if (std::holds_alternative<imap_parser::msg_attr_uid_t>(sattr)) {
+                            auto& as_uid = std::get<imap_parser::msg_attr_uid_t>(sattr);
+                            current_email.message_uid = as_uid.value;
+                        } else if (std::holds_alternative<imap_parser::MsgAttrRFC822>(sattr)) {
+                            auto& as_rfc822 = std::get<imap_parser::MsgAttrRFC822>(sattr);
 
-                        } else if (std::holds_alternative<emailkit::imap_parser::MsgAttrRFC822>(
-                                       sattr)) {
-                            auto& as_rfc822 = std::get<emailkit::imap_parser::MsgAttrRFC822>(sattr);
-                            auto parsed_headers_or_err =
-                                imap_parser::rfc822::parse_headers_from_rfc822_message(
-                                    as_rfc822.msg_data);
-                            if (!parsed_headers_or_err) {
-                                // TODO: here we should be able to produce somehow an error item
-                                // instead of failing parsing completely. This will allow to have
-                                // special handling in the App and put bad item in the list.
-                                log_error("failed parsing rfc822 headers for a message: {}",
-                                          message_number);
-                                cb(make_error_code(std::errc::io_error));
-                                return;
-                            }
+                            // get_from_address
+                            auto parser =
+                                imap_parser::rfc822::parse_rfc882_message(as_rfc822.msg_data);
+
+                            log_debug("getting from address");
+                            const auto default_address_list = std::vector<std::string>{};
+                            auto from = imap_parser::rfc822::get_from_address(parser).value_or(
+                                default_address_list);
+                            auto to = imap_parser::rfc822::get_to_address(parser).value_or(
+                                default_address_list);
+
+                            auto cc = imap_parser::rfc822::get_cc_address(parser).value_or(
+                                default_address_list);
+                            auto bcc = imap_parser::rfc822::get_bcc_address(parser).value_or(
+                                default_address_list);
+                            auto subject =
+                                imap_parser::rfc822::get_subject(parser).value_or("no-subject");
+                            auto sender = imap_parser::rfc822::get_sender(parser).value_or(
+                                default_address_list);
+                            auto reply_to = imap_parser::rfc822::get_reply_to(parser).value_or(
+                                default_address_list);
+                            auto message_id = imap_parser::rfc822::get_message_id(parser).value_or(
+                                "no-message-id");
+
+                            log_info(
+                                "from: {}, to: {}, cc: {}, bcc: {}, subject: {}, sender: {}, "
+                                "reply-to: {}, message_id: {}",
+                                from, to, cc, bcc, subject, sender, reply_to, message_id);
+
+                            // current_email.to =
+                            //     get_to_address(as_rfc822).value_or(default_mail_addres);
+                            // current_email.cc =
+                            //     get_cc_address(as_rfc822).value_or(default_mail_addres);
+                            // current_email.bcc =
+                            //     get_bcc_address(as_rfc822).value_or(default_mail_addres);
+                            // current_email.message_id =
+                            //     get_message_id(as_rfc822).value_or("<no-message-ID>");
+                            // current_email.in_reply_to =
+                            //     get_in_reply_to(as_rfc822).value_or("<no-message-ID>");
+                            // current_email.subject =
+                            // get_subject(as_rfc822).value_or("<no-subject>");
+
+                            // auto parsed_headers_or_err =
+                            //     imap_parser::rfc822::parse_headers_from_rfc822_message(
+                            //         as_rfc822.msg_data);
+                            // if (!parsed_headers_or_err) {
+                            //     // TODO: here we should be able to produce somehow an error item
+                            //     // instead of failing parsing completely. This will allow to have
+                            //     // special handling in the App and put bad item in the list.
+                            //     log_error("failed parsing rfc822 headers for a message: {}",
+                            //               message_number);
+                            //     cb(make_error_code(std::errc::io_error), {});
+                            //     return;
+                            // }
                         } else {
                             log_warning("ignoring unexpected non-bodystructure static attribute");
                             continue;
                         }
                     }
                 }
-                cb({});
+                cb({}, {});
             }));
     }
 

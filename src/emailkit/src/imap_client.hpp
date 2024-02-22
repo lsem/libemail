@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "imap_client_types.hpp"
+#include "types.hpp"
 
 namespace emailkit::imap_client {
 
@@ -151,8 +152,8 @@ class imap_client_t {
     virtual void async_list_mailboxes(async_callback<ListMailboxesResult> cb) = 0;
 
     struct SelectMailboxResult {
-	// Parsed server response without any interpretation
-	types::select_response_t raw_response;
+        // Parsed server response without any interpretation
+        types::select_response_t raw_response;
         // unsigned int exists{};
         // unsigned int recents{};
         // unsigned uid_validity{};
@@ -162,6 +163,7 @@ class imap_client_t {
     };
     virtual void async_select_mailbox(std::string inbox_name,
                                       async_callback<SelectMailboxResult> cb) = 0;
+
     struct MailboxEmail {
         // IDs: id in this mailbox, message-ID (if this is standard, or if it is extension then it
         // should be optinal).x
@@ -169,8 +171,14 @@ class imap_client_t {
         // https://datatracker.ietf.org/doc/html/rfc3501#section-2.3.1.1
         // Unique Identifier (UID) Message Attribute (2.3.1.1)
         int message_uid;
-
-        std::string UID;
+        emailkit::types::EmailAddress from;
+        emailkit::types::EmailAddress to;
+        emailkit::types::EmailAddress cc;
+        emailkit::types::EmailAddress bcc;
+        emailkit::types::MessageID message_id;
+        emailkit::types::MessageID in_reply_to;
+        emailkit::types::EmailDate date;
+        std::string subject;
 
         // IT seeems like the rules are the following:
         //  WE log in into SERVER. And when we download emails during this session and want to put
@@ -207,24 +215,14 @@ class imap_client_t {
         // program basically becomes a program that keeps local, useful replica of emai. And can
         // work with local replica. Once we are connected again, it synchrnoizes with replica.
         //
-
-        struct {
-            std::string subject;
-            // MailDate date;
-            // MailAddress from;
-            // MailAddress to;
-            // MailAddress in-reply-to;
-            // MailAddress cc;
-            // MailAddress bcc;
-            // ..
-        } envelope;
-
         // BodyStructure -- a structure of the document but no data itself. Or, alternatively we can
         // load body sections as well but don't download attachments automatically. (TODO: make an
         // optoon to download attachments, just in case person wants to downlaod attachments to have
         // them offline anytime he or she needs it).
     };
-    virtual void async_list_items(int from, std::optional<int> to, async_callback<void> cb) = 0;
+    virtual void async_list_items(int from,
+                                  std::optional<int> to,
+                                  async_callback<std::vector<MailboxEmail>> cb) = 0;
 
    public:
     // TODO: state change API (logical states + disconnected/failed)

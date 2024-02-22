@@ -53,7 +53,7 @@ struct imap_match_condition_t {
                            100.0)
                         : 100.0;
                 if ((progress - m_prev_progress) >= 5.0 || static_cast<int>(progress) == 100) {
-                    log_info("progress: {}%", std::round(progress));
+                    log_debug("progress: {}%", std::round(progress));
                     m_prev_progress = progress;
                 }
             }
@@ -121,7 +121,7 @@ struct imap_match_condition_t {
                     m_literal_size = std::stoi(m_literal_size_s);
                     m_literal_data_bytes_left = m_literal_size;
                     log_info("readling literal of size {}Kb", m_literal_size / 1024);
-                    log_info("progress: 0%");
+                    log_debug("progress: 0%");
                     log_debug("reading literal data of size (size={})", m_literal_size);
                     if (m_literal_data_bytes_left > 0) {
                     } else {

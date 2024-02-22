@@ -6,6 +6,63 @@
 
 namespace emailkit::imap_parser::rfc822 {
 
+struct RFC822ParserState {
+    GMimeStream* stream = nullptr;
+    GMimeParser* parser = nullptr;
+    GMimeMessage* message = nullptr;
+
+    ~RFC822ParserState() {
+        if (stream) {
+            g_object_unref(stream);
+        }
+        if (parser) {
+            g_object_unref(parser);
+        }
+        if (message) {
+            g_object_unref(message);
+        }
+    }
+};
+namespace {
+emailkit::types::EmailAddressVec gmime_internet_address_to_address_vec(InternetAddressList* list) {
+    emailkit::types::EmailAddressVec result;
+    const int list_size = internet_address_list_length(list);
+    log_debug("internet address list length: {}", list_size);
+
+    for (int i = 0; i < list_size; ++i) {
+        emailkit::types::EmailAddress current_address;
+
+        auto* addr = internet_address_list_get_address(list, i);
+        if (!addr) {
+            log_warning("{} is null address", i);
+            continue;
+        }
+
+        if (INTERNET_ADDRESS_IS_MAILBOX(addr)) {
+            log_debug("is a mailbox");
+            InternetAddressMailbox* as_mailbox = reinterpret_cast<InternetAddressMailbox*>(addr);
+            const char* address_part = internet_address_mailbox_get_addr(as_mailbox);
+
+            // Seems like we don't have libIDN and I doubt we really need it. The address_part is
+            // already what we need user@example.com.
+            //            const char* idn_part = internet_address_mailbox_get_idn_addr(as_mailbox);
+
+            log_debug("parsed mailbox: {}", address_part);
+
+            result.emplace_back(address_part);
+        } else if (INTERNET_ADDRESS_IS_GROUP(addr)) {
+            log_debug("is a group");
+            InternetAddressGroup* as_group = reinterpret_cast<InternetAddressGroup*>(addr);
+        } else {
+            log_warning("something else, skip");
+        }
+    }
+
+    return result;
+}
+
+}  // namespace
+
 expected<void> initialize() {
     ::g_mime_init();
     log_debug("GMIME init called");
@@ -291,6 +348,105 @@ expected<imap_parser::rfc822_headers_t> parse_headers_from_rfc822_message(
 #endif
 
     return std::move(rfc822_headers);
+}
+
+RFC822ParserStateHandle parse_rfc882_message(std::string_view message_data) {
+    auto result = std::make_shared<RFC822ParserState>();
+    result->stream = g_mime_stream_mem_new_with_buffer(message_data.data(), message_data.size());
+    if (!result->stream) {
+        log_error("failed creating stream");
+        return nullptr;
+    }
+
+    result->parser = g_mime_parser_new_with_stream(result->stream);
+    if (!result->parser) {
+        log_error("failed creating parser from stream");
+        return nullptr;
+    }
+    log_debug("parser created");
+
+    result->message = g_mime_parser_construct_message(result->parser, nullptr);
+    if (!result->message) {
+        log_error("failed constructing message from parser");
+        return nullptr;
+    }
+
+    return result;
+}
+
+std::optional<std::string> get_subject(RFC822ParserStateHandle state) {
+    const char* msg = g_mime_message_get_subject(state->message);
+    if (!msg) {
+        return std::nullopt;
+    }
+
+    return msg;
+}
+
+std::optional<emailkit::types::EmailAddressVec> get_from_address(RFC822ParserStateHandle state) {
+    InternetAddressList* addr_list = g_mime_message_get_from(state->message);
+    if (!addr_list) {
+        log_warning("no FROM list");
+        return {};
+    }
+    return gmime_internet_address_to_address_vec(addr_list);
+}
+
+std::optional<emailkit::types::EmailAddressVec> get_to_address(RFC822ParserStateHandle state) {
+    InternetAddressList* addr_list = g_mime_message_get_to(state->message);
+    if (!addr_list) {
+        log_warning("no TO list");
+        return {};
+    }
+    return gmime_internet_address_to_address_vec(addr_list);
+}
+
+std::optional<emailkit::types::EmailAddressVec> get_cc_address(RFC822ParserStateHandle state) {
+    InternetAddressList* addr_list = g_mime_message_get_cc(state->message);
+    if (!addr_list) {
+        log_warning("no CC list");
+        return {};
+    }
+    return gmime_internet_address_to_address_vec(addr_list);
+}
+std::optional<emailkit::types::EmailAddressVec> get_bcc_address(RFC822ParserStateHandle state) {
+    InternetAddressList* addr_list = g_mime_message_get_bcc(state->message);
+    if (!addr_list) {
+        log_warning("no BCC list");
+        return {};
+    }
+    return gmime_internet_address_to_address_vec(addr_list);
+}
+
+std::optional<emailkit::types::EmailAddressVec> get_sender(RFC822ParserStateHandle state) {
+    InternetAddressList* addr_list = g_mime_message_get_sender(state->message);
+    if (!addr_list) {
+        log_warning("no SENDER list");
+        return {};
+    }
+    return gmime_internet_address_to_address_vec(addr_list);
+}
+std::optional<emailkit::types::EmailAddressVec> get_reply_to(RFC822ParserStateHandle state) {
+    InternetAddressList* addr_list = g_mime_message_get_reply_to(state->message);
+    if (!addr_list) {
+        log_warning("no REPLY_TO list");
+        return {};
+    }
+    return gmime_internet_address_to_address_vec(addr_list);
+}
+
+std::optional<emailkit::types::MessageID> get_message_id(RFC822ParserStateHandle state) {
+    const char* msg_id = g_mime_message_get_message_id(state->message);
+    if (!msg_id) {
+        log_warning("no MessageID");
+        return {};
+    }
+    return msg_id;
+}
+
+std::optional<emailkit::types::MessageID> get_in_reply_to(RFC822ParserStateHandle state) {
+    log_error("not implemented");
+    return {};
 }
 
 }  // namespace emailkit::imap_parser::rfc822

@@ -158,8 +158,6 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
         auto e = std::move(list_entries.back());
         list_entries.pop_back();
 
-        e.hierarchy_delimiter;
-
         // process e
         // struct list_response_entry_t {
         //     std::string mailbox_raw;
@@ -171,7 +169,7 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
 
         std::string mailbox_path =
             fmt::format("{}", fmt::join(e.inbox_path, e.hierarchy_delimiter));
-        log_warning("delim: {}", e.hierarchy_delimiter);
+
         log_info("selecting mailbox '{}'", mailbox_path);
 
         // TODO: this should be done at imap client level involving corresponding RFC.
@@ -199,6 +197,7 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
                          log_info("selected {} folder (exists: {}, recents: {})", mailbox_path,
                                   result.raw_response.exists, result.raw_response.recents);
 
+			 log_info("downloading emails on selected folder");
                          this_.async_download_emails_for_mailbox(this_.use_this(
                              std::move(cb), [list_entries = std::move(list_entries)](
                                                 auto& this_, std::error_code ec, auto cb) {
@@ -215,10 +214,23 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
         // TODO: in real world program this should not be unbound list but some fixed bucket size.
         m_imap_client->async_list_items(
             1, std::nullopt,
-            use_this(std::move(cb), [](auto& this_, std::error_code ec, auto cb) mutable {
-                ASYNC_RETURN_ON_ERROR(ec, cb, "async list items failed");
-                cb({});
-            }));
+            use_this(std::move(cb),
+                     [](auto& this_, std::error_code ec,
+                        std::vector<imap_client::imap_client_t::MailboxEmail>, auto cb) mutable {
+                         ASYNC_RETURN_ON_ERROR(ec, cb, "async list items failed");
+                         cb({});
+                     }));
+    }
+
+    struct MailerPOC_Email {};
+
+    void add_email(MailerPOC_Email email) {
+        // add to index-by-message-ID.
+        // add to index-by-folder-UID.
+        // add to inverted index.
+        // add to data vector.
+        // all indexes point to data vector by integer number, like in database.
+        // Add emails to super tree.
     }
 
    private:
