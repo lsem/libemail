@@ -216,7 +216,7 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
             1, std::nullopt,
             use_this(std::move(cb),
                      [](auto& this_, std::error_code ec,
-                        std::vector<imap_client::imap_client_t::MailboxEmail>, auto cb) mutable {
+                        std::vector<emailkit::types::MailboxEmail>, auto cb) mutable {
                          ASYNC_RETURN_ON_ERROR(ec, cb, "async list items failed");
                          cb({});
                      }));

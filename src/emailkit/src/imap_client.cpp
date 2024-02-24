@@ -18,6 +18,97 @@ namespace {
 // This actually is not going to be used at all.
 const emailkit::types::EmailAddress default_mail_addres{.raw_email_address = "user@example.com"};
 
+expected<void> collect_headers(imap_parser::rfc822::RFC822ParserStateHandle state,
+                               emailkit::types::MailboxEmail& mail) {
+    if (auto maybe_date = imap_parser::rfc822::get_date(state)) {
+        mail.date = *maybe_date;
+    } else {
+        log_error("no DATE header in RFC822 message");
+        return unexpected(make_error_code(std::errc::io_error));
+    }
+
+    if (auto maybe_str = imap_parser::rfc822::get_subject(state)) {
+        mail.subject = *maybe_str;
+    } else {
+        log_error("no SUBJECT header in RFC822 message");
+        return unexpected(make_error_code(std::errc::io_error));
+    }
+
+    if (auto maybe_addr = imap_parser::rfc822::get_from_address(state)) {
+        mail.from = *maybe_addr;
+    } else {
+        log_error("no FROM header in RFC822 message");
+        return unexpected(make_error_code(std::errc::io_error));
+    }
+
+    if (auto maybe_addr = imap_parser::rfc822::get_to_address(state)) {
+        mail.to = *maybe_addr;
+    } else {
+        log_error("no TO header in RFC822 message");
+        return unexpected(make_error_code(std::errc::io_error));
+    }
+
+    if (auto maybe_addr = imap_parser::rfc822::get_cc_address(state)) {
+        mail.cc = *maybe_addr;
+    } else {
+        log_error("no CC header in RFC822 message");
+        return unexpected(make_error_code(std::errc::io_error));
+    }
+
+    if (auto maybe_addr = imap_parser::rfc822::get_bcc_address(state)) {
+        mail.bcc = *maybe_addr;
+    } else {
+        log_error("no BCC header in RFC822 message");
+        return unexpected(make_error_code(std::errc::io_error));
+    }
+
+    if (auto maybe_addr = imap_parser::rfc822::get_sender_address(state)) {
+        mail.sender = *maybe_addr;
+    } else {
+        // Sender is optional?
+        log_error("no SENDER header in RFC822 message");
+        return unexpected(make_error_code(std::errc::io_error));
+    }
+
+    if (auto maybe_addr = imap_parser::rfc822::get_reply_to_address(state)) {
+        mail.reply_to = *maybe_addr;
+    } else {
+        // Sender is optional?
+        log_error("no REPLY-TO header in RFC822 message");
+        return unexpected(make_error_code(std::errc::io_error));
+    }
+
+    // Collect all other headers. This may be somewhat ineficient to heep all headers locally, but
+    // lets see, maybe we can afford it.
+    if (auto headers_or_err = imap_parser::rfc822::get_headers(state)) {
+        mail.raw_headers = std::move(*headers_or_err);
+    } else {
+        log_error("failed getting headers for RFC822 message");
+        return unexpected(make_error_code(std::errc::io_error));
+    }
+
+    // TODO: Date!
+
+    // Non mandatory fields.
+
+    if (auto maybe_message_id = imap_parser::rfc822::get_message_id(state)) {
+        mail.message_id = *maybe_message_id;
+    } else {
+        log_warning("no MESSAGE-ID header in RFC822 message");
+    }
+
+    if (auto it = mail.raw_headers.find("In-Reply-To"); it != mail.raw_headers.end()) {
+        mail.in_reply_to = it->second;
+    }
+
+    if (auto it = mail.raw_headers.find("References"); it != mail.raw_headers.end()) {
+        // TODO: Check if this SPACE delimiter is the only possible one.
+        mail.references = emailkit::utils::split(it->second, ' ');
+    }
+
+    return {};
+}
+
 }  // namespace
 
 namespace imap_commands {
@@ -628,7 +719,7 @@ class imap_client_impl_t : public imap_client_t, public EnableUseThis<imap_clien
 
     void async_list_items(int from,
                           std::optional<int> to,
-                          async_callback<std::vector<MailboxEmail>> cb) override {
+                          async_callback<std::vector<emailkit::types::MailboxEmail>> cb) override {
         async_execute_command(
             imap_commands::fetch_t{
                 .sequence_set = imap_commands::raw_fetch_sequence_spec{fmt::format(
@@ -642,9 +733,9 @@ class imap_client_impl_t : public imap_client_t, public EnableUseThis<imap_clien
                                        types::fetch_response_t response, auto cb) {
                 ASYNC_RETURN_ON_ERROR(ec, cb, "async fetch command failed");
 
-                std::vector<MailboxEmail> result;
+                std::vector<emailkit::types::MailboxEmail> result;
 
-                MailboxEmail current_email;
+                emailkit::types::MailboxEmail current_email;
 
                 // int message_uid;
                 // emailkit::types::EmailAddress from;
@@ -675,73 +766,33 @@ class imap_client_impl_t : public imap_client_t, public EnableUseThis<imap_clien
                             // going to have this messed up completely and this assumed to be
                             // properly modeleed so that it works.
                             // traverse_body(as_body);
-                            log_info(
-                                "--------------------------------------------------------------");
+                            // log_info(
+                            //     "--------------------------------------------------------------");
                         } else if (std::holds_alternative<imap_parser::msg_attr_uid_t>(sattr)) {
                             auto& as_uid = std::get<imap_parser::msg_attr_uid_t>(sattr);
                             current_email.message_uid = as_uid.value;
                         } else if (std::holds_alternative<imap_parser::MsgAttrRFC822>(sattr)) {
                             auto& as_rfc822 = std::get<imap_parser::MsgAttrRFC822>(sattr);
-
-                            // get_from_address
                             auto parser =
                                 imap_parser::rfc822::parse_rfc882_message(as_rfc822.msg_data);
+                            if (!collect_headers(parser, current_email)) {
+                                log_error("invalid email, skipping");
+                                // TODO: use some blank/dummy emails instead so user known he or she
+                                // has some email that could not be parsed. Ignoring silently is not
+                                // the best option. Can be implemented by assigning some special
+                                // flag to current_email.
+                                continue;
+                            }
 
-                            log_debug("getting from address");
-                            const auto default_address_list = std::vector<std::string>{};
-                            auto from = imap_parser::rfc822::get_from_address(parser).value_or(
-                                default_address_list);
-                            auto to = imap_parser::rfc822::get_to_address(parser).value_or(
-                                default_address_list);
-
-                            auto cc = imap_parser::rfc822::get_cc_address(parser).value_or(
-                                default_address_list);
-                            auto bcc = imap_parser::rfc822::get_bcc_address(parser).value_or(
-                                default_address_list);
-                            auto subject =
-                                imap_parser::rfc822::get_subject(parser).value_or("no-subject");
-                            auto sender = imap_parser::rfc822::get_sender(parser).value_or(
-                                default_address_list);
-                            auto reply_to = imap_parser::rfc822::get_reply_to(parser).value_or(
-                                default_address_list);
-                            auto message_id = imap_parser::rfc822::get_message_id(parser).value_or(
-                                "no-message-id");
-
-                            log_info(
-                                "from: {}, to: {}, cc: {}, bcc: {}, subject: {}, sender: {}, "
-                                "reply-to: {}, message_id: {}",
-                                from, to, cc, bcc, subject, sender, reply_to, message_id);
-
-                            // current_email.to =
-                            //     get_to_address(as_rfc822).value_or(default_mail_addres);
-                            // current_email.cc =
-                            //     get_cc_address(as_rfc822).value_or(default_mail_addres);
-                            // current_email.bcc =
-                            //     get_bcc_address(as_rfc822).value_or(default_mail_addres);
-                            // current_email.message_id =
-                            //     get_message_id(as_rfc822).value_or("<no-message-ID>");
-                            // current_email.in_reply_to =
-                            //     get_in_reply_to(as_rfc822).value_or("<no-message-ID>");
-                            // current_email.subject =
-                            // get_subject(as_rfc822).value_or("<no-subject>");
-
-                            // auto parsed_headers_or_err =
-                            //     imap_parser::rfc822::parse_headers_from_rfc822_message(
-                            //         as_rfc822.msg_data);
-                            // if (!parsed_headers_or_err) {
-                            //     // TODO: here we should be able to produce somehow an error item
-                            //     // instead of failing parsing completely. This will allow to have
-                            //     // special handling in the App and put bad item in the list.
-                            //     log_error("failed parsing rfc822 headers for a message: {}",
-                            //               message_number);
-                            //     cb(make_error_code(std::errc::io_error), {});
-                            //     return;
-                            // }
                         } else {
                             log_warning("ignoring unexpected non-bodystructure static attribute");
                             continue;
                         }
                     }
+
+                    log_info("{}", emailkit::types::to_json(current_email));
+
+                    result.emplace_back(std::move(current_email));
                 }
                 cb({}, {});
             }));

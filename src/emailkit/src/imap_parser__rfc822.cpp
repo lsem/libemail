@@ -1,6 +1,7 @@
 #include "imap_parser__rfc822.hpp"
 #include <gmime/gmime.h>
 #include "imap_parser.hpp"
+#include "utils.hpp"
 
 #include <scope_guard/scope_guard.hpp>
 
@@ -374,6 +375,51 @@ RFC822ParserStateHandle parse_rfc882_message(std::string_view message_data) {
     return result;
 }
 
+expected<std::map<std::string, std::string>> get_headers(RFC822ParserStateHandle state) {
+    std::map<std::string, std::string> result;
+
+    GMimeHeaderList* list =
+        g_mime_object_get_header_list(reinterpret_cast<GMimeObject*>(state->message));
+    if (!list) {
+        log_warning("no headers in a message");
+        return unexpected(make_error_code(std::errc::io_error));
+    }
+
+    auto list_size = g_mime_header_list_get_count(list);
+
+    for (int i = 0; i < list_size; ++i) {
+        auto header = g_mime_header_list_get_header_at(list, i);
+        if (!header) {
+            log_warning("null returned for header {}", i);
+            continue;
+        }
+        result.emplace(g_mime_header_get_name(header), g_mime_header_get_value(header));
+    }
+
+    return result;
+}
+
+emailkit::types::EmailDate to_emaildate(GDateTime* dt) {
+    return emailkit::types::EmailDate{.year = g_date_time_get_year(dt),
+                                      .month = g_date_time_get_month(dt),
+                                      .day = g_date_time_get_day_of_month(dt),
+                                      .hours = g_date_time_get_hour(dt),
+                                      .minutes = g_date_time_get_minute(dt),
+                                      .seconds = g_date_time_get_second(dt)
+
+    };
+}
+
+std::optional<emailkit::types::EmailDate> get_date(RFC822ParserStateHandle state) {
+    GDateTime* date = g_mime_message_get_date(state->message);
+    if (!date) {
+        log_error("no Date");
+        return {};
+    }
+
+    return to_emaildate(date);
+}
+
 std::optional<std::string> get_subject(RFC822ParserStateHandle state) {
     const char* msg = g_mime_message_get_subject(state->message);
     if (!msg) {
@@ -418,7 +464,7 @@ std::optional<emailkit::types::EmailAddressVec> get_bcc_address(RFC822ParserStat
     return gmime_internet_address_to_address_vec(addr_list);
 }
 
-std::optional<emailkit::types::EmailAddressVec> get_sender(RFC822ParserStateHandle state) {
+std::optional<emailkit::types::EmailAddressVec> get_sender_address(RFC822ParserStateHandle state) {
     InternetAddressList* addr_list = g_mime_message_get_sender(state->message);
     if (!addr_list) {
         log_warning("no SENDER list");
@@ -426,7 +472,8 @@ std::optional<emailkit::types::EmailAddressVec> get_sender(RFC822ParserStateHand
     }
     return gmime_internet_address_to_address_vec(addr_list);
 }
-std::optional<emailkit::types::EmailAddressVec> get_reply_to(RFC822ParserStateHandle state) {
+std::optional<emailkit::types::EmailAddressVec> get_reply_to_address(
+    RFC822ParserStateHandle state) {
     InternetAddressList* addr_list = g_mime_message_get_reply_to(state->message);
     if (!addr_list) {
         log_warning("no REPLY_TO list");
@@ -436,6 +483,11 @@ std::optional<emailkit::types::EmailAddressVec> get_reply_to(RFC822ParserStateHa
 }
 
 std::optional<emailkit::types::MessageID> get_message_id(RFC822ParserStateHandle state) {
+    // GMimeHeaderList *g_mime_object_get_header_list (GMimeObject *object);
+    //     const char *g_mime_header_get_name (GMimeHeader *header);
+    // const char *g_mime_header_get_raw_name (GMimeHeader *header);
+    // const char *g_mime_header_get_value (GMimeHeader *header);
+
     const char* msg_id = g_mime_message_get_message_id(state->message);
     if (!msg_id) {
         log_warning("no MessageID");
@@ -445,7 +497,134 @@ std::optional<emailkit::types::MessageID> get_message_id(RFC822ParserStateHandle
 }
 
 std::optional<emailkit::types::MessageID> get_in_reply_to(RFC822ParserStateHandle state) {
-    log_error("not implemented");
+    GMimeHeaderList* list =
+        g_mime_object_get_header_list(reinterpret_cast<GMimeObject*>(state->message));
+    if (!list) {
+        log_warning("no headers in a message");
+        return {};
+    }
+
+    auto list_size = g_mime_header_list_get_count(list);
+
+    for (int i = 0; i < list_size; ++i) {
+        auto header = g_mime_header_list_get_header_at(list, i);
+        if (!header) {
+            log_warning("null returned for header {}", i);
+            continue;
+        }
+        auto name = g_mime_header_get_name(header);
+        if (std::strcmp(name, "In-Reply-To") == 0) {
+            return g_mime_header_get_value(header);
+        }
+    }
+
+    return {};
+}
+
+expected<void> collect_headers(RFC822ParserStateHandle state, emailkit::types::MailboxEmail& mail) {
+    {
+        InternetAddressList* addr_list = g_mime_message_get_from(state->message);
+        if (!addr_list) {
+            log_error("no FROM list");
+            return unexpected(make_error_code(std::errc::io_error));
+        }
+        mail.from = gmime_internet_address_to_address_vec(addr_list);
+    }
+    {
+        InternetAddressList* addr_list = g_mime_message_get_to(state->message);
+        if (!addr_list) {
+            log_error("no TO list");
+            return unexpected(make_error_code(std::errc::io_error));
+        }
+        mail.to = gmime_internet_address_to_address_vec(addr_list);
+    }
+    {
+        InternetAddressList* addr_list = g_mime_message_get_cc(state->message);
+        if (!addr_list) {
+            log_error("no CC list");
+            return unexpected(make_error_code(std::errc::io_error));
+        }
+        mail.cc = gmime_internet_address_to_address_vec(addr_list);
+    }
+    {
+        InternetAddressList* addr_list = g_mime_message_get_bcc(state->message);
+        if (!addr_list) {
+            log_error("no BCC list");
+            return unexpected(make_error_code(std::errc::io_error));
+        }
+        mail.bcc = gmime_internet_address_to_address_vec(addr_list);
+    }
+
+    {
+        InternetAddressList* addr_list = g_mime_message_get_sender(state->message);
+        if (!addr_list) {
+            log_warning("no SENDER list");
+            return unexpected(make_error_code(std::errc::io_error));
+        }
+        mail.sender = gmime_internet_address_to_address_vec(addr_list);
+    }
+
+    {
+        InternetAddressList* addr_list = g_mime_message_get_reply_to(state->message);
+        if (!addr_list) {
+            log_warning("no REPLY_TO list");
+            return unexpected(make_error_code(std::errc::io_error));
+        }
+        mail.reply_to = gmime_internet_address_to_address_vec(addr_list);
+    }
+
+    {
+        const char* subject = g_mime_message_get_subject(state->message);
+        if (!subject) {
+            log_error("no MessageID");
+            return unexpected(make_error_code(std::errc::io_error));
+        }
+        mail.subject = subject;
+    }
+
+    // TODO: DATE!
+    GDateTime* date = g_mime_message_get_date(state->message);
+    if (!date) {
+        log_error("no Date");
+        return unexpected(make_error_code(std::errc::io_error));
+    }
+
+    //
+    // Non mandatory headers.
+    //
+
+    {
+        const char* msg_id = g_mime_message_get_message_id(state->message);
+        if (!msg_id) {
+            log_warning("no MessageID");
+            // NOTE, this is optional. The server may not use MessageID as far as I can tell.
+        }
+        mail.message_id = msg_id;
+    }
+
+    {
+        GMimeHeaderList* list =
+            g_mime_object_get_header_list(reinterpret_cast<GMimeObject*>(state->message));
+        if (!list) {
+            log_warning("no headers in a message");
+            return {};
+        }
+        auto list_size = g_mime_header_list_get_count(list);
+
+        for (int i = 0; i < list_size; ++i) {
+            auto header = g_mime_header_list_get_header_at(list, i);
+            if (!header) {
+                log_warning("null returned for header {}", i);
+                continue;
+            }
+            auto name = g_mime_header_get_name(header);
+
+            if (std::strcmp(name, "In-Reply-To") == 0) {
+                mail.in_reply_to = g_mime_header_get_value(header);
+            }
+        }
+    }
+
     return {};
 }
 

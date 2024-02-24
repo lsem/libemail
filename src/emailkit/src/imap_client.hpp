@@ -164,65 +164,10 @@ class imap_client_t {
     virtual void async_select_mailbox(std::string inbox_name,
                                       async_callback<SelectMailboxResult> cb) = 0;
 
-    struct MailboxEmail {
-        // IDs: id in this mailbox, message-ID (if this is standard, or if it is extension then it
-        // should be optinal).x
-
-        // https://datatracker.ietf.org/doc/html/rfc3501#section-2.3.1.1
-        // Unique Identifier (UID) Message Attribute (2.3.1.1)
-        int message_uid;
-        emailkit::types::EmailAddress from;
-        emailkit::types::EmailAddress to;
-        emailkit::types::EmailAddress cc;
-        emailkit::types::EmailAddress bcc;
-        emailkit::types::MessageID message_id;
-        emailkit::types::MessageID in_reply_to;
-        emailkit::types::EmailDate date;
-        std::string subject;
-
-        // IT seeems like the rules are the following:
-        //  WE log in into SERVER. And when we download emails during this session and want to put
-        //  them
-        // into cache, we should save UIDValidity value returned from SELECT command.
-        // If we have some cached value for this folder which has different UID validity value
-        // we should remove all cached values for this folder and redownload them.
-        // Summary:
-        //   IMAP has three attributes which create an UNIQUE key:
-        //   INBOX NAME (e.g. INBOX or JUNK) (string)
-        //   UIDVALIDITY (exists on per-folder basis, given when logged in) (32bit)
-        //   UID individual message ID in a folder.  (32bit)
-        //   So our cache should be orgoanized in a way that it allows us to answer a question
-        //   wheter our cache is still valid.
-        //
-        // class MailerCache {
-        //     auto have_for(std::string mailbox) -> bool  // returns true if there is a cache.
-        //     auto have_cache_for(std::stirng mailbox) -> bool
-        //     auto is_valid_for(std::string mailbox, int uid_validitiy) -> bool
-        //     auto invalidate_cache(std::string mailbox, int uid_validitiy) -> void
-        //
-        //     ..
-        // };
-        // This makes possible the following algorithm:
-        //  log in, list folders.
-        //  iterate over all existing folders, and select each one by one.
-        //  for each folder, check the flags, new messages.
-        //  check UID validity and verify if we have cache invalidated. If so, remove data from
-        //  cache (or just mark for deletion and do it later in one batch).
-        //  Refill caches by redownloading all data, reindexing, etc..
-        // Continue watching changes on the server and keep the cache up to date.
-        // If anything has changed, generate corresponding event so that UI can change its state to
-        // WORKING/UPDATING. Update the cache and persist it, deliver all changes to UI. So the
-        // program basically becomes a program that keeps local, useful replica of emai. And can
-        // work with local replica. Once we are connected again, it synchrnoizes with replica.
-        //
-        // BodyStructure -- a structure of the document but no data itself. Or, alternatively we can
-        // load body sections as well but don't download attachments automatically. (TODO: make an
-        // optoon to download attachments, just in case person wants to downlaod attachments to have
-        // them offline anytime he or she needs it).
-    };
-    virtual void async_list_items(int from,
-                                  std::optional<int> to,
-                                  async_callback<std::vector<MailboxEmail>> cb) = 0;
+    virtual void async_list_items(
+        int from,
+        std::optional<int> to,
+        async_callback<std::vector<emailkit::types::MailboxEmail>> cb) = 0;
 
    public:
     // TODO: state change API (logical states + disconnected/failed)

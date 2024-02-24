@@ -120,7 +120,7 @@ struct imap_match_condition_t {
                     m_prev_progress = 0.0;
                     m_literal_size = std::stoi(m_literal_size_s);
                     m_literal_data_bytes_left = m_literal_size;
-                    log_info("readling literal of size {}Kb", m_literal_size / 1024);
+                    log_debug("reading literal of size {}Kb", m_literal_size / 1024);
                     log_debug("progress: 0%");
                     log_debug("reading literal data of size (size={})", m_literal_size);
                     if (m_literal_data_bytes_left > 0) {
