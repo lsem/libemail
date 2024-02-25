@@ -197,7 +197,7 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
                          log_info("selected {} folder (exists: {}, recents: {})", mailbox_path,
                                   result.raw_response.exists, result.raw_response.recents);
 
-			 log_info("downloading emails on selected folder");
+                         log_info("downloading emails on selected folder");
                          this_.async_download_emails_for_mailbox(this_.use_this(
                              std::move(cb), [list_entries = std::move(list_entries)](
                                                 auto& this_, std::error_code ec, auto cb) {
@@ -216,8 +216,13 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
             1, std::nullopt,
             use_this(std::move(cb),
                      [](auto& this_, std::error_code ec,
-                        std::vector<emailkit::types::MailboxEmail>, auto cb) mutable {
+                        std::vector<emailkit::types::MailboxEmail> items, auto cb) mutable {
                          ASYNC_RETURN_ON_ERROR(ec, cb, "async list items failed");
+
+                         log_info("**Emails for mailbox**");
+                         for (auto& mail : items) {
+                             log_info("{}", emailkit::types::to_json(mail));
+                         }
                          cb({});
                      }));
     }

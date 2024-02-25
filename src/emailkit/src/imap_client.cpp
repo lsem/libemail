@@ -861,11 +861,9 @@ class imap_client_impl_t : public imap_client_t, public EnableUseThis<imap_clien
                         }
                     }
 
-                    log_info("{}", emailkit::types::to_json(current_email));
-
                     result.emplace_back(std::move(current_email));
                 }
-                cb({}, {});
+                cb({}, std::move(result));
             }));
     }
 
