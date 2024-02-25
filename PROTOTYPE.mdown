@@ -9,3 +9,12 @@ Prove that C++ based email application with native front-end and having SmartTre
 1. Simple app that can download emais in most simple way form real server after authentication.
 2. SmartTree which sorts emails based based on contact list.
 3. No search, no offline mode, no cache, no persitence, not settings, no real UI.
+
+
+## EXTRA
+
+I would like to see how hard is to implement some nice startup wizzard for application.
+I would like to present:
+That we don't have any servers and don't send any data to anywhere. Only client and your server.
+To type address and we check if we know how to connect and work with it.
+

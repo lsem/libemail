@@ -70,6 +70,18 @@ std::vector<std::string_view> split_views(std::string_view s, char delimiter) {
     return r;
 }
 
+std::string strip(std::string s, char delimiter) {
+    // lstrip
+    ssize_t begin = 0, end = s.size();
+    while (begin < s.size() && s[begin] == delimiter)
+        begin++;
+
+    while (end > 0 && s[end - 1] == delimiter)
+        end--;
+
+    return std::string(s, begin, end - begin);
+}
+
 std::string base64_naive_decode(const std::string& s) {
     std::string res(base64::base64_decode_maxlength(s.size()), 0);
     base64::base64_decodestate state;

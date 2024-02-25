@@ -1,3 +1,4 @@
+
 #include <emailkit/global.hpp>
 #include "imap_client.hpp"
 #include "imap_socket.hpp"
@@ -18,7 +19,7 @@ namespace {
 // This actually is not going to be used at all.
 const emailkit::types::EmailAddress default_mail_addres{.raw_email_address = "user@example.com"};
 
-expected<void> collect_headers(imap_parser::rfc822::RFC822ParserStateHandle state,
+expected<void> capture_headers(imap_parser::rfc822::RFC822ParserStateHandle state,
                                emailkit::types::MailboxEmail& mail) {
     if (auto maybe_date = imap_parser::rfc822::get_date(state)) {
         mail.date = *maybe_date;
@@ -87,8 +88,6 @@ expected<void> collect_headers(imap_parser::rfc822::RFC822ParserStateHandle stat
         return unexpected(make_error_code(std::errc::io_error));
     }
 
-    // TODO: Date!
-
     // Non mandatory fields.
 
     if (auto maybe_message_id = imap_parser::rfc822::get_message_id(state)) {
@@ -104,6 +103,95 @@ expected<void> collect_headers(imap_parser::rfc822::RFC822ParserStateHandle stat
     if (auto it = mail.raw_headers.find("References"); it != mail.raw_headers.end()) {
         // TODO: Check if this SPACE delimiter is the only possible one.
         mail.references = emailkit::utils::split(it->second, ' ');
+    }
+
+    return {};
+}
+
+using namespace emailkit::imap_parser::wip;
+void traverse_body(const Body& body, int indent_width = 0) {
+    std::string indent_str = std::string(indent_width, ' ');
+
+    if (std::holds_alternative<std::unique_ptr<BodyType1Part>>(body)) {
+        auto& one_part = *std::get<std::unique_ptr<BodyType1Part>>(body);
+
+        if (auto* text_part = std::get_if<BodyTypeText>(&one_part.part_body)) {
+            log_info("{}TEXT (subtype: {})", indent_str, text_part->media_subtype);
+        } else if (auto* basic_part = std::get_if<BodyTypeBasic>(&one_part.part_body)) {
+            log_info("{}BASIC (type: {}, subtype: {})", indent_str, basic_part->media_type,
+                     basic_part->media_subtype);
+        } else if (auto* msg_part = std::get_if<BodyTypeMsg>(&one_part.part_body)) {
+            log_info("{}MESSAGE", indent_str);
+        }
+    } else {
+        auto& multi_part = *std::get<std::unique_ptr<BodyTypeMPart>>(body);
+        log_info("{}MULTI (subtype: {})", indent_str, multi_part.media_subtype);
+
+        for (auto& subpart : multi_part.body_ptrs) {
+            log_info("{}traverse bodypart at level {}", indent_str, indent_width);
+            traverse_body(subpart, indent_width + 4);
+        }
+
+        log_info("{}END MULTI", indent_str);
+    }
+}
+
+expected<void> capture_attachments_metadata(const imap_parser::wip::Body& body,
+                                            emailkit::types::MailboxEmail& mail) {
+    // The algorithm is going to be the following:
+    // If there is alternative section with text/html than all 0-level parts inclyding TEXT one
+    // capturd as attachments. If there is no, then zero level TEXT parts is considered as not an
+    // attachment and thus ignored.
+    // Related RFC and materials:
+    // https://stackoverflow.com/questions/64687378/how-many-text-plain-and-text-html-parts-can-an-email-have
+    // https://www.w3.org/Protocols/rfc1341/7_2_Multipart.html
+
+    auto capture_attachment_name = [](const auto& field_params, std::string& name_lvalue) -> void {
+        for (auto& [p, v] : field_params) {
+            // never actually seen NAME without quotes but stil does not look
+            // harmful either.
+            if (p == "\"NAME\"" || p == "NAME") {
+                name_lvalue = emailkit::utils::strip(v, '\"');
+            }
+        }
+    };
+
+    if (std::holds_alternative<std::unique_ptr<BodyType1Part>>(body)) {
+        // TODO: theoretically, email can have the only one part and this part can be non-text so
+        // this can be considered as attachments. Say, we send just one file in wierd way.
+        auto& one_part = *std::get<std::unique_ptr<BodyType1Part>>(body);
+        if (auto* basic_part = std::get_if<BodyTypeBasic>(&one_part.part_body)) {
+            log_warning("this must be rare: the only single part is basic");
+            mail.attachments.emplace_back(basic_part->media_type, basic_part->media_subtype);
+            capture_attachment_name(basic_part->body_fields.params, mail.attachments.back().name);
+        }
+    } else {
+        assert(std::holds_alternative<std::unique_ptr<BodyTypeMPart>>(body));
+        auto& multi_part = *std::get<std::unique_ptr<BodyTypeMPart>>(body);
+        if (multi_part.media_subtype == "MIXED") {
+            log_debug("skipping non-mixed multipart");
+            for (auto& subpart : multi_part.body_ptrs) {
+                // Take only first-level BASIC and TEXT parts
+                if (std::holds_alternative<std::unique_ptr<BodyType1Part>>(subpart)) {
+                    auto& one_part = *std::get<std::unique_ptr<BodyType1Part>>(subpart);
+                    if (auto* text_part = std::get_if<BodyTypeText>(&one_part.part_body)) {
+                        // TODO: use a constant.
+                        mail.attachments.emplace_back("TEXT", text_part->media_subtype);
+                    } else if (auto* basic_part = std::get_if<BodyTypeBasic>(&one_part.part_body)) {
+                        mail.attachments.emplace_back(basic_part->media_type,
+                                                      basic_part->media_subtype);
+                        capture_attachment_name(basic_part->body_fields.params,
+                                                mail.attachments.back().name);
+                        mail.attachments.back().octets = basic_part->body_fields.octets;
+                    } else if (auto* msg_part = std::get_if<BodyTypeMsg>(&one_part.part_body)) {
+                        log_warning("skipping MESSAGE part type on first second level");
+                    }
+                } else {
+                    log_debug("skipping nested multipart");
+                    continue;
+                }
+            }
+        }
     }
 
     return {};
@@ -735,16 +823,9 @@ class imap_client_impl_t : public imap_client_t, public EnableUseThis<imap_clien
 
                 std::vector<emailkit::types::MailboxEmail> result;
 
-                emailkit::types::MailboxEmail current_email;
-
-                // int message_uid;
-                // emailkit::types::EmailAddress from;
-                // emailkit::types::EmailAddress to;
-                // emailkit::types::MessageID message_id;
-                // emailkit::types::MessageID in_reply_to;
-
                 for (auto& [message_number, static_attributes] : response.message_data_items) {
-                    unsigned uid_value = 0;
+                    emailkit::types::MailboxEmail current_email;
+
                     if (static_attributes.size() > 3) {
                         log_warning(
                             "unexpected static attributes alongside of bodystructure, will be "
@@ -755,19 +836,12 @@ class imap_client_impl_t : public imap_client_t, public EnableUseThis<imap_clien
                     for (auto& sattr : static_attributes) {
                         if (std::holds_alternative<imap_parser::wip::Body>(sattr)) {
                             auto& as_body = std::get<imap_parser::wip::Body>(sattr);
-                            // THIS IS BODYSTRUCTURE OR BODY DEPENDING ON MODE.
-                            // It seems like email can be kind of seen as detached entitiy. Or it
-                            // can be attached. So email is basically: RFC822 HEADERS +
-                            // BODY/BODYSTRCUTURE. This is what is prepared by client and uploaded
-                            // into the server. When we download an email, we get email in server
-                            // term, in server domain. This has additional attributes which identify
-                            // this email on the server. So we can see it as EmailData and
-                            // EmailServer. For the sake of simplicity in current MailerPOC we are
-                            // going to have this messed up completely and this assumed to be
-                            // properly modeleed so that it works.
-                            // traverse_body(as_body);
-                            // log_info(
-                            //     "--------------------------------------------------------------");
+                            if (!capture_attachments_metadata(as_body, current_email)) {
+                                log_error("failed capturing attachements");
+                                // TODO: use some blank/dumyy emails instead or leave partially
+                                // parsed emails so user can see details.
+                                continue;
+                            }
                         } else if (std::holds_alternative<imap_parser::msg_attr_uid_t>(sattr)) {
                             auto& as_uid = std::get<imap_parser::msg_attr_uid_t>(sattr);
                             current_email.message_uid = as_uid.value;
@@ -775,12 +849,9 @@ class imap_client_impl_t : public imap_client_t, public EnableUseThis<imap_clien
                             auto& as_rfc822 = std::get<imap_parser::MsgAttrRFC822>(sattr);
                             auto parser =
                                 imap_parser::rfc822::parse_rfc882_message(as_rfc822.msg_data);
-                            if (!collect_headers(parser, current_email)) {
+                            if (!capture_headers(parser, current_email)) {
                                 log_error("invalid email, skipping");
-                                // TODO: use some blank/dummy emails instead so user known he or she
-                                // has some email that could not be parsed. Ignoring silently is not
-                                // the best option. Can be implemented by assigning some special
-                                // flag to current_email.
+                                // TODO: use some blank/dummy emails instead
                                 continue;
                             }
 

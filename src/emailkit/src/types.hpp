@@ -24,6 +24,13 @@ struct EmailDate {
     int seconds;
 };
 
+struct Attachment {
+    std::string type;
+    std::string subtype;
+    std::string name;
+    uint32_t octets;
+};
+
 struct MailboxEmail {
     // IDs: id in this mailbox, message-ID (if this is standard, or if it is extension then it
     // should be optinal).x
@@ -48,6 +55,8 @@ struct MailboxEmail {
     std::optional<std::vector<MessageID>> references;
 
     std::map<std::string, std::string> raw_headers;
+
+    std::vector<Attachment> attachments;
 };
 
 std::string to_json(const MailboxEmail& mail);

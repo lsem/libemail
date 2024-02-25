@@ -229,4 +229,13 @@ TEST(utils_test, mime_encoded_word_test) {
     }
 }
 
+TEST(utils_test, strip_test) {
+    EXPECT_EQ(emailkit::utils::strip("  simple test   ", ' '), "simple test");
+    EXPECT_EQ(emailkit::utils::strip("  simple test   ", ','), "  simple test   ");
+    EXPECT_EQ(emailkit::utils::strip("     ", ' '), "");
+    EXPECT_EQ(emailkit::utils::strip(" ", ' '), "");
+    EXPECT_EQ(emailkit::utils::strip("  ", ' '), "");
+    EXPECT_EQ(emailkit::utils::strip("\"українське імя файлу\"", '"'), "українське імя файлу");
+}
+
 }  // namespace

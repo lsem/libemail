@@ -417,7 +417,7 @@ std::optional<emailkit::types::EmailDate> get_date(RFC822ParserStateHandle state
         return {};
     }
 
-    return to_emaildate(date);
+    return to_emaildate(g_date_time_to_utc(date));
 }
 
 std::optional<std::string> get_subject(RFC822ParserStateHandle state) {

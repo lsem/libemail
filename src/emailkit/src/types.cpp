@@ -1,9 +1,9 @@
 
 #include "types.hpp"
 #include <fmt/format.h>
+#include <rapidjson/prettywriter.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
-#include <rapidjson/prettywriter.h>
 
 namespace emailkit::types {
 
@@ -75,6 +75,30 @@ std::string to_json(const MailboxEmail& mail) {
     } else {
         writer.Null();
     }
+
+    writer.Key("raw_headers");
+    writer.StartObject();
+    for (auto& [h, v] : mail.raw_headers) {
+        writer.Key(h.c_str());
+        writer.String(v.c_str());
+    }
+    writer.EndObject();
+
+    writer.Key("attachments");
+    writer.StartArray();
+    for (auto& x : mail.attachments) {
+        writer.StartObject();
+        writer.Key("type");
+        writer.String(x.type.c_str());
+        writer.Key("subtype");
+        writer.String(x.subtype.c_str());
+        writer.Key("name");
+        writer.String(x.name.c_str());
+        writer.Key("octets");
+        writer.Int(x.octets);
+        writer.EndObject();
+    }
+    writer.EndArray();
 
     writer.EndObject();
 
