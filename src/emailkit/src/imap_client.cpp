@@ -651,7 +651,7 @@ class imap_client_impl_t : public imap_client_t, public EnableUseThis<imap_clien
     virtual void async_execute_command(imap_commands::select_t cmd,
                                        async_callback<types::select_response_t> cb) override {
         async_execute_simple_command(
-            fmt::format("select {}", cmd.mailbox_name),
+            fmt::format("select \"{}\"", cmd.mailbox_name),
             [cb = std::move(cb)](std::error_code ec, imap_response_t imap_resp) mutable {
                 if (ec) {
                     log_error("async_execute_simple_command failed: {}", ec);
@@ -663,8 +663,9 @@ class imap_client_impl_t : public imap_client_t, public EnableUseThis<imap_clien
                 // can be NO response?
                 // TODO: add test.
                 // TODO: check other commands for this mistake.
-                if (!imap_resp.lines.empty() && imap_resp.lines[0].is_no_response()) {
-                    log_error("got no response for select");
+                if (!imap_resp.lines.empty() &&
+                    (imap_resp.lines[0].is_no_response() || imap_resp.lines[0].is_bad_response())) {
+                    log_error("got bad/no response for select");
                     cb(make_error_code(std::errc::io_error), {});
                     return;
                 }
@@ -745,6 +746,8 @@ class imap_client_impl_t : public imap_client_t, public EnableUseThis<imap_clien
                 return;
             }
 
+            // TODO: add check for NO/BAD.
+
             log_info("parsing fetch response of size {}Kb", imap_resp.size() / 1024);
 
             auto parse_start = std::chrono::steady_clock::now();
@@ -757,13 +760,6 @@ class imap_client_impl_t : public imap_client_t, public EnableUseThis<imap_clien
             auto parse_took = std::chrono::steady_clock::now() - parse_start;
 
             log_info("parsing successful, time taken: {}ms", parse_took / 1.0ms);
-
-            // TODO: check if we really need this.
-            if (message_data_records_or_err->empty()) {
-                log_error("no message data record in fetch response");
-                cb(make_error_code(std::errc::protocol_error), {});
-                return;
-            }
 
             cb({}, types::fetch_response_t{.message_data_items =
                                                std::move(*message_data_records_or_err)});
