@@ -38,7 +38,11 @@ string render_tree(const mailer::MailerUIState& ui_state) {
             indent_str.resize(indent_str.size() - 4);
         },
         [&](auto& ref) {  // reference
-            ss << indent_str << ref.label << "\n";
+            ss << fmt::format("{}{} (emails: {}{})\n", indent_str,
+                              (ref.label.empty() ? "<No-Subject>" : ref.label), ref.emails_count,
+                              ref.attachments_count > 0
+                                  ? fmt::format(", attachments: {}", ref.attachments_count)
+                                  : "");
         });
 
     return ss.str();
@@ -101,6 +105,7 @@ struct MailIDFilter {
 class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
    public:
     explicit MailerPOC_impl(asio::io_context& ctx) : m_ctx(ctx) {}
+    ~MailerPOC_impl() { emailkit::finalize(); }
 
     bool initialize() {
         m_imap_client = emailkit::imap_client::make_imap_client(m_ctx);

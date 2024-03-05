@@ -140,24 +140,36 @@ class MailerUIState {
 
         if (thread_id_opt.has_value()) {
             assert(thread_id_node);
+            // update aggregated data
+            // TODO: seems like we can have an index to exact node instead of having just a folder.x
+            for (auto& c : thread_id_node->children) {
+                if (c->ref.has_value() && c->ref.value().thread_id == thread_id_opt.value()) {
+                    c->ref->emails_count += 1;
+                    c->ref->attachments_count += email.attachments.size();
+                    break;
+                }
+            }
             move_thread(thread_id_node, group_folder_node, thread_id_opt.value());
+
         } else {
             // this is new thread so we create it as a new thread in a new folder.
             auto new_thread_ref_node = create_thread_ref(
-                group_folder_node,
-                ThreadRef{.label = email.subject, .thread_id = email.message_id.value()});
+                group_folder_node, ThreadRef{.label = email.subject,
+                                             .thread_id = email.message_id.value(),
+                                             .emails_count = 1,
+                                             .attachments_count = email.attachments.size()});
             m_message_to_tree_index[email.message_id.value()] = new_thread_ref_node;
             m_thread_id_to_tree_index[email.message_id.value()] = group_folder_node;
         }
     }
+
+    // ThreadRef represents thread in a tree. From it we can render UI for thread. Consists of
+    // subject and additional aggregated information.
     struct ThreadRef {
         string label;
         types::MessageID thread_id;
-        // What is thread reference? How we are supposed to find a message when we receive a reply?
-        // What if we use first email as a reference.
-        // I guess we can do this.
-        // Later on when we receive a message we iterate all references in an email and look for a
-        // thread ID. If there are multiuple references.
+        size_t emails_count = 0;
+        size_t attachments_count = 0;
     };
 
     void walk_tree_preoder(std::function<void(const string&)> enter_folder_cb,

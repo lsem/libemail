@@ -8,7 +8,7 @@ using emailkit::imap_client::types::list_response_entry_t;
 using emailkit::types::EmailAddress;
 using emailkit::types::MessageID;
 
-string render_tree(const mailer::MailerUIState& ui_state) {
+string render_tree(const mailer::MailerUIState& ui_state, bool extra = false) {
     std::stringstream ss;
 
     int indentation = 0;
@@ -23,7 +23,17 @@ string render_tree(const mailer::MailerUIState& ui_state) {
             indent_str.resize(indent_str.size() - 4);
         },
         [&](auto& ref) {  // reference
-            ss << indent_str << ref.label << "\n";
+            if (extra) {
+                ss << fmt::format("{}{} (emails: {}{})\n", indent_str,
+                                  (ref.label.empty() ? "<No-Subject>" : ref.label),
+                                  ref.emails_count,
+                                  ref.attachments_count > 0
+                                      ? fmt::format(", attachments: {}", ref.attachments_count)
+                                      : "");
+
+            } else {
+                ss << indent_str << ref.label << "\n";
+            }
         });
 
     return ss.str();
@@ -132,8 +142,8 @@ TEST(mailer_poc_tests, basic) {
 )",
         render_tree(ui_state));
 
-    // Vasia replies but since this is still the same 3 people converstations the tree should not
-    // change.
+    // Vasia replies but since this is still the same 3 people converstations the tree should
+    // not change.
     ui_state.process_email(make_email({"vasia@gmail.com"},
                                       {"combdn@gmail.com", "sli.ukraine@gmail.com"},
                                       "RE: Different topic", "e7", {"e4", "e5", "e6"}));
@@ -335,9 +345,9 @@ TEST(mailer_poc_tests, conversation_with_self_real_world_issue) {
 )",
         render_tree(ui));
 
-    // This email looks like reply to previous, but in fact it is an email with crafted subject but
-    // there are no in-reply-to or references. So we expect creation of new thread Re: new test
-    // email.
+    // This email looks like reply to previous, but in fact it is an email with crafted subject
+    // but there are no in-reply-to or references. So we expect creation of new thread Re: new
+    // test email.
     ui.process_email(
         make_email({"liubomyr.semkiv.test@gmail.com"}, {"liubomyr.semkiv.test@gmail.com"},
                    "Re: new test email",
@@ -361,12 +371,12 @@ TEST(mailer_poc_tests, conversation_with_self_real_world_issue) {
     ASSERT_EQ(
         R"([root]
     [liubomyr.semkiv.test@gmail.com]
-        test email (from self)
-        лист з вкладеннями
-        new test email
-        Re: new test email
+        test email (from self) (emails: 1)
+        лист з вкладеннями (emails: 5)
+        new test email (emails: 2)
+        Re: new test email (emails: 1)
 )",
-        render_tree(ui));
+        render_tree(ui, true));
 }
 
 TEST(mailer_poc_tests, real_workd_multi_group_test) {
