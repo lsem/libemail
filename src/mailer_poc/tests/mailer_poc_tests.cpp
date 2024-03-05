@@ -70,31 +70,31 @@ TEST(mailer_poc_tests, basic) {
     ASSERT_EQ(
         R"([root]
     [combdn@gmail.com]
-        Hi
+        Hi (emails: 1)
 )",
-        render_tree(ui_state));
+        render_tree(ui_state, true));
 
     ui_state.process_email(
         make_email({"combdn@gmail.com"}, {"sli.ukraine@gmail.com"}, "Money", "e2"));
     ASSERT_EQ(
         R"([root]
     [combdn@gmail.com]
-        Hi
-        Money
+        Hi (emails: 1)
+        Money (emails: 1)
 )",
-        render_tree(ui_state));
+        render_tree(ui_state, true));
 
     ui_state.process_email(
         make_email({"vasia@gmail.com"}, {"sli.ukraine@gmail.com"}, "Ski racing", "e3"));
     ASSERT_EQ(
         R"([root]
     [combdn@gmail.com]
-        Hi
-        Money
+        Hi (emails: 1)
+        Money (emails: 1)
     [vasia@gmail.com]
-        Ski racing
+        Ski racing (emails: 1)
 )",
-        render_tree(ui_state));
+        render_tree(ui_state, true));
 
     ui_state.process_email(
         make_email({"combdn@gmail.com"}, {"sli.ukraine@gmail.com"}, "Different topic", "e4"));
@@ -102,13 +102,13 @@ TEST(mailer_poc_tests, basic) {
     ASSERT_EQ(
         R"([root]
     [combdn@gmail.com]
-        Hi
-        Money
-        Different topic
+        Hi (emails: 1)
+        Money (emails: 1)
+        Different topic (emails: 1)
     [vasia@gmail.com]
-        Ski racing
+        Ski racing (emails: 1)
 )",
-        render_tree(ui_state));
+        render_tree(ui_state, true));
 
     // Reply to one should not produce new conversations
     ui_state.process_email(make_email({"sli.ukraine@gmail.com"}, {"combdn@gmail.com"},
@@ -117,13 +117,13 @@ TEST(mailer_poc_tests, basic) {
     ASSERT_EQ(
         R"([root]
     [combdn@gmail.com]
-        Hi
-        Money
-        Different topic
+        Hi (emails: 1)
+        Money (emails: 1)
+        Different topic (emails: 2)
     [vasia@gmail.com]
-        Ski racing
+        Ski racing (emails: 1)
 )",
-        render_tree(ui_state));
+        render_tree(ui_state, true));
 
     // Adding Vasia, now we have three people conversation
     ui_state.process_email(make_email({"sli.ukraine@gmail.com"},
@@ -133,17 +133,17 @@ TEST(mailer_poc_tests, basic) {
     ASSERT_EQ(
         R"([root]
     [combdn@gmail.com]
-        Hi
-        Money
+        Hi (emails: 1)
+        Money (emails: 1)
     [vasia@gmail.com]
-        Ski racing
+        Ski racing (emails: 1)
     [combdn@gmail.com, vasia@gmail.com]
-        Different topic
+        Different topic (emails: 3)
 )",
-        render_tree(ui_state));
+        render_tree(ui_state, true));
 
     // Vasia replies but since this is still the same 3 people converstations the tree should
-    // not change.
+    // not change except number of emails.
     ui_state.process_email(make_email({"vasia@gmail.com"},
                                       {"combdn@gmail.com", "sli.ukraine@gmail.com"},
                                       "RE: Different topic", "e7", {"e4", "e5", "e6"}));
@@ -151,14 +151,14 @@ TEST(mailer_poc_tests, basic) {
     ASSERT_EQ(
         R"([root]
     [combdn@gmail.com]
-        Hi
-        Money
+        Hi (emails: 1)
+        Money (emails: 1)
     [vasia@gmail.com]
-        Ski racing
+        Ski racing (emails: 1)
     [combdn@gmail.com, vasia@gmail.com]
-        Different topic
+        Different topic (emails: 4)
 )",
-        render_tree(ui_state));
+        render_tree(ui_state, true));
 
     // Now Vasia creates another topic first into Valerii
     ui_state.process_email(
@@ -167,15 +167,15 @@ TEST(mailer_poc_tests, basic) {
     ASSERT_EQ(
         R"([root]
     [combdn@gmail.com]
-        Hi
-        Money
+        Hi (emails: 1)
+        Money (emails: 1)
     [vasia@gmail.com]
-        Ski racing
-        New Topic
+        Ski racing (emails: 1)
+        New Topic (emails: 1)
     [combdn@gmail.com, vasia@gmail.com]
-        Different topic
+        Different topic (emails: 4)
 )",
-        render_tree(ui_state));
+        render_tree(ui_state, true));
 
     // And then Vasia adds Valerii making a group of the same three people but with different
     // thread.
@@ -186,15 +186,15 @@ TEST(mailer_poc_tests, basic) {
     ASSERT_EQ(
         R"([root]
     [combdn@gmail.com]
-        Hi
-        Money
+        Hi (emails: 1)
+        Money (emails: 1)
     [vasia@gmail.com]
-        Ski racing
+        Ski racing (emails: 1)
     [combdn@gmail.com, vasia@gmail.com]
-        Different topic
-        New Topic
+        Different topic (emails: 4)
+        New Topic (emails: 2)
 )",
-        render_tree(ui_state));
+        render_tree(ui_state, true));
 
     ui_state.process_email(
         make_email({"sli.ukraine@gmail.com"}, {"vasia@gmail.com"}, "Give me the money", "f1", {}));
@@ -202,16 +202,16 @@ TEST(mailer_poc_tests, basic) {
     ASSERT_EQ(
         R"([root]
     [combdn@gmail.com]
-        Hi
-        Money
+        Hi (emails: 1)
+        Money (emails: 1)
     [vasia@gmail.com]
-        Ski racing
-        Give me the money
+        Ski racing (emails: 1)
+        Give me the money (emails: 1)
     [combdn@gmail.com, vasia@gmail.com]
-        Different topic
-        New Topic
+        Different topic (emails: 4)
+        New Topic (emails: 2)
 )",
-        render_tree(ui_state));
+        render_tree(ui_state, true));
 }
 
 TEST(mailer_poc_tests, conversation_with_self_basic_test) {

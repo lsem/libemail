@@ -149,7 +149,15 @@ class MailerUIState {
                     break;
                 }
             }
-            move_thread(thread_id_node, group_folder_node, thread_id_opt.value());
+            auto new_location = move_thread(thread_id_node, group_folder_node, *thread_id_opt);
+
+            m_thread_id_to_tree_index.erase(*thread_id_opt);
+            m_thread_id_to_tree_index.emplace(*thread_id_opt, group_folder_node);
+
+            if (new_location) {
+                m_message_to_tree_index.erase(*thread_id_opt);
+                m_message_to_tree_index.emplace(*thread_id_opt, new_location);
+            }
 
         } else {
             // this is new thread so we create it as a new thread in a new folder.
@@ -158,8 +166,8 @@ class MailerUIState {
                                              .thread_id = email.message_id.value(),
                                              .emails_count = 1,
                                              .attachments_count = email.attachments.size()});
-            m_message_to_tree_index[email.message_id.value()] = new_thread_ref_node;
             m_thread_id_to_tree_index[email.message_id.value()] = group_folder_node;
+            m_message_to_tree_index[email.message_id.value()] = new_thread_ref_node;
         }
     }
 
@@ -222,15 +230,18 @@ class MailerUIState {
 
     // TODO: what is ThreadID, we need to find something for it. It can be a combination of initial
     // subject and maybe first message in it?
-    void move_thread(TreeNode* from, TreeNode* to, types::MessageID thread_id) {
+    // Return new thread location or null if not moved.
+    TreeNode* move_thread(TreeNode* from, TreeNode* to, types::MessageID thread_id) {
         assert(from);
         assert(to);
+
+        TreeNode* result = nullptr;
 
         log_debug("moving thread {} from node {} to node {}", thread_id, from->label, to->label);
 
         if (from == to) {
             log_debug("from == two case");
-            return;
+            return nullptr;
         }
 
         bool found = false;
@@ -241,13 +252,11 @@ class MailerUIState {
                 if (c->ref.value().thread_id == thread_id) {
                     found = true;
                     log_debug("moving thread with ID {} to new destination", thread_id);
-                    auto ref_id = create_thread_ref(to, std::move(c->ref.value()));
-                    (void)(ref_id);
+                    result = create_thread_ref(to, std::move(c->ref.value()));
                     TreeNode* node = *it;
                     delete node;
                     it = from->children.erase(it);
                     log_debug("removing node  (children left: {})", from->children.size());
-
                     break;
                 } else {
                     ++it;
@@ -267,6 +276,8 @@ class MailerUIState {
             log_debug("removing folder {} as it is now empty", from->label);
             from->parent->remove_child(from);
         }
+
+        return result;
     }
 
     TreeNode* make_folders_path(vector<string> path) { return create_path_it(&m_root, path, 0); }
