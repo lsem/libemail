@@ -6,6 +6,7 @@
 
 #include <fmt/ranges.h>
 #include <set>
+#include <sstream>
 
 #include "mailer_ui_state.hpp"
 
@@ -20,6 +21,30 @@ using std::pair;
 using std::set;
 using std::string;
 using std::vector;
+
+namespace {
+string render_tree(const mailer::MailerUIState& ui_state) {
+    std::stringstream ss;
+
+    int indentation = 0;
+    string indent_str;
+
+    ui_state.walk_tree_preoder(
+        [&](auto& folder) {  // entered
+            ss << indent_str << "[" << folder << "]\n";
+            indent_str += "    ";
+        },
+        [&](auto& folder) {  // exited
+            indent_str.resize(indent_str.size() - 4);
+        },
+        [&](auto& ref) {  // reference
+            ss << indent_str << ref.label << "\n";
+        });
+
+    return ss.str();
+}
+
+}  // namespace
 
 class TheTree {
     using UID = std::string;
@@ -284,134 +309,18 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
                      }));
     }
 
-    void process_email_folder(std::vector<std::string> folder_path,
-                              const std::vector<emailkit::types::MailboxEmail> emails_meta) {
-        // Lets build simplest possible index by address, without any folder yet.
-        std::map<std::string, std::vector<emailkit::types::MailboxEmail>> index;
-
-        map<types::MessageID, size_t> message_id_to_pos_index;
-
-        for (size_t i = 0; i < emails_meta.size(); ++i) {
-            auto& mail = emails_meta[i];
-
-            if (mail.from.empty()) {
-                log_warning("email is not added to the index, no FROM fields (See sender instead");
-                continue;
+    void process_email_folder(vector<string> folder_path,
+                              const vector<emailkit::types::MailboxEmail> emails_meta) {
+        MailerUIState m_ui_state{"liubomyr.semkiv.test@gmail.com"};
+        for (auto& m : emails_meta) {
+            if (m.from == vector<string>{"liubomyr.semkiv.test@gmail.com"} &&
+                m.to == vector<string>{"liubomyr.semkiv.test@gmail.com"}) {
+                log_info("adding email: {}", to_json(m));
             }
-            // TODO: actually if we have multiple FROM entries, we can put this email into each
-            // folder.
-            index[mail.from[0]].emplace_back(mail);  // TODO: move!
-
-            if (mail.message_id.has_value()) {
-                message_id_to_pos_index[mail.message_id.value()] = i;
-            }
+            m_ui_state.process_email(m);
         }
 
-        // We want to have additional column in our emails vector. So that when we process
-        // references we want to mark all related messages so that later on we can make a pass over
-        // it and create final groups.
-        // But we don't have a place in original email struct so to extend it, we create another
-        // vector that must have the same size and corresponding positions will keep this extra data
-        // needed for the algorithm.
-        struct EmailMetaExtra {
-            string folder_name;
-        };
-        vector<EmailMetaExtra> groups{emails_meta.size()};
-
-        // TODO: make it working for muliple FROM addresses!
-
-        // Now, we go throgh all the emails again and now are processing refs field.
-        for (size_t i = 0; i < emails_meta.size(); ++i) {
-            auto& mail = emails_meta[i];
-
-            if (mail.references.has_value()) {
-                // this email references entire group so we create a group name which consists of
-                // all group participants.
-                vector<types::EmailAddress> participants;
-                participants.emplace_back(mail.from.at(0));
-                for (auto& mid : mail.references.value()) {
-                    // Not sure if we must have all references in the vector, so lets check first.
-                    if (auto it = message_id_to_pos_index.find(mid);
-                        it != message_id_to_pos_index.end()) {
-                        const size_t referenced_mail_idx = it->second;
-                        assert(referenced_mail_idx < groups.size());
-
-                        auto& referenced_mail = emails_meta[referenced_mail_idx];
-                        auto& referenced_mail_from_addr = referenced_mail.from.at(0);
-                        participants.emplace_back(referenced_mail_from_addr);
-
-                    } else {
-                        log_warning(
-                            "have a reference to an email which we don't have message ID for "
-                            "(message id: {})",
-                            mid);
-                    }
-                }
-            }
-        }
-
-        for (auto& [from_name, emails_vec] : index) {
-            // треба розбити всі імейли на групи-острівки. Всі хто не мають references, ті йдуть
-            // індивідуально. Всі хто мають, всі попадають в групки. тобто якщо ми зустрічаємо лист,
-            // який має refernces, ми його додаємо в групу або існуючу (якщо його хтось референсить)
-            // або створюємо нову. і так само додаєм всіх кого він референсить.
-
-            // альетрантива, це не використовуват референси а будувати на основі in-reply-to.
-
-            // if (auto it = disjoint_sets.find(from_name) != disjoint_sets.end()) {
-            //     // not seen yet, create a set consisting of single element and put it into index.
-            //     set<MessageID> new_set;
-            //     new_set.insert(from_name);
-            //     disjoint_sets.emplace(from_name, std::move(new_set));
-            // } else {
-            //     // If it is already in the set.
-            // }
-
-            // The idea is that we should split emails by groups. Techmicall speadking this is
-            // splititng to disjoint sets.
-
-            // pxo so we have a set of emails.
-            //  when we see a one that is ferences something, we should decide what group ID it has,
-            //  and put reference to group ID to it.
-            //
-            //  next process all references of current element
-            for (auto& e : emails_vec) {
-                // e and all its references must be joined into a single group.
-
-                if (e.references.has_value()) {
-                    for (auto& x : e.references.value()) {
-                        // ..
-                    }
-                }
-            }
-        }
-
-        log_info("INDEX FOR FOLDER '{}'", folder_path);
-        for (auto& [addr, emails] : index) {
-            log_info("{}", addr);
-            for (auto& x : emails) {
-                vector<string> mapped_refs;
-
-                std::string maybe_grouped;
-
-                if (x.to.size() > 1) {
-                    maybe_grouped = "G";
-                } else {
-                    maybe_grouped = "S";
-                }
-
-                if (x.references.has_value()) {
-                    for (auto& r : *x.references) {
-                        mapped_refs.emplace_back(m_idfilter.process(
-                            emailkit::utils::strip(emailkit::utils::strip(r, '<'), '>')));
-                    }
-                }
-
-                log_info("        {} (id: {}, refs: {}, flags: {})", x.subject,
-                         x.message_id ? m_idfilter.process(*x.message_id) : "NA", mapped_refs,
-                         maybe_grouped);
-            }
-        }
+        log_info("\n{}", render_tree(m_ui_state));
     }
 
     // In its simplest form, we can't move individual emails into folders.

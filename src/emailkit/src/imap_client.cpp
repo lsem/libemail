@@ -102,7 +102,13 @@ expected<void> capture_headers(imap_parser::rfc822::RFC822ParserStateHandle stat
 
     if (auto it = mail.raw_headers.find("References"); it != mail.raw_headers.end()) {
         // TODO: Check if this SPACE delimiter is the only possible one.
-        mail.references = emailkit::utils::split(it->second, ' ');
+        vector<string> references = emailkit::utils::split(it->second, ' ');
+
+        // TODO: check this.
+        for (auto& r : references) {
+            r = emailkit::utils::strip(emailkit::utils::strip(r, '<'), '>');
+        }
+        mail.references = std::move(references);
     }
 
     return {};

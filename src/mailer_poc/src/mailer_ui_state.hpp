@@ -54,9 +54,9 @@ class MailerUIState {
         // system/UI and exclude them. So we should maintain an index from MessageID to path in a
         // tree.p
 
-        log_debug("processing email with references");
         // Index
         m_message_id_to_email_index[email.message_id.value()] = email;
+        log_debug("email with ID '{}' added to the index", email.message_id.value());
 
         // Try to find a reference to existing conversation
 
@@ -97,35 +97,35 @@ class MailerUIState {
             // still see all the references but don't have corresponding emails.
             // TODO: check it!
             for (auto& to : email.to) {
-                if (to != m_own_address) {
-                    result.emplace_back(to);
-                }
+                result.emplace_back(to);
             }
             for (auto& from : email.from) {
-                if (from != m_own_address) {
-                    result.emplace_back(from);
-                }
+                result.emplace_back(from);
             }
 
             for (auto& mid : references) {
                 if (auto it = m_message_id_to_email_index.find(mid);
                     it != m_message_id_to_email_index.end()) {
-                    if (it->second.from[0] != m_own_address) {
-                        result.emplace_back(it->second.from[0]);
-                    }
+                    result.emplace_back(it->second.from[0]);
                     for (auto& to : it->second.to) {
-                        if (to != m_own_address) {
-                            result.emplace_back(to);
-                        }
+                        result.emplace_back(to);
                     }
                 } else {
-                    log_warning("referenced email with ID '{}' has not been found", mid);
+                    log_warning("referenced email with ID '{}' has not been found in the index",
+                                mid);
                 }
             }
 
+            // Sort to make the list consistend for further comparison with existing nodes. It is
+            // not only done as a prestep for erase algorithm.
             std::sort(result.begin(), result.end());
             result.erase(std::unique(result.begin(), result.end()), result.end());
-            // Sort to make the list consistend for further comparison with existing nodes.
+
+            // We leave self address only if there are not other people.
+            if (result.size() > 1) {
+                result.erase(std::remove(result.begin(), result.end(), m_own_address),
+                             result.end());
+            }
 
             return result;
         }();
@@ -149,21 +149,7 @@ class MailerUIState {
             m_message_to_tree_index[email.message_id.value()] = new_thread_ref_node;
             m_thread_id_to_tree_index[email.message_id.value()] = group_folder_node;
         }
-
-        // Basically we just (potentially) advanced existing conversation.
-        // If this is new converstaion (no reference, then we just created a new one and placed
-        // it into a folder) If this is continue of converstation, than we need to find a Thread
-        // and move it into a new folder which we have a name for.
-
-        // Q: how we are supposed to find a thread. We know the new message, but how to find out
-        // previous message?
-        // There is a problem:
-        //    WE may have been just added to a thread and for us the thread is identified by a
-        //    first message by a thread.
-        //    Is it correct assumption at all?
-        // So when we create a thread
     }
-
     struct ThreadRef {
         string label;
         types::MessageID thread_id;
@@ -173,6 +159,14 @@ class MailerUIState {
         // Later on when we receive a message we iterate all references in an email and look for a
         // thread ID. If there are multiuple references.
     };
+
+    void walk_tree_preoder(std::function<void(const string&)> enter_folder_cb,
+                           std::function<void(const string&)> exit_folder_cb,
+                           std::function<void(const ThreadRef&)> encounter_ref) const {
+        walk_tree_preoder_it(&m_root, enter_folder_cb, exit_folder_cb, encounter_ref);
+    }
+
+   private:
     // Actually TreeNode is either Folder node (has label and children) or Leaf Node (has ref).
     struct TreeNode {
         // TODO: write destructor for a tree!
@@ -181,18 +175,17 @@ class MailerUIState {
         vector<TreeNode*> children;
         optional<ThreadRef> ref;
 
+        void remove_child(TreeNode* child) {
+            children.erase(std::remove(children.begin(), children.end(), child), children.end());
+            delete child;
+        }
+
         ~TreeNode() {
             for (auto c : children) {
                 delete c;
             }
         }
     };
-
-    void walk_tree_preoder(std::function<void(const string&)> enter_folder_cb,
-                           std::function<void(const string&)> exit_folder_cb,
-                           std::function<void(const ThreadRef&)> encounter_ref) const {
-        walk_tree_preoder_it(&m_root, enter_folder_cb, exit_folder_cb, encounter_ref);
-    }
 
     void walk_tree_preoder_it(const TreeNode* node,
                               std::function<void(const string&)>& enter_folder_cb,
@@ -241,6 +234,8 @@ class MailerUIState {
                     TreeNode* node = *it;
                     delete node;
                     it = from->children.erase(it);
+                    log_debug("removing node  (children left: {})", from->children.size());
+
                     break;
                 } else {
                     ++it;
@@ -252,8 +247,13 @@ class MailerUIState {
 
         if (!found) {
             log_warning(
-                "thread wit ID {} has not been found in source tree node and thus cannot be moved",
+                "thread with ID {} has not been found in source tree node and thus cannot be moved",
                 thread_id);
+        }
+
+        if (from->children.empty()) {
+            log_debug("removing folder {} as it is now empty", from->label);
+            from->parent->remove_child(from);
         }
     }
 
