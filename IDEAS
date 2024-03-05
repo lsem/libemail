@@ -41,3 +41,9 @@ internet reachability, amount of data downloaded, data location, current mode (i
 If we have meterred connection, we still may want to use the client. What if we have a mode that allows to download last N emails (say 100) but not download everhything.
 
 # Plain old Tree where all inboxes are standard without tree?
+
+# Tracking changes in TO,CC,BCC list.
+Typically, people add someone and write something like: "Adding @Valerii". But not always. We should highlight this in the UI when TO array is changed in a thread.
+
+
+# Email is old thing. We can add UI features that makes it more educational. E.g. we can have some way to hover CC and see nice popup windows expalining what does CC/BCC mean and how to use it.

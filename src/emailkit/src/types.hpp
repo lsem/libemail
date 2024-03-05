@@ -1,5 +1,6 @@
 #pragma once
 
+#include <emailkit/global.hpp>
 #include <map>
 #include <optional>
 #include <string>
@@ -40,23 +41,23 @@ struct MailboxEmail {
     int message_uid;
 
     // Mandatory headers
-    std::string subject;
+    string subject;
     EmailDate date;
-    std::vector<EmailAddress> from;
-    std::vector<EmailAddress> to;
-    std::vector<EmailAddress> cc;
-    std::vector<EmailAddress> bcc;
-    std::vector<EmailAddress> sender;
-    std::vector<EmailAddress> reply_to;
+    vector<EmailAddress> from;
+    vector<EmailAddress> to;
+    vector<EmailAddress> cc;
+    vector<EmailAddress> bcc;
+    vector<EmailAddress> sender;
+    vector<EmailAddress> reply_to;
 
     // Non-mandatroy headers
-    std::optional<MessageID> message_id;
-    std::optional<MessageID> in_reply_to;
-    std::optional<std::vector<MessageID>> references;
+    optional<MessageID> message_id;
+    optional<MessageID> in_reply_to;
+    optional<std::vector<MessageID>> references;
 
-    std::map<std::string, std::string> raw_headers;
+    map<string, string> raw_headers;
 
-    std::vector<Attachment> attachments;
+    vector<Attachment> attachments;
 };
 
 std::string to_json(const MailboxEmail& mail);

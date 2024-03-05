@@ -50,3 +50,21 @@ The application usually does not work with server directly by only with this cac
 and then you get first all items in the database and then updates if there are any.
 The cache has function of local Search. Is going to be implemented with sqlite FTS. It would be nice to have fuzzy search for all languages.
 We can also have online search (as first release it will be probably enough). And, one more advanced, Structured search which directly speaks to Gmail. Just in case someone is proficient in GMail search language he or she should still be able to use it.
+
+
+# General Strategy
+
+It is possible that we cannot overcome inherent problems of turning email into telegram.
+In this case we may benefit from advanced features that help to deal with this problems.
+
+Example of this problem is to write follow up. E.g. we have a group of oeople and we send them an email and ask to do some things.
+Some time later we see some people did not do what they are supposed to. We want to write follow up email. How we are supposed to do that?
+I guess we should have an interface which allows to create ad-hoc group and send follow up to them.
+
+# Grouping by Projects
+ It is possible that we need to group emails by chains. E.g. we have multiple projects and we want to have all this converstaions grouped.
+ It is possible that it is already nicely supported by GMail and others.
+ 
+
+
+

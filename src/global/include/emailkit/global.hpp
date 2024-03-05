@@ -9,7 +9,25 @@
 #include <tl/expected.hpp>
 #include <type_traits>
 
+#include <list>
+#include <map>
+#include <set>
+#include <string>
+#include <vector>
+#include <optional>
+#include <variant>
+
+// Lets pretend we have "normal" language.
+using std::list;
+using std::map;
+using std::set;
 using std::shared_ptr;
+using std::string;
+using std::vector;
+using std::optional;
+using std::variant;
+
+/////////////////////////////////////////////////////////////////////
 
 template <class T>
 using expected = tl::expected<T, std::error_code>;
