@@ -238,6 +238,8 @@ class MailerUIState {
                     log_debug("moving thread with ID {} to new destination", thread_id);
                     auto ref_id = create_thread_ref(to, std::move(c->ref.value()));
                     (void)(ref_id);
+                    TreeNode* node = *it;
+                    delete node;
                     it = from->children.erase(it);
                     break;
                 } else {
