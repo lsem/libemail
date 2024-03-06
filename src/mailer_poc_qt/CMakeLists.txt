@@ -8,7 +8,7 @@ set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(QT NAMES Qt6 Qt5 COMPONENTS Widgets  WebEngineWidgets REQUIRED)
@@ -19,6 +19,8 @@ set(PROJECT_SOURCES
         mainwindow.cpp
         mainwindow.h
         mainwindow.ui
+        tree_view_model.h
+        tree_view_model.cpp	
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
@@ -44,7 +46,7 @@ else()
     endif()
 endif()
 
-target_link_libraries(mailer_poc_qt PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
+target_link_libraries(mailer_poc_qt PRIVATE Qt${QT_VERSION_MAJOR}::Widgets mailer::poc)
 
 set_target_properties(mailer_poc_qt PROPERTIES
     MACOSX_BUNDLE_GUI_IDENTIFIER my.example.com

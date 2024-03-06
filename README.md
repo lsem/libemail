@@ -15,6 +15,8 @@ sudo apt install ninja-build
 sudo apt install pkg-config 
 sudo apt install libssl-dev
 sudo apt install python3-distutils
+sudo apt install qt5-default
+sudo apt install qtwebengine5-dev
 ```
 
 # MacOS
