@@ -89,19 +89,6 @@ struct MailIDFilter {
     }
 };
 
-// So how we are supposed to build the Tree?
-// For the first time, there is no any Groups. Just addresses.
-// So we create all the addresses. This adresses have no ID's at all because they are going to
-// be placed under Ungrouped folder. Then, when we wnat to cteate a Group, we create it with the
-// API:
-//    AddGroup(string group_name)
-// The name of the group will be identfier from user standpoint.
-// So it acts like IDNAME I would say.
-// Once added, it can be rendered.
-// We can add more.
-// Then we can add relations between them, resulting in making three appearence of a tree.
-//
-
 class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
    public:
     explicit MailerPOC_impl(asio::io_context& ctx) : m_ctx(ctx) {}
@@ -318,49 +305,11 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
                               const vector<emailkit::types::MailboxEmail> emails_meta) {
         MailerUIState m_ui_state{"liubomyr.semkiv.test@gmail.com"};
         for (auto& m : emails_meta) {
-            // if (m.from == vector<string>{"liubomyr.semkiv.test@gmail.com"} &&
-            //     m.to == vector<string>{"liubomyr.semkiv.test@gmail.com"}) {
-            //     log_info("adding email: {}", to_json(m));
-            // }
             m_ui_state.process_email(m);
         }
 
         log_info("\n{}", render_tree(m_ui_state));
     }
-
-    // In its simplest form, we can't move individual emails into folders.
-    // It is like we cannot move email from a bank into email from another bank, or something
-    // like that. We just have a hierarchy of email addresses. And thats it.
-
-    // So we encode a tree by having a list (hash) of folders that have parents.
-    // E.g.:
-    // Addresses:
-    //   sli.ukraine@gmail.com: 1
-    //   test@gmail.com: 2
-    //   viktoriia@gmail.com: 3
-    //   ukrsibbank@gmail.com: 4
-    //   some_more@gmail.com: 5
-    //   Friends: 10
-    //   Banks: 20
-    //   Goverment: 40
-    //
-    // Relations:
-    //   3: 20
-    //   4: 30
-    //   5: 10
-    //   10: 40    (Friends included into Goverment)
-    // Having this we can build a tree.
-
-    // So we generate UID for each tree and have an index from address to UID and back:
-    //   map<string, string> address_to_uid_map;
-    //   map<string, string> uid_to_address_map;
-    // And we have a map of relations:
-    //   map<string, string> parent_of_map;
-    // So if we have a set of emails and these two maps we can build an interface we need.
-    // All implicitly created folders go into Ungrouped folder.
-
-    // So we can build this thing in parallel I guess.
-    // Once we have this, we can present UI.
 
    private:
     asio::io_context& m_ctx;
@@ -378,5 +327,13 @@ std::shared_ptr<MailerPOC> make_mailer_poc(asio::io_context& ctx) {
     }
     return inst;
 }
+
+// TODO NEXT FEATURES:
+// 1. Emails list (thread) representation for UI and API for working with them.
+// 2. Receiving new emails as they arrive and rebuild UI accordingly.
+// 3. Folders for contacts.
+// 4. Sending emails via SMTP and saving custom contact book.
+// 5. Caching, UIDs, invalidating, etc..
+// 6. Custom standards review, capabilities, useful extensions, etc..
 
 }  // namespace mailer
