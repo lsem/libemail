@@ -222,9 +222,6 @@ class MailerUIState {
         return node->children.back();
     }
 
-    // TODO: what is ThreadID, we need to find something for it. It can be a combination of initial
-    // subject and maybe first message in it?
-    // Return new thread location or null if not moved.
     TreeNode* move_thread(TreeNode* from, TreeNode* to, types::MessageID thread_id) {
         assert(from);
         assert(to);
@@ -274,8 +271,6 @@ class MailerUIState {
         return result;
     }
 
-    TreeNode* make_folders_path(vector<string> path) { return create_path_it(&m_root, path, 0); }
-
     TreeNode* create_path(const vector<string>& path) { return create_path_it(&m_root, path, 0); }
 
     TreeNode* create_path_it(TreeNode* node, const vector<string>& path, size_t component) {
@@ -294,10 +289,11 @@ class MailerUIState {
         }
     }
 
+   private:
     types::EmailAddress m_own_address;
     TreeNode m_root{"root"};
-    map<MessageID, TreeNode*> m_message_to_tree_index;
     map<MessageID, types::MailboxEmail> m_message_id_to_email_index;
+    map<MessageID, TreeNode*> m_message_to_tree_index;
     map<MessageID, TreeNode*> m_thread_id_to_tree_index;
 };
 
