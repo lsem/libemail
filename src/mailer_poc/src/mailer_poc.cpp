@@ -318,10 +318,10 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
                               const vector<emailkit::types::MailboxEmail> emails_meta) {
         MailerUIState m_ui_state{"liubomyr.semkiv.test@gmail.com"};
         for (auto& m : emails_meta) {
-            if (m.from == vector<string>{"liubomyr.semkiv.test@gmail.com"} &&
-                m.to == vector<string>{"liubomyr.semkiv.test@gmail.com"}) {
-                log_info("adding email: {}", to_json(m));
-            }
+            // if (m.from == vector<string>{"liubomyr.semkiv.test@gmail.com"} &&
+            //     m.to == vector<string>{"liubomyr.semkiv.test@gmail.com"}) {
+            //     log_info("adding email: {}", to_json(m));
+            // }
             m_ui_state.process_email(m);
         }
 

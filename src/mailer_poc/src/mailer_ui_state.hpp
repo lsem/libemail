@@ -46,14 +46,6 @@ class MailerUIState {
         static vector<types::MessageID> no_refs;
         auto& references = email.references.has_value() ? email.references.value() : no_refs;
 
-        // References contains a complete list for given thread (this is my hypothesis) so that we
-        // now that these are related. But TO and CC/BCC field contains who actually received this
-        // particular message.
-
-        // By inspecting references we theoretically can find messages we already have in our
-        // system/UI and exclude them. So we should maintain an index from MessageID to path in a
-        // tree.p
-
         // Index
         m_message_id_to_email_index[email.message_id.value()] = email;
         log_debug("email with ID '{}' added to the index", email.message_id.value());
@@ -71,23 +63,10 @@ class MailerUIState {
         }
 
         if (thread_id_opt) {
-            log_debug("found thread id {}, node: {}", *thread_id_opt,
-                      static_cast<void*>(thread_id_node));
+            log_debug(
+                "message with ID {} is considered to be part of the thread with ID {}, node: {}",
+                *thread_id_opt, email.message_id.value(), static_cast<void*>(thread_id_node));
         }
-
-        // References are not empty, so I suppose this is a reply to already established
-        // conversation.
-
-        // So if we find emails we should now move them into new directory.
-
-        // The task here is to find proper folder which is created from participants list.
-        // Participants list includes receiver and all destinations from entire discussion.
-        // If resulting participants list consits only from one sender/receiver and one
-        // receiver alonside us, the name will not include us. Actually, we can never
-        // include as into a list.
-
-        // So start off from collecting all emails from the chain (BTW, this can be cached,
-        // I guess).
 
         auto participants = [this, &email, &references]() -> vector<types::EmailAddress> {
             vector<types::EmailAddress> result;
@@ -136,19 +115,21 @@ class MailerUIState {
         // created.
         auto group_folder_node = create_path({group_folder_name});
 
-        log_debug("created new folder with a name {}", group_folder_name);
+        log_debug("created (or alreayd have) a folder with a name {}", group_folder_name);
 
-        if (thread_id_opt.has_value()) {
+        if (thread_id_opt) {
             assert(thread_id_node);
-            // update aggregated data
-            // TODO: seems like we can have an index to exact node instead of having just a folder.x
-            for (auto& c : thread_id_node->children) {
-                if (c->ref.has_value() && c->ref.value().thread_id == thread_id_opt.value()) {
-                    c->ref->emails_count += 1;
-                    c->ref->attachments_count += email.attachments.size();
-                    break;
-                }
+            auto& thread_id = *thread_id_opt;
+
+            // update aggregate data
+            if (auto it = m_message_to_tree_index.find(thread_id);
+                it != m_message_to_tree_index.end()) {
+                TreeNode* node = it->second;
+                assert(node && node->ref);
+                node->ref->emails_count += 1;
+                node->ref->attachments_count += email.attachments.size();
             }
+
             auto new_location = move_thread(thread_id_node, group_folder_node, *thread_id_opt);
 
             m_thread_id_to_tree_index.erase(*thread_id_opt);
@@ -187,23 +168,36 @@ class MailerUIState {
     }
 
    private:
-    // Actually TreeNode is either Folder node (has label and children) or Leaf Node (has ref).
+    // TreeNode is either Folder node (has label and children) or Leaf Node (has ref).
     struct TreeNode {
-        // TODO: write destructor for a tree!
         string label;
         TreeNode* parent = nullptr;
         vector<TreeNode*> children;
         optional<ThreadRef> ref;
 
-        void remove_child(TreeNode* child) {
-            children.erase(std::remove(children.begin(), children.end(), child), children.end());
-            delete child;
-        }
+        explicit TreeNode(string label) : label(std::move(label)) {}
+
+        explicit TreeNode(string label,
+                          TreeNode* parent,
+                          vector<TreeNode*> children,
+                          optional<ThreadRef> ref)
+            : label(std::move(label)),
+              parent(parent),
+              children(std::move(children)),
+              ref(std::move(ref)) {}
 
         ~TreeNode() {
             for (auto c : children) {
                 delete c;
             }
+        }
+
+        TreeNode(const TreeNode&) = delete;
+        TreeNode& operator=(const TreeNode&) = delete;
+
+        void remove_child(TreeNode* child) {
+            children.erase(std::remove(children.begin(), children.end(), child), children.end());
+            delete child;
         }
     };
 
@@ -244,8 +238,12 @@ class MailerUIState {
             return nullptr;
         }
 
+        // TODO: consider having some kind of index here. Some folders may be (1k-1k children)
+        // we have this loop because we don't know the position in our children array. Effective
+        // index may be not possible or will be non-trivial because in naive index after removing
+        // element entire index will be invalidated.
         bool found = false;
-        for (auto it = from->children.begin(); it != from->children.end();) {
+        for (auto it = from->children.begin(); it != from->children.end(); ++it) {
             auto& c = *it;
             if (c->ref.has_value()) {
                 // this is leaf children which holds a refernce to an email thread.
@@ -258,11 +256,7 @@ class MailerUIState {
                     it = from->children.erase(it);
                     log_debug("removing node  (children left: {})", from->children.size());
                     break;
-                } else {
-                    ++it;
                 }
-            } else {
-                ++it;
             }
         }
 
@@ -293,7 +287,7 @@ class MailerUIState {
         if (auto it = std::find_if(node->children.begin(), node->children.end(),
                                    [&](auto& n) { return n->label == c; });
             it == node->children.end()) {
-            node->children.emplace_back(new TreeNode{c, node});
+            node->children.emplace_back(new TreeNode{c, node, {}, {}});
             return create_path_it(node->children.back(), path, component + 1);
         } else {
             return create_path_it(*it, path, component + 1);
