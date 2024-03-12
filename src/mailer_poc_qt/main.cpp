@@ -7,6 +7,9 @@
 
 int main(int argc, char* argv[]) {
     asio::io_context ctx;
+
+    std::function<void(std::string)> launch_browser_fn;
+
     auto mailer_poc = mailer::make_mailer_poc(ctx);
 
     std::thread mailer_poc_eventloop_th{[&] {
@@ -15,6 +18,11 @@ int main(int argc, char* argv[]) {
         ctx.run();
         log_info("stopping mailer eventloop");
     }};
+
+    QApplication a(argc, argv);
+    MainWindow w{nullptr, mailer_poc};
+
+    mailer_poc->set_callbacks_if(&w);
 
     mailer_poc->async_run([](std::error_code ec) {
         if (ec) {
@@ -25,8 +33,6 @@ int main(int argc, char* argv[]) {
         log_info("mailer poc instance started, starting main window");
     });
 
-    QApplication a(argc, argv);
-    MainWindow w{nullptr, mailer_poc};
     w.show();
 
     int code = a.exec();

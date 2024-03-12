@@ -72,6 +72,8 @@ struct auth_data_t {
     std::vector<std::string> scope_vec;
 };
 
+using LaunchBrowserFn = std::function<void(std::string uri)>;
+
 class google_auth_t {
    public:
     virtual ~google_auth_t() = default;
@@ -87,8 +89,8 @@ class google_auth_t {
 // brought up.
 shared_ptr<google_auth_t> make_google_auth(asio::io_context& ctx,
                                            std::string host,
-                                           std::string port);
-
+                                           std::string port,
+                                           LaunchBrowserFn = nullptr);
 
 }  // namespace emailkit
 

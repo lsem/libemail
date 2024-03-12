@@ -537,11 +537,15 @@ const std::string auth_success_page = R"(
 class google_auth_t_impl : public google_auth_t,
                            public std::enable_shared_from_this<google_auth_t_impl> {
    public:
-    google_auth_t_impl(asio::io_context& ctx, std::string host, std::string port)
+    google_auth_t_impl(asio::io_context& ctx,
+                       std::string host,
+                       std::string port,
+                       LaunchBrowserFn launch_browser_fn)
         : m_ctx(ctx),
           m_host(host),
           m_port(port),
-          m_https_client(std::make_shared<https_client_t>(m_ctx)) {}
+          m_https_client(std::make_shared<https_client_t>(m_ctx)),
+          m_launch_browser_fn(std::move(launch_browser_fn)) {}
 
     bool initialize() {
         m_srv = http_srv::make_http_srv(m_ctx, m_host, m_port);
@@ -725,9 +729,13 @@ class google_auth_t_impl : public google_auth_t,
 
         // TODO: make sure we can really connect to immidiately after start() returned.
 
-        if (!launch_system_browser(local_site_uri("/"))) {
-            log_error("failed launching system browser for google authentication");
-            m_callback(make_error_code(std::errc::io_error), {});
+        if (m_launch_browser_fn) {
+            m_launch_browser_fn(local_site_uri("/"));
+        } else {
+            if (!launch_system_browser(local_site_uri("/"))) {
+                log_error("failed launching system browser for google authentication");
+                m_callback(make_error_code(std::errc::io_error), {});
+            }
         }
     }
 
@@ -742,13 +750,15 @@ class google_auth_t_impl : public google_auth_t,
     shared_ptr<http_srv::http_srv_t> m_srv;
     std::shared_ptr<https_client_t> m_https_client;
     async_callback<auth_data_t> m_callback;
+    LaunchBrowserFn m_launch_browser_fn;
 };
 }  // namespace
 
 shared_ptr<google_auth_t> make_google_auth(asio::io_context& ctx,
                                            std::string host,
-                                           std::string port) {
-    auto inst = std::make_shared<google_auth_t_impl>(ctx, host, port);
+                                           std::string port,
+                                           LaunchBrowserFn launch_browser_fn) {
+    auto inst = std::make_shared<google_auth_t_impl>(ctx, host, port, launch_browser_fn);
     if (!inst->initialize()) {
         return nullptr;
     }

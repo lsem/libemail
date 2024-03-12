@@ -167,7 +167,7 @@ class MailerUIState {
         walk_tree_preoder_it(&m_root, enter_folder_cb, exit_folder_cb, encounter_ref);
     }
 
-   private:
+   public:
     // TreeNode is either Folder node (has label and children) or Leaf Node (has ref).
     struct TreeNode {
         string label;
@@ -175,7 +175,11 @@ class MailerUIState {
         vector<TreeNode*> children;
         optional<ThreadRef> ref;
 
-        explicit TreeNode(string label) : label(std::move(label)) {}
+	TreeNode() = delete;
+
+        explicit TreeNode(string label) : label(std::move(label)) {
+            log_info("created node {}", (void*)this);
+        }
 
         explicit TreeNode(string label,
                           TreeNode* parent,
@@ -184,9 +188,12 @@ class MailerUIState {
             : label(std::move(label)),
               parent(parent),
               children(std::move(children)),
-              ref(std::move(ref)) {}
+              ref(std::move(ref)) {
+            log_info("created node {}", (void*)this);
+        }
 
         ~TreeNode() {
+            log_info("deleting node {}", (void*)this);
             for (auto c : children) {
                 delete c;
             }
@@ -197,6 +204,7 @@ class MailerUIState {
 
         void remove_child(TreeNode* child) {
             children.erase(std::remove(children.begin(), children.end(), child), children.end());
+            log_debug("deleted node {}", (void*)child);
             delete child;
         }
     };
@@ -250,6 +258,7 @@ class MailerUIState {
                     result = create_thread_ref(to, std::move(c->ref.value()));
                     TreeNode* node = *it;
                     delete node;
+                    log_debug("deleted node: {}", (void*)node);
                     it = from->children.erase(it);
                     log_debug("removing node  (children left: {})", from->children.size());
                     break;
@@ -289,7 +298,7 @@ class MailerUIState {
         }
     }
 
-   private:
+   public:
     types::EmailAddress m_own_address;
     TreeNode m_root{"root"};
     map<MessageID, types::MailboxEmail> m_message_id_to_email_index;

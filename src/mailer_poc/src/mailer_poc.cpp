@@ -5,6 +5,7 @@
 #include <emailkit/utils.hpp>
 
 #include <fmt/ranges.h>
+#include <mutex>
 #include <set>
 #include <sstream>
 
@@ -91,7 +92,7 @@ struct MailIDFilter {
 
 class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
    public:
-    explicit MailerPOC_impl(asio::io_context& ctx) : m_ctx(ctx) {}
+    explicit MailerPOC_impl(asio::io_context& ctx) : m_ctx(ctx), m_callbacks(nullptr) {}
     ~MailerPOC_impl() { emailkit::finalize(); }
 
     bool initialize() {
@@ -101,7 +102,12 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
             return false;
         }
 
-        m_google_auth = emailkit::make_google_auth(m_ctx, "127.0.0.1", "8089");
+        m_google_auth =
+            emailkit::make_google_auth(m_ctx, "127.0.0.1", "8089", [this](std::string uri) {
+                log_info("calling callbacks");
+                assert(m_callbacks);
+                m_callbacks->auth_initiated(uri);
+            });
         if (!m_google_auth) {
             log_error("failed creating google auth");
             return false;
@@ -119,12 +125,31 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
         log_info("authenticating");
         async_authenticate(
             use_this(std::move(cb), [](auto& this_, std::error_code ec, auto cb) mutable {
-                ASYNC_RETURN_ON_ERROR(ec, cb, "async_authenticate failed");
+                if (ec) {
+                    log_error("async_authenticate failed: {}", ec);
+                    assert(this_.m_callbacks);
+                    this_.m_callbacks->auth_done(ec);
+                    cb(ec);
+                    return;
+                }
+
                 log_info("authenticated");
+                assert(this_.m_callbacks);
+                this_.m_callbacks->auth_done({});
                 this_.run_background_activities();
                 cb({});
             }));
     }
+
+    void set_callbacks_if(MailerPOCCallbacks* callbacks) override { m_callbacks = callbacks; }
+
+    void visit_model_locked(std::function<void(const mailer::MailerUIState&)> cb) override {
+        // TODO: detect slow visits!
+        std::scoped_lock<std::mutex> locked(m_ui_state_mutex);
+        cb(m_ui_state);
+    }
+
+    MailerUIState* get_ui_model() { return &m_ui_state; }
 
     void run_background_activities() {
         async_callback<void> cb = [](std::error_code ec) {
@@ -303,18 +328,34 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
 
     void process_email_folder(vector<string> folder_path,
                               const vector<emailkit::types::MailboxEmail> emails_meta) {
-        MailerUIState m_ui_state{"liubomyr.semkiv.test@gmail.com"};
-        for (auto& m : emails_meta) {
-            m_ui_state.process_email(m);
-        }
+        assert(m_callbacks);
 
-        log_info("\n{}", render_tree(m_ui_state));
+        // TODO: we need more synchronization here. This should probably have continuation instead
+        // of just scheduling updated into UI thread for each email. Another idea is that we can.
+        // One intellegent approach is to have a timed update. E.g. having UI updated no more then
+        // 50ms in 1s or something like this.
+
+        m_callbacks->update_state([emails_meta, this] {
+            m_callbacks->tree_about_to_change();
+
+            for (auto& m : emails_meta) {
+                m_ui_state.process_email(m);
+            }
+            log_info("\n{}", render_tree(m_ui_state));
+
+            m_callbacks->tree_model_changed();
+        });
     }
 
    private:
     asio::io_context& m_ctx;
+
+    MailerPOCCallbacks* m_callbacks;
     std::shared_ptr<emailkit::google_auth_t> m_google_auth;
     std::shared_ptr<emailkit::imap_client::imap_client_t> m_imap_client;
+
+    MailerUIState m_ui_state{"liubomyr.semkiv.test@gmail.com"};  // TODO: we have this during login!
+    std::mutex m_ui_state_mutex;
 
     MailIDFilter m_idfilter;
 };

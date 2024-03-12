@@ -39,3 +39,5 @@ But if you don't have nodejs environment and/or don't need to build nodejs modul
 
 If you want to use specific nodejs version this can be specifed as well with option NODE_JS_BINARY:
 -DNODE_JS_BINARY=/opt/my-custom-node/bin/node
+
+0(vX(V#j45Ka
