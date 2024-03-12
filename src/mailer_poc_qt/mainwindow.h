@@ -9,12 +9,14 @@
 #include <QSplitter>
 #include <QStackedLayout>
 #include <QStackedWidget>
-#include <QTreeView>
 #include <QVBoxLayout>
 
 #include <mailer_poc.hpp>
 
-#include <tree_view_model.h>
+#include "list_view.h"
+#include "list_view_model.h"
+#include "tree_view.h"
+#include "tree_view_model.h"
 
 #include <thread>
 
@@ -42,6 +44,7 @@ class MainWindow : public QMainWindow, public mailer::MailerPOCCallbacks {
     ~MainWindow();
    public slots:
     void login_clicked();
+    void selected_folder_changed(const QModelIndex&, const QModelIndex&);
 
    public:  // mailer::MailerPOCCallbacks
     void dispatch(std::function<void()> fn);
@@ -57,13 +60,15 @@ class MainWindow : public QMainWindow, public mailer::MailerPOCCallbacks {
 
    private:
     Ui::MainWindow* ui;
-    QTreeView* m_tree_view;
-    QListView* m_list_view;
+    TreeView* m_tree_view;
+    ListView* m_list_view;
+
     QSplitter* m_spliter;
     QLabel* m_login_label;
     QWidget* m_mailer_ui_widget;
     QWidget* m_login_widget;
     TreeViewModel* m_tree_view_model;
+    ListViewModel* m_list_view_model;
     QAction* m_login_action;
     QMenu* m_actions_menu;
 

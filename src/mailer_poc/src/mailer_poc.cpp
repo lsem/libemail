@@ -140,13 +140,23 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
                 cb({});
             }));
     }
-
     void set_callbacks_if(MailerPOCCallbacks* callbacks) override { m_callbacks = callbacks; }
 
     void visit_model_locked(std::function<void(const mailer::MailerUIState&)> cb) override {
         // TODO: detect slow visits!
         std::scoped_lock<std::mutex> locked(m_ui_state_mutex);
         cb(m_ui_state);
+    }
+
+    virtual void selected_folder_changed(MailerUIState::TreeNode* selected_node) override {
+        if (!selected_node->ref) {
+            log_debug("selected folder changed, here is a list of threads in given folder");
+            for (auto& c : selected_node->children) {
+                if (c->ref) {
+                    log_debug("{}", c->ref->label);
+                }
+            }
+        }
     }
 
     MailerUIState* get_ui_model() { return &m_ui_state; }

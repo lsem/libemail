@@ -35,18 +35,17 @@ MainWindow::MainWindow(QWidget* parent, std::shared_ptr<mailer::MailerPOC> maile
     ui->setupUi(this);
 
     m_tree_view_model = new TreeViewModel(this);
-    m_tree_view = new QTreeView(this);
-    m_tree_view->setDragDropMode(QAbstractItemView::InternalMove);
-    m_tree_view->setSelectionMode(QAbstractItemView::ExtendedSelection);
-    m_tree_view->setDragEnabled(true);
-    m_tree_view->setAcceptDrops(true);
-    m_tree_view->setDropIndicatorShown(true);
-    m_tree_view->setHeaderHidden(true);
-    m_tree_view->setFixedWidth(300);
+    m_tree_view = new TreeView(this);
     m_tree_view_model->set_mailer_ui_state(m_mailer_poc->get_ui_model());
     m_tree_view->setModel(m_tree_view_model);
 
-    m_list_view = new QListView(this);
+    connect(m_tree_view, &TreeView::selected_folder_changed, this,
+            &MainWindow::selected_folder_changed);
+
+    m_list_view_model = new ListViewModel(this);
+    m_list_view_model->set_mailer_ui_state(m_mailer_poc->get_ui_model());
+    m_list_view = new ListView(this);
+    m_list_view->setModel(m_list_view_model);
 
     // MailerUI widget
     auto main_window_layout = new QVBoxLayout;
@@ -55,6 +54,7 @@ MainWindow::MainWindow(QWidget* parent, std::shared_ptr<mailer::MailerPOC> maile
     m_spliter->addWidget(m_tree_view);
     m_spliter->addWidget(m_list_view);
     m_spliter->setOrientation(Qt::Horizontal);
+    m_spliter->setSizes(QList<int>({300, 500}));
     main_window_layout->addWidget(m_spliter);
     main_window_layout->setContentsMargins(0, 0, 0, 0);
     m_mailer_ui_widget = new QWidget(this);
@@ -88,6 +88,16 @@ void MainWindow::login_clicked() {
     //    login_requested
 }
 
+void MainWindow::selected_folder_changed(const QModelIndex& curr, const QModelIndex& prev) {
+    qDebug("selected folder changed: %d", curr.row());
+    // TODO: how we are supposed to handle all of this in the corresponding thread?
+    auto* selected_node = static_cast<mailer::MailerUIState::TreeNode*>(curr.internalPointer());
+    assert(selected_node);
+    // TODO: what thread it should be?
+    m_mailer_poc->selected_folder_changed(selected_node);
+    m_list_view_model->set_active_folder(selected_node);
+}
+
 void MainWindow::auth_initiated(std::string uri) {
     dispatch([this, uri] {
         m_stacked_widget->setCurrentIndex(1);
@@ -108,12 +118,18 @@ void MainWindow::dispatch(std::function<void()> fn) {
 }
 
 void MainWindow::tree_about_to_change() {
-    dispatch([this] { m_tree_view_model->begin_reset(); });
+    dispatch([this] {
+        m_tree_view_model->begin_reset();
+        m_list_view_model->begin_reset();
+    });
 }
 
 void MainWindow::tree_model_changed() {
     log_debug("tree model changed");
-    dispatch([this] { m_tree_view_model->end_reset(); });
+    dispatch([this] {
+        m_tree_view_model->end_reset();
+        m_list_view_model->end_reset();
+    });
 }
 
 void MainWindow::update_state(std::function<void()> fn) {

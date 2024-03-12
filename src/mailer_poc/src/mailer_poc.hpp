@@ -30,7 +30,7 @@ class MailerPOC {
     virtual void async_run(async_callback<void> cb) = 0;
     virtual void set_callbacks_if(MailerPOCCallbacks* callbacks) = 0;
     virtual void visit_model_locked(std::function<void(const mailer::MailerUIState&)> cb) = 0;
-
+    virtual void selected_folder_changed(MailerUIState::TreeNode* selected_node) = 0;
     virtual MailerUIState* get_ui_model() = 0;
 };
 

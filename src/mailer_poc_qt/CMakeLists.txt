@@ -20,7 +20,13 @@ set(PROJECT_SOURCES
         mainwindow.h
         mainwindow.ui
         tree_view_model.h
-        tree_view_model.cpp	
+        tree_view_model.cpp
+	tree_view.h
+	tree_view.cpp
+	list_view_model.h
+	list_view_model.cpp
+	list_view.h
+	list_view.cpp
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
