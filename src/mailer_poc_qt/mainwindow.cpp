@@ -36,19 +36,27 @@ MainWindow::MainWindow(QWidget* parent, std::shared_ptr<mailer::MailerPOC> maile
 
     m_tree_view_model = new TreeViewModel(this);
     m_tree_view = new QTreeView(this);
-    m_list_view = new QListView(this);
-    m_spliter = new QSplitter(this);
-
+    m_tree_view->setDragDropMode(QAbstractItemView::InternalMove);
+    m_tree_view->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    m_tree_view->setDragEnabled(true);
+    m_tree_view->setAcceptDrops(true);
+    m_tree_view->setDropIndicatorShown(true);
+    m_tree_view->setHeaderHidden(true);
+    m_tree_view->setFixedWidth(300);
     m_tree_view_model->set_mailer_ui_state(m_mailer_poc->get_ui_model());
-
     m_tree_view->setModel(m_tree_view_model);
+
+    m_list_view = new QListView(this);
 
     // MailerUI widget
     auto main_window_layout = new QVBoxLayout;
+
+    m_spliter = new QSplitter(this);
     m_spliter->addWidget(m_tree_view);
     m_spliter->addWidget(m_list_view);
     m_spliter->setOrientation(Qt::Horizontal);
     main_window_layout->addWidget(m_spliter);
+    main_window_layout->setContentsMargins(0, 0, 0, 0);
     m_mailer_ui_widget = new QWidget(this);
     m_mailer_ui_widget->setLayout(main_window_layout);
 
@@ -92,9 +100,7 @@ void MainWindow::auth_initiated(std::string uri) {
 void MainWindow::auth_done(std::error_code ec) {
     // TODO: somehow I need to deload web engine
     log_debug("Auth done: {}", ec);
-    dispatch([this] {
-        m_stacked_widget->setCurrentIndex(0);
-    });
+    dispatch([this] { m_stacked_widget->setCurrentIndex(0); });
 }
 
 void MainWindow::dispatch(std::function<void()> fn) {
@@ -108,23 +114,6 @@ void MainWindow::tree_about_to_change() {
 void MainWindow::tree_model_changed() {
     log_debug("tree model changed");
     dispatch([this] { m_tree_view_model->end_reset(); });
-    // Note, this call comes from separate thread.
-    // Lets think how we are supposed to handle this?
-    // I would say that this is is unsafe to just notify about the fact that something has
-    // changed. Since this is called from the event loop of worker thread, it must be safe
-    // to access its data right here. But how we are supposed to present new data? Maybe, we
-    // need to have a mutex there protecting tree data strcuture so we can render it.
-    // Alternative is to make a snapshot of data every time we want to display it. Mutex,
-    // especially times mutex with really slow timeout, like 100ms. Can be an answer.
-    // Assuming we have a code that can quickly update mailer UI data model we cna use the
-    // mutex.
-
-    // So I would say if we following this way, we should just report it to our thread and
-    // make work from there. On the flip side, if we take all data right now, basically
-    // masking the snapshot, we can not have a lock at all. But, how we are supposed to know
-    // if the data that has changed is really displayed right now? What if with
-    // model/view/controller design we are currently not displaying the data tahat just has
-    // changed?
 }
 
 void MainWindow::update_state(std::function<void()> fn) {

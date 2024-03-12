@@ -47,6 +47,12 @@ class MailerUIState {
         auto& references = email.references.has_value() ? email.references.value() : no_refs;
 
         // Index
+
+        if (m_message_id_to_email_index.find(email.message_id.value()) !=
+            m_message_id_to_email_index.end()) {
+            log_warning("message with ID {} already exists in the index", email.message_id.value());
+            return;
+        }
         m_message_id_to_email_index[email.message_id.value()] = email;
         log_debug("email with ID '{}' added to the index", email.message_id.value());
 
@@ -175,7 +181,7 @@ class MailerUIState {
         vector<TreeNode*> children;
         optional<ThreadRef> ref;
 
-	TreeNode() = delete;
+        TreeNode() = delete;
 
         explicit TreeNode(string label) : label(std::move(label)) {
             log_info("created node {}", (void*)this);

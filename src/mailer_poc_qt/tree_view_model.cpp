@@ -100,7 +100,11 @@ QVariant TreeViewModel::data(const QModelIndex& index, int role) const {
         if (node->ref) {
             return node->ref->label.c_str();
         } else {
-            return node->label.c_str();
+            if (!node->label.empty()) {
+                return node->label.c_str();
+            } else {
+                return "<No subject>";
+            }
         }
     }
 
