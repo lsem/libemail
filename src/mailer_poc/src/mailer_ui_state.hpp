@@ -56,6 +56,8 @@ class MailerUIState {
         m_message_id_to_email_index[email.message_id.value()] = email;
         log_debug("email with ID '{}' added to the index", email.message_id.value());
 
+        log_debug("processing email:\n{}", types::to_json(email));
+
         // Try to find a reference to existing conversation
 
         optional<types::MessageID> thread_id_opt;
@@ -106,6 +108,8 @@ class MailerUIState {
             std::sort(result.begin(), result.end());
             result.erase(std::unique(result.begin(), result.end()), result.end());
 
+            log_debug("removing own address '{}' from the list {}", m_own_address, result);
+
             // We leave self address only if there are not other people.
             if (result.size() > 1) {
                 result.erase(std::remove(result.begin(), result.end(), m_own_address),
@@ -128,12 +132,18 @@ class MailerUIState {
             auto& thread_id = *thread_id_opt;
 
             // update aggregate data
-            if (auto it = m_message_to_tree_index.find(thread_id);
-                it != m_message_to_tree_index.end()) {
+
+            if (auto it = m_thread_id_to_tree_index.find(thread_id);
+                it != m_thread_id_to_tree_index.end()) {
                 TreeNode* node = it->second;
-                assert(node && node->ref);
-                node->ref->emails_count += 1;
-                node->ref->attachments_count += email.attachments.size();
+                assert(node);
+                if (auto t_it = node->find_thread_by_id(thread_id);
+                    t_it != node->thread_refs_end()) {
+                    t_it->emails_count += 1;
+                    t_it->attachments_count += email.attachments.size();
+                } else {
+                    log_error("could not find thread {} to update aggregate data", thread_id);
+                }
             }
 
             auto new_location = move_thread(thread_id_node, group_folder_node, *thread_id_opt);
@@ -142,19 +152,21 @@ class MailerUIState {
             m_thread_id_to_tree_index.emplace(*thread_id_opt, group_folder_node);
 
             if (new_location) {
-                m_message_to_tree_index.erase(*thread_id_opt);
-                m_message_to_tree_index.emplace(*thread_id_opt, new_location);
+                // m_message_to_tree_index.erase(*thread_id_opt);
+                // m_message_to_tree_index.emplace(*thread_id_opt, group_folder_node);
             }
-
         } else {
             // this is new thread so we create it as a new thread in a new folder.
-            auto new_thread_ref_node = create_thread_ref(
-                group_folder_node, ThreadRef{.label = email.subject,
-                                             .thread_id = email.message_id.value(),
-                                             .emails_count = 1,
-                                             .attachments_count = email.attachments.size()});
+            create_thread_ref(
+                group_folder_node,
+                ThreadRef{
+                    .label = email.subject,
+                    // Use message ID of the the first message we got for this thread as ThreadID.
+                    .thread_id = email.message_id.value(),
+                    .emails_count = 1,
+                    .attachments_count = email.attachments.size()});
             m_thread_id_to_tree_index[email.message_id.value()] = group_folder_node;
-            m_message_to_tree_index[email.message_id.value()] = new_thread_ref_node;
+            //            m_message_to_tree_index[email.message_id.value()] = group_folder_node;
         }
     }
 
@@ -179,7 +191,7 @@ class MailerUIState {
         string label;
         TreeNode* parent = nullptr;
         vector<TreeNode*> children;
-        optional<ThreadRef> ref;
+        vector<ThreadRef> threads_refs;
 
         TreeNode() = delete;
 
@@ -187,14 +199,8 @@ class MailerUIState {
             log_info("created node {}", (void*)this);
         }
 
-        explicit TreeNode(string label,
-                          TreeNode* parent,
-                          vector<TreeNode*> children,
-                          optional<ThreadRef> ref)
-            : label(std::move(label)),
-              parent(parent),
-              children(std::move(children)),
-              ref(std::move(ref)) {
+        explicit TreeNode(string label, TreeNode* parent, vector<TreeNode*> children)
+            : label(std::move(label)), parent(parent), children(std::move(children)) {
             log_info("created node {}", (void*)this);
         }
 
@@ -213,27 +219,33 @@ class MailerUIState {
             log_debug("deleted node {}", (void*)child);
             delete child;
         }
+
+        using ThreadsIterator = vector<ThreadRef>::iterator;
+
+        ThreadsIterator find_thread_by_id(const MessageID& id) {
+            return std::find_if(threads_refs.begin(), threads_refs.end(),
+                                [&id](auto& x) { return x.thread_id == id; });
+        }
+        ThreadsIterator thread_refs_end() { return threads_refs.end(); }
     };
 
     void walk_tree_preoder_it(const TreeNode* node,
                               std::function<void(const string&)>& enter_folder_cb,
                               std::function<void(const string&)>& exit_folder_cb,
                               std::function<void(const ThreadRef&)>& encounter_ref) const {
-        if (node->ref.has_value()) {
-            encounter_ref(node->ref.value());
-        } else {
-            enter_folder_cb(node->label);
-            for (auto* node : node->children) {
-                walk_tree_preoder_it(node, enter_folder_cb, exit_folder_cb, encounter_ref);
-            }
-            exit_folder_cb(node->label);
+        enter_folder_cb(node->label);
+        for (auto* node : node->children) {
+            walk_tree_preoder_it(node, enter_folder_cb, exit_folder_cb, encounter_ref);
         }
+        for (auto& thread_ref : node->threads_refs) {
+            encounter_ref(thread_ref);
+        }
+        exit_folder_cb(node->label);
     }
 
-    TreeNode* create_thread_ref(TreeNode* node, ThreadRef ref) {
+    void create_thread_ref(TreeNode* node, ThreadRef ref) {
         assert(node);
-        node->children.emplace_back(new TreeNode{"", node, {}, std::move(ref)});
-        return node->children.back();
+        node->threads_refs.emplace_back(std::move(ref));
     }
 
     TreeNode* move_thread(TreeNode* from, TreeNode* to, types::MessageID thread_id) {
@@ -249,26 +261,22 @@ class MailerUIState {
             return nullptr;
         }
 
+        // The task is to find a thread in FROM TreeNode and remove it from there.
+
         // TODO: consider having some kind of index here. Some folders may be (1k-1k children)
         // we have this loop because we don't know the position in our children array. Effective
         // index may be not possible or will be non-trivial because in naive index after removing
         // element entire index will be invalidated.
         bool found = false;
-        for (auto it = from->children.begin(); it != from->children.end(); ++it) {
+        for (auto it = from->threads_refs.begin(); it != from->threads_refs.end(); ++it) {
             auto& c = *it;
-            if (c->ref.has_value()) {
-                // this is leaf children which holds a refernce to an email thread.
-                if (c->ref.value().thread_id == thread_id) {
-                    found = true;
-                    log_debug("moving thread with ID {} to new destination", thread_id);
-                    result = create_thread_ref(to, std::move(c->ref.value()));
-                    TreeNode* node = *it;
-                    delete node;
-                    log_debug("deleted node: {}", (void*)node);
-                    it = from->children.erase(it);
-                    log_debug("removing node  (children left: {})", from->children.size());
-                    break;
-                }
+            if (c.thread_id == thread_id) {
+                found = true;
+                log_debug("moving thread with ID {} to new destination", thread_id);
+                create_thread_ref(to, std::move(c));
+                it = from->threads_refs.erase(it);
+                log_debug("removing node  (children left: {})", from->threads_refs.size());
+                break;
             }
         }
 
@@ -278,7 +286,7 @@ class MailerUIState {
                 thread_id);
         }
 
-        if (from->children.empty()) {
+        if (from->children.empty() && from->threads_refs.empty()) {
             log_debug("removing folder {} as it is now empty", from->label);
             from->parent->remove_child(from);
         }
@@ -297,7 +305,7 @@ class MailerUIState {
         if (auto it = std::find_if(node->children.begin(), node->children.end(),
                                    [&](auto& n) { return n->label == c; });
             it == node->children.end()) {
-            node->children.emplace_back(new TreeNode{c, node, {}, {}});
+            node->children.emplace_back(new TreeNode{c, node, {}});
             return create_path_it(node->children.back(), path, component + 1);
         } else {
             return create_path_it(*it, path, component + 1);
@@ -308,7 +316,7 @@ class MailerUIState {
     types::EmailAddress m_own_address;
     TreeNode m_root{"root"};
     map<MessageID, types::MailboxEmail> m_message_id_to_email_index;
-    map<MessageID, TreeNode*> m_message_to_tree_index;
+    //    map<MessageID, TreeNode*> m_message_to_tree_index;
     map<MessageID, TreeNode*> m_thread_id_to_tree_index;
 };
 

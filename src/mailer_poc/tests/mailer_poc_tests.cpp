@@ -258,9 +258,9 @@ TEST(mailer_poc_tests, conversation_with_self_real_world_issue) {
     ASSERT_EQ(
         R"([root]
     [liubomyr.semkiv.test@gmail.com]
-        test email (from self)
+        test email (from self) (emails: 1)
 )",
-        render_tree(ui));
+        render_tree(ui, true));
 
     ui.process_email(
         make_email({"liubomyr.semkiv.test@gmail.com"}, {"liubomyr.semkiv.test@gmail.com"},
@@ -269,10 +269,10 @@ TEST(mailer_poc_tests, conversation_with_self_real_world_issue) {
     ASSERT_EQ(
         R"([root]
     [liubomyr.semkiv.test@gmail.com]
-        test email (from self)
-        лист з вкладеннями
+        test email (from self) (emails: 1)
+        лист з вкладеннями (emails: 1)
 )",
-        render_tree(ui));
+        render_tree(ui, true));
 
     ui.process_email(make_email(
         {"liubomyr.semkiv.test@gmail.com"}, {"liubomyr.semkiv.test@gmail.com"},
@@ -283,10 +283,10 @@ TEST(mailer_poc_tests, conversation_with_self_real_world_issue) {
     ASSERT_EQ(
         R"([root]
     [liubomyr.semkiv.test@gmail.com]
-        test email (from self)
-        лист з вкладеннями
+        test email (from self) (emails: 1)
+        лист з вкладеннями (emails: 2)
 )",
-        render_tree(ui));
+        render_tree(ui, true));
 
     ui.process_email(make_email(
         {"liubomyr.semkiv.test@gmail.com"}, {"liubomyr.semkiv.test@gmail.com"},
@@ -299,11 +299,12 @@ TEST(mailer_poc_tests, conversation_with_self_real_world_issue) {
     ASSERT_EQ(
         R"([root]
     [liubomyr.semkiv.test@gmail.com]
-        test email (from self)
-        лист з вкладеннями
+        test email (from self) (emails: 1)
+        лист з вкладеннями (emails: 3)
 )",
-        render_tree(ui));
+        render_tree(ui, true));
 
+    // THIS is duplicate email having the same ID as previous one and should be ignored by UI state.
     ui.process_email(
         make_email({"liubomyr.semkiv.test@gmail.com"}, {"liubomyr.semkiv.test@gmail.com"},
                    "Re: лист з вкладеннями",
@@ -313,10 +314,10 @@ TEST(mailer_poc_tests, conversation_with_self_real_world_issue) {
     ASSERT_EQ(
         R"([root]
     [liubomyr.semkiv.test@gmail.com]
-        test email (from self)
-        лист з вкладеннями
+        test email (from self) (emails: 1)
+        лист з вкладеннями (emails: 3)
 )",
-        render_tree(ui));
+        render_tree(ui, true));
 
     ui.process_email(
         make_email({"liubomyr.semkiv.test@gmail.com"}, {"liubomyr.semkiv.test@gmail.com"},
@@ -328,10 +329,10 @@ TEST(mailer_poc_tests, conversation_with_self_real_world_issue) {
     ASSERT_EQ(
         R"([root]
     [liubomyr.semkiv.test@gmail.com]
-        test email (from self)
-        лист з вкладеннями
+        test email (from self) (emails: 1)
+        лист з вкладеннями (emails: 4)
 )",
-        render_tree(ui));
+        render_tree(ui, true));
 
     ui.process_email(make_email(
         {"liubomyr.semkiv.test@gmail.com"}, {"liubomyr.semkiv.test@gmail.com"}, "new test email",
@@ -339,11 +340,11 @@ TEST(mailer_poc_tests, conversation_with_self_real_world_issue) {
     ASSERT_EQ(
         R"([root]
     [liubomyr.semkiv.test@gmail.com]
-        test email (from self)
-        лист з вкладеннями
-        new test email
+        test email (from self) (emails: 1)
+        лист з вкладеннями (emails: 4)
+        new test email (emails: 1)
 )",
-        render_tree(ui));
+        render_tree(ui, true));
 
     // This email looks like reply to previous, but in fact it is an email with crafted subject
     // but there are no in-reply-to or references. So we expect creation of new thread Re: new
@@ -372,7 +373,7 @@ TEST(mailer_poc_tests, conversation_with_self_real_world_issue) {
         R"([root]
     [liubomyr.semkiv.test@gmail.com]
         test email (from self) (emails: 1)
-        лист з вкладеннями (emails: 5)
+        лист з вкладеннями (emails: 4)
         new test email (emails: 2)
         Re: new test email (emails: 1)
 )",

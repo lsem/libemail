@@ -149,14 +149,14 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
     }
 
     virtual void selected_folder_changed(MailerUIState::TreeNode* selected_node) override {
-        if (!selected_node->ref) {
-            log_debug("selected folder changed, here is a list of threads in given folder");
-            for (auto& c : selected_node->children) {
-                if (c->ref) {
-                    log_debug("{}", c->ref->label);
-                }
-            }
-        }
+        // if (!selected_node->ref) {
+        //     log_debug("selected folder changed, here is a list of threads in given folder");
+        //     for (auto& c : selected_node->children) {
+        //         if (c->ref) {
+        //             log_debug("{}", c->ref->label);
+        //         }
+        //     }
+        // }
     }
 
     MailerUIState* get_ui_model() { return &m_ui_state; }
@@ -286,7 +286,7 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
             return std::find(x.flags.begin(), x.flags.end(), "\\Noselect") != x.flags.end();
         };
 
-        if (is_noselect_box(e)) {
+        if (is_noselect_box(e) || e.inbox_path != vector<string>({"INBOX"})) {
             log_info("skipping noselect folder '{}'", mailbox_path);
             async_download_all_mailboxes_it(std::move(list_entries), std::move(cb));
             return;

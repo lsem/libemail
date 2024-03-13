@@ -88,15 +88,8 @@ QVariant TreeViewModel::data(const QModelIndex& index, int role) const {
     if (role == Qt::DisplayRole) {
         auto node = static_cast<mailer::MailerUIState::TreeNode*>(index.internalPointer());
         assert(node);
-        if (node->ref) {
-            if (!node->ref->label.empty()) {
-                return node->ref->label.c_str();
-            } else {
-                return "<No-Subject>";
-            }
-        } else {
-            return node->label.c_str();
-        }
+
+        return node->label.c_str();
     }
 
     return QVariant{};

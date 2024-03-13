@@ -796,15 +796,16 @@ class imap_client_impl_t : public imap_client_t, public EnableUseThis<imap_clien
                               async_callback<SelectMailboxResult> cb) override {
         async_execute_command(
             imap_commands::select_t{.mailbox_name = inbox_name},
-            use_this(std::move(cb), [](auto& this_, std::error_code ec,
-                                       types::select_response_t response, auto cb) mutable {
-                ASYNC_RETURN_ON_ERROR(ec, cb, "async select command failed");
+            use_this(std::move(cb),
+                     [inbox_name](auto& this_, std::error_code ec,
+                                  types::select_response_t response, auto cb) mutable {
+                         ASYNC_RETURN_ON_ERROR(ec, cb, "async select command failed");
 
-                log_debug("selected INBOX folder (exists: {}, recents: {})", response.exists,
-                          response.recents);
+                         log_debug("selected {} folder (exists: {}, recents: {})", inbox_name,
+                                   response.exists, response.recents);
 
-                cb({}, {.raw_response = std::move(response)});
-            }));
+                         cb({}, {.raw_response = std::move(response)});
+                     }));
     }
 
     void async_list_items(int from,
