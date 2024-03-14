@@ -38,6 +38,9 @@ struct MailboxEmail {
 
     // https://datatracker.ietf.org/doc/html/rfc3501#section-2.3.1.1
     // Unique Identifier (UID) Message Attribute (2.3.1.1)
+
+    bool is_valid = true;
+
     int message_uid;
 
     // Mandatory headers

@@ -194,7 +194,7 @@ void apg_invoke_parser(uint32_t starting_rule,
     parser_config apg_parser_config;
     exception apg_exception;
     void* parser = nullptr;
-    // void* vpTrace = nullptr;
+    void* vpTrace = nullptr;
 
     // XCTOR macros sets kind of label (setjmp) that can be jumped to. So in case exception occurs
     // in APG it will jump back (longjmp) to this label but this time apg_exception.try_ will be set
@@ -205,10 +205,10 @@ void apg_invoke_parser(uint32_t starting_rule,
         parser = ::vpParserCtor(&apg_exception, vpImapParserApgImplInit);
         log_debug("constructing APG parser object -- done");
 
-        // if (std::getenv("MMAP_TRACE")) {
-        //     vpTrace = vpTraceCtor(parser);
-        //     vTraceConfigGen(vpTrace, NULL);
-        // }
+        if (std::getenv("MMAP_TRACE")) {
+            vpTrace = vpTraceCtor(parser);
+            vTraceConfigGen(vpTrace, NULL);
+        }
 
         ::vParserSetUdtCallback(parser, IMAP_PARSER_APG_IMPL_U_LITERAL_SIZE,
                                 &udt_literal_size_callback);
@@ -411,7 +411,7 @@ std::error_code apg_invoke_parser__ast(
     parser_config apg_parser_config;
     exception apg_exception;
     void* parser = nullptr;
-    // void* vpTrace = nullptr;
+    void* vpTrace = nullptr;
     void* ast = NULL;
 
     std::error_code result{};
@@ -424,10 +424,10 @@ std::error_code apg_invoke_parser__ast(
         parser = ::vpParserCtor(&apg_exception, vpImapParserApgImplInit);
         log_debug("constructing APG parser object -- done");
 
-        // if (std::getenv("MMAP_TRACE")) {
-        //     vpTrace = vpTraceCtor(parser);
-        //     vTraceConfigGen(vpTrace, NULL);
-        // }
+        if (std::getenv("MMAP_TRACE")) {
+            vpTrace = vpTraceCtor(parser);
+            vTraceConfigGen(vpTrace, NULL);
+        }
 
         log_debug("constructing APG AST object");
         ast = ::vpAstCtor(parser);

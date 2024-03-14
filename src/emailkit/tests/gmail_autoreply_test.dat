@@ -1,0 +1,88 @@
+* 55 FETCH (UID 56 RFC822.HEADER {5169}
+Delivered-To: liubomyr.semkiv.test@gmail.com
+Received: by 2002:a05:6022:832a:b0:4f:4469:6389 with SMTP id
+ be42csp2683697lab; Wed, 13 Mar 2024 13:52:36 -0700 (PDT)
+X-Received: by 2002:ac2:4e11:0:b0:513:b1c4:dbb4 with SMTP id
+ e17-20020ac24e11000000b00513b1c4dbb4mr6724973lfr.64.1710363156376; Wed, 13
+ Mar 2024 13:52:36 -0700 (PDT)
+ARC-Seal: i=1; a=rsa-sha256; t=1710363156; cv=none; d=google.com;
+ s=arc-20160816;
+ b=WSXPcpfim7pb4N7eq+Dmt1z6EVa7SeN1Njte/I58txUmOOJUaMx+7vEVb3AlbOtm8y
+ ONJ3G7cnOYREy1D2MT3phPCe4N9WwLJjq8R9gL9+66aU3lkI1FBLXX2NbJTxw3WMm26F
+ kId8G5QC0orS6Zqnl91sJ0o911ukW99HW5vYz8TPcR2HxXfCGd5Q7j95bsy0FByMf8R1
+ 0skwYbUE6xSVP0kjA0FEv009WfrBusNRtNMz/8dNYZFmZ9F9VV21j+VBqsxtVFRcZNFI
+ jsbru0qSO7WZv5drKpkL85Jnavcn5Iv8ZbP7x+P4wIIj+GZjsLFjgql1BTmoX9FtIk3g O0tg==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=google.com;
+ s=arc-20160816;
+ h=in-reply-to:references:subject:from:date:message-id:auto-submitted
+ :to:dkim-signature; bh=QBwGxLyU/kEoJl3eR8usJDP/b2DONz0EqVqRni/dWd8=;
+ fh=1zkAi9o+vzD85vq3JArTIZeR0b1cTGuq48lTYIBsJYE=;
+ b=Oq/KWdpGlhUpcbIQwgyV2f2urHuPic7wqtf3Fk0HlYl2byZ8FIvHEiGd9MDixl+KPF
+ deqBJaHFGJsMuxxE4XRDNZ2zPG6GEylfNvlsdfOzCeRCS1hgkhTooaMWeRCiqND8SHlG
+ geZr+H1Ym4jL/lWxIvVpRc+KEFIQpkJDQ6nsRjAmZnUOGnKUB+9xGZOTxzQh2tdkH9Ke
+ 44pOxra9ssSQ8GPnPRU9DAduVRWeIaknHDWiYtBlkMSbWTQeK41hVrX6nW3j+16Ux/ag
+ KUJ+x6QJd/hYdkB21qv+z1ie/oGcHKTAQ6q+SEtx4YXoVcRGdgxS47ntoKJiwzHdPy+2 K+IA==;
+ dara=google.com
+ARC-Authentication-Results: i=1; mx.google.com; dkim=pass
+ header.i=@googlemail.com header.s=20230601 header.b=Z8F33HfG; spf=none
+ (google.com: mail-sor-f69.google.com does not designate permitted sender
+ hosts) smtp.helo=mail-sor-f69.google.com; dmarc=pass (p=QUARANTINE
+ sp=QUARANTINE dis=NONE) header.from=googlemail.com
+Return-Path: <>
+Received: from mail-sor-f69.google.com (mail-sor-f69.google.com.
+ [209.85.220.69]) by mx.google.com with SMTPS id
+ p3-20020a19f003000000b0051172c38766sor19556lfc.15.2024.03.13.13.52.36 for
+ <liubomyr.semkiv.test@gmail.com> (Google Transport Security); Wed, 13 Mar
+ 2024 13:52:36 -0700 (PDT)
+Received-SPF: none (google.com: mail-sor-f69.google.com does not designate
+ permitted sender hosts) client-ip=209.85.220.69;
+Authentication-Results: mx.google.com; dkim=pass header.i=@googlemail.com
+ header.s=20230601 header.b=Z8F33HfG; spf=none (google.com:
+ mail-sor-f69.google.com does not designate permitted sender hosts)
+ smtp.helo=mail-sor-f69.google.com; dmarc=pass (p=QUARANTINE sp=QUARANTINE
+ dis=NONE) header.from=googlemail.com
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=googlemail.com;
+ s=20230601; t=1710363156; x=1710967956; dara=google.com;
+ h=in-reply-to:references:subject:from:date:message-id:auto-submitted
+ :to:from:to:cc:subject:date:message-id:reply-to;
+ bh=QBwGxLyU/kEoJl3eR8usJDP/b2DONz0EqVqRni/dWd8=;
+ b=Z8F33HfGXbnUhTSLXPcInvVp3OU4W9lqE95exVcGirGLzwyPX/CYsinYbl7SfYR24W
+ /GjN8DHfVqcJz/timqWeWTh4KQErgON115Y1fJsftrEOcSqcXbaAxMz8SIVxZ+K3edQn
+ 33O8/eVpY1USRse6Y230pwm8xQOO+u6yKr0j0dlPMlrNY6VqCXXiJ8R0N30KNQxFroEw
+ p4JhUvx9vcsQqI0TFjeZ4evq0zTdp2eCgZo42cy3pHg52f3OpKAvrWtjxWDK33jSeFhF
+ vZHcD3ys/PnrVSeWPM427iC7uFBjtkp61NT+GFH50si5BBvIiBi68AsRSf5sDZEF3i8V ydZw==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=1e100.net;
+ s=20230601; t=1710363156; x=1710967956;
+ h=in-reply-to:references:subject:from:date:message-id:auto-submitted
+ :to:x-gm-message-state:from:to:cc:subject:date:message-id:reply-to;
+ bh=QBwGxLyU/kEoJl3eR8usJDP/b2DONz0EqVqRni/dWd8=;
+ b=XBoYq5G+/g2OIQCw3X4RKWadFGdjCKJE6MqLlnmzjUSt7xvddH/6llBPlchCBlPvqa
+ mmukAt3EqCPSDFV21glmmTWR6L1HznQcEgKsaIF8d1Ns0VZ6kNh0k8my+Qn6f6UBLccB
+ GjphbJZWCg0TvOVOXqQol+EqyQfwflCW10UjZ3ZWBL2af3Ms1lKlGAP8nlXTXHx4cDTT
+ J59KjBMl+sU9B6Xwd79sXS8nWuhoyo2DSAW+EaB7og8xphhA7346FZMKeP3AsPsOAQHm
+ 9Yy1CZtpVeApYEFu6NGyh3nqn82hSrKNzDqOQ3i7PmvCbNQuitiORSMWX/6cS48ZKP5M OtCA==
+X-Gm-Message-State: AOJu0YyziSWecok+nAWf1l+Nl25jQlyAY0t6+Ojigl2Jc/TwnJ6//jZi
+ 5tBsCTKLDdz8EQdn3tJVNeFgX/BaCuh7+bn+pmjiWin1PKS5Q+z/NBjtv/ijRO5li9FnVUv5eVL
+ 04tOp/UtfwVxuuSMcC5LYpGS0wqbWSjh6GjoLo5ISv8RHr/+0YXEU8Q==
+X-Google-Smtp-Source: AGHT+IFy1r7zyiiUeTerOr3MlnEmc0EaFx5M2UOptqVhaDhRrLJKaYu6BKhvXkqIOsY3dS/MiToh2HkzoBXgpxQB0EocwCWItkCwqg4=
+X-Received: by 2002:ac2:598b:0:b0:513:bf8a:bd2a with SMTP id
+ w11-20020ac2598b000000b00513bf8abd2amr1249200lfn.32.1710363156256; Wed, 13
+ Mar 2024 13:52:36 -0700 (PDT)
+Content-Type: multipart/report; boundary="0000000000005d8011061390f4f5";
+ report-type=delivery-status
+To: liubomyr.semkiv.test@gmail.com
+Received: by 2002:ac2:598b:0:b0:513:bf8a:bd2a with SMTP id
+ w11-20020ac2598b000000b00513bf8abd2amr1190916lfn.32; Wed, 13 Mar 2024
+ 13:52:36 -0700 (PDT)
+Return-Path: <>
+Auto-Submitted: auto-replied
+Message-ID: <65f21214.c20a0220.e4b15.463c.GMR@mx.google.com>
+Date: Wed, 13 Mar 2024 13:52:36 -0700 (PDT)
+From: Mail Delivery Subsystem <mailer-daemon@googlemail.com>
+Subject: Delivery Status Notification (Failure)
+References: <CA+n06nm58xunBeXNGLF4xG-yrE0vCyOMJ2dKAEqNp2kymG86vw@mail.gmail.com>
+In-Reply-To: <CA+n06nm58xunBeXNGLF4xG-yrE0vCyOMJ2dKAEqNp2kymG86vw@mail.gmail.com>
+X-Failed-Recipients: sli.ukraine@gmail.cpom
+
+ BODYSTRUCTURE (((("TEXT" "PLAIN" ("CHARSET" "UTF-8") NIL NIL "BASE64" 902 19 NIL NIL NIL)("TEXT" "HTML" ("CHARSET" "UTF-8") NIL NIL "BASE64" 2610 53 NIL NIL NIL) "ALTERNATIVE" ("BOUNDARY" "0000000000005d9453061390f4f7") NIL NIL)("IMAGE" "PNG" ("NAME" "icon.png") "<icon.png>" NIL "BASE64" 1986 NIL ("ATTACHMENT" ("FILENAME" "icon.png")) NIL) "RELATED" ("BOUNDARY" "0000000000005d944d061390f4f6") NIL NIL)("MESSAGE" "DELIVERY-STATUS" NIL NIL NIL "7BIT" 534 NIL NIL NIL)("MESSAGE" "RFC822" NIL NIL NIL "7BIT" 2464 ("Wed, 13 Mar 2024 22:52:22 +0200" "1:1 with sli" (("Liubomyr" NIL "liubomyr.semkiv.test" "gmail.com")) (("Liubomyr" NIL "liubomyr.semkiv.test" "gmail.com")) (("Liubomyr" NIL "liubomyr.semkiv.test" "gmail.com")) ((NIL NIL "sli.ukraine" "gmail.cpom")) NIL NIL NIL "<CA+n06nm58xunBeXNGLF4xG-yrE0vCyOMJ2dKAEqNp2kymG86vw@mail.gmail.com>") (("TEXT" "PLAIN" ("CHARSET" "UTF-8") NIL NIL "7BIT" 2 1 NIL NIL NIL)("TEXT" "HTML" ("CHARSET" "UTF-8") NIL NIL "7BIT" 27 1 NIL NIL NIL) "ALTERNATIVE" ("BOUNDARY" "0000000000004f2eb6061390f4a7") NIL NIL) 50 NIL NIL NIL) "REPORT" ("BOUNDARY" "0000000000005d8011061390f4f5" "REPORT-TYPE" "delivery-status") NIL NIL))
+A8 OK Success

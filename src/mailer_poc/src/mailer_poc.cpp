@@ -5,6 +5,7 @@
 #include <emailkit/utils.hpp>
 
 #include <fmt/ranges.h>
+#include <fstream>
 #include <mutex>
 #include <set>
 #include <sstream>
@@ -308,7 +309,7 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
 
                 log_info("downloading emails on selected folder");
                 this_.async_download_emails_for_mailbox(
-                    std::move(mailbox_path_parts),
+                    result.raw_response.exists, std::move(mailbox_path_parts),
                     this_.use_this(std::move(cb), [list_entries = std::move(list_entries)](
                                                       auto& this_, std::error_code ec, auto cb) {
                         ASYNC_RETURN_ON_ERROR(ec, cb,
@@ -319,31 +320,147 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
             }));
     }
 
+    void async_download_emails_for_mailbox_sequential_it(
+        int from,
+        int to,
+        std::vector<emailkit::types::MailboxEmail> acc_vec,
+        async_callback<std::vector<emailkit::types::MailboxEmail>> cb) {
+        if (from > to) {
+            log_debug("from > to");
+            cb({}, std::move(acc_vec));
+            return;
+        }
+        m_imap_client->async_list_items(
+            from, from,
+            use_this(std::move(cb),
+                     [from, to, acc_vec = std::move(acc_vec)](
+                         auto& this_, std::error_code ec,
+                         std::variant<string, vector<emailkit::types::MailboxEmail>> items_or_text,
+                         auto cb) mutable {
+                         if (ec) {
+                             log_error("failed downloading email with uid {}: {}", from, ec);
+                             emailkit::types::MailboxEmail email;
+                             email.message_uid = from;
+                             email.is_valid = false;
+                             email.subject = fmt::format("<FAILED TO DOWNLOAD EMAIL #{}", from);
+                             acc_vec.emplace_back(std::move(email));
+
+                             if (std::holds_alternative<string>(items_or_text)) {
+                                 auto failed_raw_imap = std::get<string>(items_or_text);
+                                 std::string file_name = fmt::format(
+                                     "failed-{}-{}", from, std::hash<string>{}(failed_raw_imap));
+                                 log_warning("writing failed email body into {}", file_name);
+                                 std::ofstream f(file_name,
+                                                 std::ios_base::out | std::ios_base::binary);
+                                 if (f.good()) {
+                                     f << failed_raw_imap;
+                                     f.close();
+                                 } else {
+                                     log_error("failed writing file with bad IMAP into disk");
+                                 }
+                             }
+                         } else {
+                             assert(std::holds_alternative<vector<emailkit::types::MailboxEmail>>(
+                                 items_or_text));
+                             for (auto& x :
+                                  std::get<vector<emailkit::types::MailboxEmail>>(items_or_text)) {
+                                 acc_vec.emplace_back(std::move(x));
+                             }
+                         }
+                         this_.async_download_emails_for_mailbox_sequential_it(
+                             from + 1, to, std::move(acc_vec), std::move(cb));
+                     }));
+    }
+
+    void async_download_emails_for_mailbox_sequential(
+        int from,
+        int to,
+        async_callback<std::vector<emailkit::types::MailboxEmail>> cb) {
+        async_download_emails_for_mailbox_sequential_it(from, to, {}, std::move(cb));
+    }
+
+    // |----------|------------|--------------|-----|
+
+    // TODO: what if new email is received on the server while we are downloading folder?
+    void async_download_emails_for_mailbox_it(int from,
+                                              int N,
+                                              std::vector<std::string> folder_path,
+                                              async_callback<void> cb) {
+        if (from > N) {
+            log_info("finished at from={}, N={}", from, N);
+            cb({});
+            return;
+        }
+        const int BATCH_SIZE = 50;
+        int to = from + std::min(N - from, BATCH_SIZE);
+
+        log_info("downloading next batch, from: {}, to: {}", from, to);
+
+        m_imap_client->async_list_items(
+            from, to,
+            use_this(std::move(cb), [from, to, N, folder_path = std::move(folder_path)](
+                                        auto& this_, std::error_code ec,
+                                        std::variant<string,
+                                                     std::vector<emailkit::types::MailboxEmail>>
+                                            items_or_text,
+                                        auto cb) mutable {
+                if (ec) {
+                    log_error(
+                        "async list items failed on batch {}:{}, falling back to "
+                        "sequential fetch: {}",
+                        from, to, ec);
+                    // Fallback to sequential download which will create dummy emails for ones that
+                    // we failed to download.
+                    this_.async_download_emails_for_mailbox_sequential(
+                        from, to,
+                        this_.use_this(
+                            std::move(cb), [from, to, folder_path = std::move(folder_path)](
+                                               auto& this_, std::error_code ec,
+                                               std::vector<emailkit::types::MailboxEmail> emails,
+                                               auto cb) mutable {
+                                if (ec) {
+                                    log_error(
+                                        "sequential download (fallback) failed to download a batch "
+                                        "{}{}: {} ",
+                                        from, to, ec);
+                                    cb(ec);
+                                    return;
+                                }
+                                // TODO: note, this is async processing.
+                                this_.process_email_folder(folder_path, std::move(emails));
+                                cb({});
+                            }));
+                    return;
+                }
+
+                // TODO: this should probably be named async_ since this is done in UI
+                // thread.
+                this_.process_email_folder(
+                    folder_path,
+                    std::move(std::get<std::vector<emailkit::types::MailboxEmail>>(items_or_text)));
+                this_.async_download_emails_for_mailbox_it(to + 1, N, std::move(folder_path),
+                                                           std::move(cb));
+            }));
+    }
+
     // Downlaods all emails from currenty selected inbox.
-    void async_download_emails_for_mailbox(std::vector<std::string> folder_path,
+    void async_download_emails_for_mailbox(int mailbox_size,
+                                           std::vector<std::string> folder_path,
                                            async_callback<void> cb) {
         // TODO: in real world program this should not be unbound list but some fixed bucket
-        // size.
-        m_imap_client->async_list_items(
-            1, std::nullopt,
-            use_this(std::move(cb),
-                     [folder_path = std::move(folder_path)](
-                         auto& this_, std::error_code ec,
-                         std::vector<emailkit::types::MailboxEmail> items, auto cb) mutable {
-                         ASYNC_RETURN_ON_ERROR(ec, cb, "async list items failed");
-                         this_.process_email_folder(folder_path, std::move(items));
-                         cb({});
-                     }));
+
+        async_download_emails_for_mailbox_it(1, mailbox_size, std::move(folder_path),
+                                             std::move(cb));
     }
 
     void process_email_folder(vector<string> folder_path,
                               const vector<emailkit::types::MailboxEmail> emails_meta) {
         assert(m_callbacks);
 
-        // TODO: we need more synchronization here. This should probably have continuation instead
-        // of just scheduling updated into UI thread for each email. Another idea is that we can.
-        // One intellegent approach is to have a timed update. E.g. having UI updated no more then
-        // 50ms in 1s or something like this.
+        // TODO: we need more synchronization here. This should probably have continuation
+        // instead of just scheduling updated into UI thread for each email. Another idea is
+        // that we can. One intellegent approach is to have a timed update. E.g. having UI
+        // updated no more then 50ms in 1s or something like this.
 
         m_callbacks->update_state([emails_meta, this] {
             m_callbacks->tree_about_to_change();

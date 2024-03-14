@@ -380,7 +380,7 @@ TEST(mailer_poc_tests, conversation_with_self_real_world_issue) {
         render_tree(ui, true));
 }
 
-TEST(mailer_poc_tests, real_workd_multi_group_test) {
+TEST(mailer_poc_tests, real_world_multi_contact_group_test) {
     mailer::MailerUIState ui{"liubomyr.semkiv.test@gmail.com"};
 
     log_debug("ingesting first email");
@@ -424,4 +424,63 @@ TEST(mailer_poc_tests, real_workd_multi_group_test) {
         render_tree(ui));
 }
 
-    // How to find thread id?
+TEST(mailer_poc_tests, removing_people_from_converstation_test) {
+    mailer::MailerUIState ui{"liubomyr.semkiv.test@gmail.com"};
+
+    log_debug("ingesting first email");
+    ui.process_email(make_email({"combdn@gmail.com"}, {"liubomyr.semkiv.test@gmail.com"},
+                                "Testing multi-contact grouping",
+                                "78C7A359-B513-496B-B140-66E5896DE6C4@gmail.com", {}));
+    ASSERT_EQ(
+        R"([root]
+    [combdn@gmail.com]
+        Testing multi-contact grouping (emails: 1)
+)",
+        render_tree(ui, true));
+
+    log_debug("ingesting second email");
+    ui.process_email(
+        make_email({"liubomyr.semkiv.test@gmail.com"}, {"combdn@gmail.com"},
+                   "Re: Testing multi-contact grouping",
+                   "CA+n06nmoc7=kOVqRs7kBAcapksps28M0Nkjsjbieebw9uK2fBg@mail.gmail.com",
+                   {"78C7A359-B513-496B-B140-66E5896DE6C4@gmail.com"}));
+
+    ASSERT_EQ(
+        R"([root]
+    [combdn@gmail.com]
+        Testing multi-contact grouping (emails: 2)
+)",
+        render_tree(ui, true));
+
+    log_debug("ingesting third email");
+    ui.process_email(make_email(
+        {"combdn@gmail.com"}, {"liubomyr.semkiv.test@gmail.com", "sli.ukraine@gmail.com"},
+        "Re: Testing multi-contact grouping", "E62F4DB8-BF75-47A2-B781-EC7DEE609EFE@gmail.com",
+        {"78C7A359-B513-496B-B140-66E5896DE6C4@gmail.com",
+         "CA+n06nmoc7=kOVqRs7kBAcapksps28M0Nkjsjbieebw9uK2fBg@mail.gmail.com"}));
+
+    ASSERT_EQ(
+        R"([root]
+    [combdn@gmail.com, sli.ukraine@gmail.com]
+        Testing multi-contact grouping (emails: 3)
+)",
+        render_tree(ui, true));
+
+    // And now we reply into the same thread but remove recently added sli.ukraine@gmail.com
+    // Even though sli.ukraine@gmail.com removed from recepients list it is still attached to the
+    // same conversation.
+    log_debug("ingesting fourth email");
+    ui.process_email(make_email(
+        {"combdn@gmail.com"}, {"liubomyr.semkiv.test@gmail.com"},
+        "Re: Testing multi-contact grouping", "D52F4DB8-BF75-47A2-B781-EC7DEE609EFE@gmail.com",
+        {"78C7A359-B513-496B-B140-66E5896DE6C4@gmail.com",
+         "CA+n06nmoc7=kOVqRs7kBAcapksps28M0Nkjsjbieebw9uK2fBg@mail.gmail.com",
+         "E62F4DB8-BF75-47A2-B781-EC7DEE609EFE@gmail.com"}));
+
+    ASSERT_EQ(
+        R"([root]
+    [combdn@gmail.com, sli.ukraine@gmail.com]
+        Testing multi-contact grouping (emails: 4)
+)",
+        render_tree(ui, true));
+}

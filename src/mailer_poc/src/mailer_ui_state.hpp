@@ -23,6 +23,20 @@ class MailerUIState {
     void process_email(const types::MailboxEmail& email) {
         // When emails are added the only we do is that we create folders or remove folders.
         // That's all.
+        if (!email.is_valid) {
+            auto group_folder_node = create_path({"INTERNAL", "Invalid Messages"});
+            create_thread_ref(
+                group_folder_node,
+                ThreadRef{
+                    .label = email.subject,
+                    // Use message ID of the the first message we got for this thread as ThreadID.
+                    .thread_id = "",
+                    .emails_count = 0,
+                    .attachments_count = 0});
+
+            return;
+        }
+
         if (!email.message_id.has_value()) {
             log_error("Message without message ID is not suppoered: {}", to_json(email));
             return;

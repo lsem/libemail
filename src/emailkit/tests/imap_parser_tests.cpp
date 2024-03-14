@@ -565,3 +565,13 @@ TEST(imap_parser_test_, DISABLED_fetch_bodystructure_uid_rfc822_header) {
     //    EXPECT_EQ(rfc822_attr.headers[8].first, "Content-Type");
     //    EXPECT_EQ(rfc822_attr.headers[8].second, "multipart/alternative");
 }
+
+TEST(imap_parser_test, gmail_autoreply_test) {
+    std::ifstream f("gmail_autoreply_test.dat", std::ios_base::in);
+    ASSERT_TRUE(f);
+
+    std::string file_data{std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>()};
+
+    auto message_data_or_err = imap_parser::parse_message_data_records(file_data);
+    ASSERT_TRUE(message_data_or_err);
+}

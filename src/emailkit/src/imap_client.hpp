@@ -168,7 +168,7 @@ class imap_client_t {
     virtual void async_list_items(
         int from,
         std::optional<int> to,
-        async_callback<std::vector<emailkit::types::MailboxEmail>> cb) = 0;
+        async_callback<std::variant<string, std::vector<emailkit::types::MailboxEmail>>> cb) = 0;
 
    public:
     // TODO: state change API (logical states + disconnected/failed)

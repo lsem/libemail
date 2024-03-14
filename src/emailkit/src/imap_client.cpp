@@ -760,7 +760,9 @@ class imap_client_impl_t : public imap_client_t, public EnableUseThis<imap_clien
             auto message_data_records_or_err = imap_parser::parse_message_data_records(imap_resp);
             if (!message_data_records_or_err) {
                 log_error("failed parsing message data: {}", message_data_records_or_err.error());
-                cb(message_data_records_or_err.error(), {});
+                cb(message_data_records_or_err.error(),
+                   types::fetch_response_t{.message_data_items = {},
+                                           .failed_raw_imap_opt = imap_resp});
                 return;
             }
             auto parse_took = std::chrono::steady_clock::now() - parse_start;
@@ -808,9 +810,11 @@ class imap_client_impl_t : public imap_client_t, public EnableUseThis<imap_clien
                      }));
     }
 
-    void async_list_items(int from,
-                          std::optional<int> to,
-                          async_callback<std::vector<emailkit::types::MailboxEmail>> cb) override {
+    void async_list_items(
+        int from,
+        std::optional<int> to,
+        async_callback<std::variant<std::string, std::vector<emailkit::types::MailboxEmail>>> cb)
+        override {
         async_execute_command(
             imap_commands::fetch_t{
                 .sequence_set = imap_commands::raw_fetch_sequence_spec{fmt::format(
@@ -822,7 +826,11 @@ class imap_client_impl_t : public imap_client_t, public EnableUseThis<imap_clien
                         imap_commands::fetch_items::rfc822_header_t{}}},
             use_this(std::move(cb), [](auto& this_, std::error_code ec,
                                        types::fetch_response_t response, auto cb) {
-                ASYNC_RETURN_ON_ERROR(ec, cb, "async fetch command failed");
+                if (ec) {
+                    log_error("async fetch command failed: {}", ec);
+                    cb(ec, response.failed_raw_imap_opt.value_or(""));
+                    return;
+                }
 
                 std::vector<emailkit::types::MailboxEmail> result;
 

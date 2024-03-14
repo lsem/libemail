@@ -49,6 +49,7 @@ struct select_response_t {
 // fetch_response_t
 struct fetch_response_t {
     std::vector<imap_parser::MessageData> message_data_items;
+    std::optional<std::string> failed_raw_imap_opt;
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
