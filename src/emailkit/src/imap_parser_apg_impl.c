@@ -7310,7 +7310,7 @@ static const uint32_t aParserInit[6290] = {
 ,120,2,4,33153,129,2,72474,122,4,7,72731,42,1,4,45489,177,3,72988,0,-1,2,73245,126,2,4,2570,10,4,45489,177
 ,7,73502,43,1,4,33153,129,4,33410,130,4,33153,129,4,33410,130,4,45489,177,4,45489,177,1,73759,128,2,2,74016,130,6
 ,7,74273,44,1,4,10794,42,4,2570,10,4,11051,43,3,74530,0,-1,2,74787,136,4,4,2570,10,4,10794,42,4,2570,10
-,4,11051,43,7,75044,45,1,4,32896,128,2,75301,140,2,1,75558,142,3,4,12593,49,4,11822,46,4,12336,48,3,75815,0
+,4,11051,43,7,75044,45,1,4,32896,128,2,75301,140,2,1,75558,142,3,4,12593,49,4,12336,48,4,11822,46,3,75815,0
 ,1,2,76072,145,2,4,2570,10,4,7453,29,2,76329,147,3,4,28527,111,4,2570,10,4,7967,31,2,76586,150,4,3,76843
 ,1,-1,4,6939,27,4,2570,10,4,29041,113,3,77100,0,1,2,77357,154,2,4,2570,10,4,7710,30,2,77614,156,9,4
 ,28784,112,4,2570,10,4,7967,31,4,2570,10,4,17990,70,4,2570,10,4,6939,27,4,2570,10,4,10023,39,2,77871,165,5
@@ -7509,7 +7509,7 @@ void* vpImapParserApgImplInit = (void*)&s_parser_init;
 // address     = "(" addr-name SP addr-adl SP addr-mailbox SP addr-host ")"
 // 
 // addr-adl    = nstring ; Holds route from [RFC-2822] route-addr if non-NIL
-// addr-host   = nstring ; NIL indicates [RFC-2822] group syntax. Otherwise, holds [RFC-2822] domain name
+// addr-host   = nstring ; NIL indicates [RFC-2822] group syntax. Otherwise, holds [RFC-2822] domain/ name
 // addr-mailbox = nstring
 //                     ; NIL indicates end of [RFC-2822] group; if
 //                     ; non-NIL and addr-host is NIL, holds
@@ -7564,7 +7564,9 @@ void* vpImapParserApgImplInit = (void*)&s_parser_init;
 // body-fld-param-name = string
 // body-fld-param-value = string
 // body-fld-param  = "(" body-fld-param-name SP body-fld-param-value *(SP body-fld-param-name SP body-fld-param-value) ")" / nil
-// body-type-1part = (body-type-text / body-type-basic / body-type-msg) [SP body-ext-1part]
+// ; Here the grammar is changed (see https://github.com/jstedfast/MailKit/issues/371)
+// body-type-1part = (body-type-text / body-type-msg / body-type-basic) [SP body-ext-1part]
+// ;body-type-1part = (body-type-text / body-type-basic / body-type-msg) [SP body-ext-1part]
 // body-type-basic = media-basic SP body-fields ; MESSAGE subtype MUST NOT be "RFC822"
 // body-type-mpart = 1*body SP media-subtype [SP body-ext-mpart]
 // body-type-msg   = media-message SP body-fields SP envelope SP body SP body-fld-lines

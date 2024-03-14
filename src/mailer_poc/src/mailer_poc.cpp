@@ -308,6 +308,26 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
                          result.raw_response.exists, result.raw_response.recents);
 
                 log_info("downloading emails on selected folder");
+
+                // this_.m_imap_client->async_execute_command(
+                //     emailkit::imap_client::imap_commands::fetch_t{
+                //         .sequence_set =
+                //             emailkit::imap_client::imap_commands::raw_fetch_sequence_spec{
+                //                 fmt::format("{}:{}", 55, 55)},
+                //         .items =
+                //             emailkit::imap_client::imap_commands::fetch_items_vec_t{
+                //                 emailkit::imap_client::imap_commands::fetch_items::uid_t{},
+                //                 // emailkit::imap_client::imap_commands::fetch_items::
+                //                 //     body_structure_t{},
+                //                 emailkit::imap_client::imap_commands::fetch_items::
+                //                     rfc822_header_t{}}},
+                //     this_.use_this(std::move(cb),
+                //                    [](auto& this_, std::error_code ec, auto response, auto cb) {
+                //                        if (!ec) {
+                //                            log_warning("something strange!");
+                //                        }
+                //                        cb({});
+                //                    }));
                 this_.async_download_emails_for_mailbox(
                     result.raw_response.exists, std::move(mailbox_path_parts),
                     this_.use_this(std::move(cb), [list_entries = std::move(list_entries)](

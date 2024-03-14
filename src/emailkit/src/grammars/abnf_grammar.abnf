@@ -19,7 +19,7 @@ SP             =  %x20
 address     = "(" addr-name SP addr-adl SP addr-mailbox SP addr-host ")"
 
 addr-adl    = nstring ; Holds route from [RFC-2822] route-addr if non-NIL
-addr-host   = nstring ; NIL indicates [RFC-2822] group syntax. Otherwise, holds [RFC-2822] domain name
+addr-host   = nstring ; NIL indicates [RFC-2822] group syntax. Otherwise, holds [RFC-2822] domain/ name
 addr-mailbox = nstring
                     ; NIL indicates end of [RFC-2822] group; if
                     ; non-NIL and addr-host is NIL, holds
@@ -74,7 +74,9 @@ body-fld-octets = number
 body-fld-param-name = string
 body-fld-param-value = string
 body-fld-param  = "(" body-fld-param-name SP body-fld-param-value *(SP body-fld-param-name SP body-fld-param-value) ")" / nil
-body-type-1part = (body-type-text / body-type-basic / body-type-msg) [SP body-ext-1part]
+; Here the grammar is changed (see https://github.com/jstedfast/MailKit/issues/371)
+body-type-1part = (body-type-text / body-type-msg / body-type-basic) [SP body-ext-1part]
+;body-type-1part = (body-type-text / body-type-basic / body-type-msg) [SP body-ext-1part]
 body-type-basic = media-basic SP body-fields ; MESSAGE subtype MUST NOT be "RFC822"
 body-type-mpart = 1*body SP media-subtype [SP body-ext-mpart]
 body-type-msg   = media-message SP body-fields SP envelope SP body SP body-fld-lines
