@@ -28,6 +28,7 @@ class TreeViewModel : public QAbstractItemModel {
     void initiate_rename(mailer::MailerUIState::TreeNode* node);
 
     QModelIndex encode_model_index(mailer::MailerUIState::TreeNode* node) const;
+    mailer::MailerUIState::TreeNode* decode_model_index(const QModelIndex&) const;
 
     void begin_reset() {
         qDebug("begin_reset!");
@@ -45,7 +46,16 @@ class TreeViewModel : public QAbstractItemModel {
     QVariant data(const QModelIndex& index, int role) const override;
     bool setData(const QModelIndex& index, const QVariant& value, int role = Qt::EditRole) override;
     Qt::ItemFlags flags(const QModelIndex& index) const override;
+    Qt::DropActions supportedDropActions() const override;
+    QMimeData* mimeData(const QModelIndexList& indexes) const override;
+    bool dropMimeData(const QMimeData* data,
+                      Qt::DropAction action,
+                      int row,
+                      int column,
+                      const QModelIndex& parent) override;
+    QStringList mimeTypes() const override;
 
    private:
     mailer::MailerUIState* m_mailer_ui_state = nullptr;
+    mutable std::map<std::string, QModelIndex> m_dragged_items;
 };

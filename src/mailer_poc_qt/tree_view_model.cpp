@@ -1,7 +1,12 @@
 #include "tree_view_model.h"
 
 #include <QDebug>
+#include <QMimeData>
 #include <mailer_ui_state.hpp>
+
+#include <sstream>
+
+constexpr auto DRAGGED_INDEXES_MIME_TYPE = "application/dragged-indexes.list";
 
 // https://doc.qt.io/qt-5/qtwidgets-itemviews-simpletreemodel-example.html
 // https://doc.qt.io/qt-6/qtwidgets-itemviews-editabletreemodel-example.html
@@ -40,6 +45,10 @@ QModelIndex TreeViewModel::encode_model_index(mailer::MailerUIState::TreeNode* n
     return createIndex(row_index, 0, node);
 }
 
+mailer::MailerUIState::TreeNode* TreeViewModel::decode_model_index(const QModelIndex& index) const {
+    return static_cast<mailer::MailerUIState::TreeNode*>(index.internalPointer());
+}
+
 QModelIndex TreeViewModel::index(int row, int column, const QModelIndex& parent) const {
     assert(m_mailer_ui_state);
     assert(column == 0);
@@ -49,7 +58,7 @@ QModelIndex TreeViewModel::index(int row, int column, const QModelIndex& parent)
     if (!parent.isValid()) {
         parent_node = &m_mailer_ui_state->m_root;
     } else {
-        parent_node = static_cast<mailer::MailerUIState::TreeNode*>(parent.internalPointer());
+        parent_node = decode_model_index(parent);
     }
 
     if (row < parent_node->children.size()) {
@@ -66,7 +75,7 @@ QModelIndex TreeViewModel::parent(const QModelIndex& child) const {
         return QModelIndex{};
     }
 
-    auto child_node = static_cast<mailer::MailerUIState::TreeNode*>(child.internalPointer());
+    auto child_node = decode_model_index(child);
     if (!child_node) {
         return QModelIndex{};
     }
@@ -104,7 +113,7 @@ int TreeViewModel::rowCount(const QModelIndex& parent) const {
         parent_node = &m_mailer_ui_state->m_root;
         assert(parent_node);
     } else {
-        parent_node = static_cast<mailer::MailerUIState::TreeNode*>(parent.internalPointer());
+        parent_node = decode_model_index(parent);
         assert(parent_node);
     }
 
@@ -121,7 +130,7 @@ QVariant TreeViewModel::data(const QModelIndex& index, int role) const {
     }
 
     if (role == Qt::DisplayRole) {
-        auto node = static_cast<mailer::MailerUIState::TreeNode*>(index.internalPointer());
+        auto node = decode_model_index(index);
         assert(node);
 
         return node->label.c_str();
@@ -141,7 +150,7 @@ bool TreeViewModel::setData(const QModelIndex& index,
     if (new_value.empty()) {
         return false;
     }
-    auto node = static_cast<mailer::MailerUIState::TreeNode*>(index.internalPointer());
+    auto node = decode_model_index(index);
     node->label = new_value;
     return true;
 }
@@ -151,5 +160,73 @@ Qt::ItemFlags TreeViewModel::flags(const QModelIndex& index) const {
         return Qt::NoItemFlags;
     }
 
-    return Qt::ItemIsEditable | QAbstractItemModel::flags(index);
+    return Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled | Qt::ItemIsEditable |
+           Qt::ItemIsSelectable | QAbstractItemModel::flags(index);
+}
+
+Qt::DropActions TreeViewModel::supportedDropActions() const {
+    //    return Qt::CopyAction | Qt::MoveAction;
+    return Qt::MoveAction;
+}
+
+QMimeData* TreeViewModel::mimeData(const QModelIndexList& indexes) const {
+    auto mime_data = new QMimeData();
+    // Two choises: we can either serialize entire index (row, column, pointer, parent)
+    // Or we encode just a node. We can encode the pointer directly or use registry (map) with some
+    // simple keys separated by comma.
+    qDebug() << "mimeData, indexes:";
+
+    std::string indices_list;
+    int key = 0;
+    for (auto idx : indexes) {
+        auto key_str = std::to_string(key);
+        m_dragged_items[key_str] = idx;
+        indices_list += key_str;
+        indices_list += ",";
+        key++;
+    }
+
+    if (!indices_list.empty()) {
+        indices_list.resize(indices_list.size() - 1);
+    }
+
+    mime_data->setData(DRAGGED_INDEXES_MIME_TYPE, QByteArray(indices_list.c_str()));
+    return mime_data;
+}
+
+bool TreeViewModel::dropMimeData(const QMimeData* data,
+                                 Qt::DropAction action,
+                                 int row,
+                                 int column,
+                                 const QModelIndex& parent) {
+    qDebug("dropMimeData");
+
+    if (action != Qt::MoveAction) {
+        qDebug() << "unsupported drop action, ignoring";
+        return false;
+    }
+
+    if (!data->hasFormat(DRAGGED_INDEXES_MIME_TYPE)) {
+        qDebug() << "unsupported drop format";
+        return false;
+    }
+
+    const auto byte_array = data->data(DRAGGED_INDEXES_MIME_TYPE);
+    const auto keys = QString::fromUtf8(byte_array).split(",", Qt::SkipEmptyParts);
+    for (auto& k : keys) {
+        if (auto it = m_dragged_items.find(k.toStdString()); it != m_dragged_items.end()) {
+            qDebug() << "Dropped index: " << it->second;
+        }
+    }
+    qDebug() << "Drop taget: row: " << row << ", column: " << column << ", parent: " << parent;
+
+    m_dragged_items.clear();
+
+    return false;
+}
+
+QStringList TreeViewModel::mimeTypes() const {
+    QStringList types;
+    types << DRAGGED_INDEXES_MIME_TYPE;
+    return types;
 }
