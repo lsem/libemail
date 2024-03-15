@@ -20,6 +20,10 @@ class MailerUIState {
     explicit MailerUIState(types::EmailAddress own_address)
         : m_own_address(std::move(own_address)) {}
 
+    void set_own_address(string s) {
+	m_own_address = s;
+    }
+
     void process_email(const types::MailboxEmail& email) {
         // When emails are added the only we do is that we create folders or remove folders.
         // That's all.

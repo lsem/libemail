@@ -195,6 +195,8 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
                 }
                 log_info("authenticated in Google");
 
+                m_ui_state.set_own_address(auth_data.user_email);
+
                 // now we can shutdown google auth server.
 
                 // This means that user permitted all scopes we requested so we can proceed.
