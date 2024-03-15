@@ -103,6 +103,7 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
             return false;
         }
 
+        // TODO: fix this usage.
         m_google_auth =
             emailkit::make_google_auth(m_ctx, "127.0.0.1", "8089", [this](std::string uri) {
                 log_info("calling callbacks");
@@ -187,15 +188,15 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
 
         m_google_auth->async_handle_auth(
             app_creds, scopes,
-            [this, cb = std::move(cb)](std::error_code ec,
-                                       emailkit::auth_data_t auth_data) mutable {
+            use_this(std::move(cb), [](auto& this_, std::error_code ec,
+                                       emailkit::auth_data_t auth_data, auto cb) mutable {
                 if (ec) {
                     log_error("async_handle_auth failed: {}", ec);
                     return;
                 }
                 log_info("authenticated in Google");
 
-                m_ui_state.set_own_address(auth_data.user_email);
+                this_.m_ui_state.set_own_address(auth_data.user_email);
 
                 // now we can shutdown google auth server.
 
@@ -203,41 +204,44 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
                 // With permissions, google gave us all infromatiom we requested so the next
                 // step would be to authenticate on google IMAP server.
 
-                m_imap_client->async_connect(
+                this_.m_imap_client->async_connect(
                     "imap.gmail.com", "993",
-                    [this, cb = std::move(cb), auth_data](std::error_code ec) mutable {
+                    this_.use_this(std::move(cb), [auth_data](auto& this_, std::error_code ec,
+                                                              auto cb) mutable {
                         if (ec) {
                             log_error("failed connecting Gmail IMAP: {}", ec);
                             return;
                         }
 
                         // now we need to authenticate on imap server
-                        m_imap_client->async_authenticate(
+                        this_.m_imap_client->async_authenticate(
                             {.user_email = auth_data.user_email,
                              .oauth_token = auth_data.access_token},
-                            [this, cb = std::move(cb)](
-                                std::error_code ec,
-                                emailkit::imap_client::auth_error_details_t err_details) mutable {
-                                if (ec) {
-                                    log_error("imap auth failed: {}", ec);
-                                    // TODO: how we are supposed to handle this error?
-                                    // I gues we shoud raise special error for this case and
-                                    // depdening on why auth failed either retry with same creds
-                                    // (if there is no Internet), or go to authentication. Or,
-                                    // we should somehow allow user to start over.
-                                    cb(ec);
-                                    return;
-                                }
+                            this_.use_this(
+                                std::move(cb),
+                                [](auto& this_, std::error_code ec,
+                                   emailkit::imap_client::auth_error_details_t err_details,
+                                   auto cb) mutable {
+                                    if (ec) {
+                                        log_error("imap auth failed: {}", ec);
+                                        // TODO: how we are supposed to handle this error?
+                                        // I gues we shoud raise special error for this case and
+                                        // depdening on why auth failed either retry with same creds
+                                        // (if there is no Internet), or go to authentication. Or,
+                                        // we should somehow allow user to start over.
+                                        cb(ec);
+                                        return;
+                                    }
 
-                                log_info("authenticated on IMAP server");
-                                // TODO: consider having some kind of connection info state
-                                // which would indicate information about all current
-                                // connections.
+                                    log_info("authenticated on IMAP server");
+                                    // TODO: consider having some kind of connection info state
+                                    // which would indicate information about all current
+                                    // connections.
 
-                                cb({});
-                            });
-                    });
-            });
+                                    cb({});
+                                }));
+                    }));
+            }));
     }
 
     struct Email {
