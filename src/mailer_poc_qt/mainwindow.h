@@ -45,7 +45,7 @@ class MainWindow : public QMainWindow, public mailer::MailerPOCCallbacks {
    public slots:
     void login_clicked();
     void selected_folder_changed(const QModelIndex&, const QModelIndex&);
-    void new_folder();
+    void new_folder(const QModelIndex& parent_index);
 
    public:  // mailer::MailerPOCCallbacks
     void dispatch(std::function<void()> fn);

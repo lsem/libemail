@@ -11,10 +11,11 @@ class TreeView : public QTreeView {
    public slots:
     void on_context_menu_requested(const QPoint&);
     void prompt_rename(QModelIndex index);
+    void create_folder_action_triggered();
 
    signals:
     void selected_folder_changed(QModelIndex curr, QModelIndex prev);
-    void new_folder();
+    void new_folder(const QModelIndex& parent);
 
    protected:
     void currentChanged(const QModelIndex& current, const QModelIndex& previous) override {
@@ -25,4 +26,5 @@ class TreeView : public QTreeView {
    private:
     QMenu* m_context_menu;
     QAction* m_add_folder_action;
+    QModelIndex m_clicked_index;
 };

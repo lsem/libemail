@@ -138,6 +138,9 @@ bool TreeViewModel::setData(const QModelIndex& index,
         return false;
     }
     std::string new_value = value.toString().toUtf8().data();
+    if (new_value.empty()) {
+        return false;
+    }
     auto node = static_cast<mailer::MailerUIState::TreeNode*>(index.internalPointer());
     node->label = new_value;
     return true;

@@ -102,12 +102,15 @@ void MainWindow::selected_folder_changed(const QModelIndex& curr, const QModelIn
     m_list_view_model->set_active_folder(selected_node);
 }
 
-void MainWindow::new_folder() {
+void MainWindow::new_folder(const QModelIndex& parent_index) {
     log_info("MainWindow new folder");
-    dispatch([this] {
+    auto* parent_node =
+        parent_index.isValid()
+            ? static_cast<mailer::MailerUIState::TreeNode*>(parent_index.internalPointer())
+            : m_mailer_poc->get_ui_model()->tree_root();
+    dispatch([this, parent_node] {
         m_tree_view_model->begin_reset();
-        auto new_node =
-            m_mailer_poc->make_folder(&m_mailer_poc->get_ui_model()->m_root, "New folder");
+        auto new_node = m_mailer_poc->make_folder(parent_node, "New folder");
         m_tree_view_model->end_reset();
         auto index = m_tree_view_model->encode_model_index(new_node);
         // Note, the index may be pointing to a part of the tree that does not even exist yet.

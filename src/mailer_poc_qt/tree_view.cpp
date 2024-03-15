@@ -15,13 +15,20 @@ TreeView::TreeView(QWidget* parent) : QTreeView(parent) {
     m_add_folder_action = new QAction("Add folder", this);
     m_context_menu->addAction(m_add_folder_action);
 
-    connect(m_add_folder_action, SIGNAL(triggered()), this, SIGNAL(new_folder()));
+    connect(m_add_folder_action, SIGNAL(triggered()), this, SLOT(create_folder_action_triggered()));
+}
+
+void TreeView::create_folder_action_triggered() {
+    qDebug("Emitting signal");
+    emit new_folder(m_clicked_index);
 }
 
 void TreeView::on_context_menu_requested(const QPoint& pt) {
     auto index = indexAt(pt);
+    m_clicked_index = index;
     if (index.isValid()) {
         qDebug("clicked at valid index");
+        m_context_menu->exec(this->viewport()->mapToGlobal(pt));
     } else {
         qDebug("clicked at INVALID index");
         m_context_menu->exec(this->viewport()->mapToGlobal(pt));
@@ -30,6 +37,15 @@ void TreeView::on_context_menu_requested(const QPoint& pt) {
 
 void TreeView::prompt_rename(QModelIndex index) {
     selectionModel()->clearSelection();
+
+    // for some reason, without this we have selection and editing work but it works on collapsed
+    // node.
+    auto x = index;
+    while (x.parent().isValid() && x.parent().parent().isValid()) {
+        x = x.parent();
+    }
+    expandRecursively(x);
+
     selectionModel()->select(index, QItemSelectionModel::Select | QItemSelectionModel::Rows);
     edit(index);
 }
