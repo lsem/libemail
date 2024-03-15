@@ -150,7 +150,7 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
         cb(m_ui_state);
     }
 
-    virtual void selected_folder_changed(MailerUIState::TreeNode* selected_node) override {
+    void selected_folder_changed(MailerUIState::TreeNode* selected_node) override {
         // if (!selected_node->ref) {
         //     log_debug("selected folder changed, here is a list of threads in given folder");
         //     for (auto& c : selected_node->children) {
@@ -159,6 +159,11 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
         //         }
         //     }
         // }
+    }
+
+    MailerUIState::TreeNode* make_folder(MailerUIState::TreeNode* parent,
+                                         string folder_name) override {
+        return m_ui_state.make_folder(parent, folder_name);
     }
 
     MailerUIState* get_ui_model() { return &m_ui_state; }

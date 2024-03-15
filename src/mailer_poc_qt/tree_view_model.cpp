@@ -1,9 +1,44 @@
 #include "tree_view_model.h"
 
+#include <QDebug>
 #include <mailer_ui_state.hpp>
 
 // https://doc.qt.io/qt-5/qtwidgets-itemviews-simpletreemodel-example.html
-TreeViewModel::TreeViewModel(QObject* parent) : QAbstractItemModel(parent) {}
+// https://doc.qt.io/qt-6/qtwidgets-itemviews-editabletreemodel-example.html
+// https://forum.qt.io/topic/87273/how-can-i-select-a-child-node-in-a-qtreeview
+// https://stackoverflow.com/questions/54146553/how-to-get-the-index-from-an-item-in-the-qtreeview
+TreeViewModel::TreeViewModel(QObject* parent) : QAbstractItemModel(parent) {
+    //    connect(this, &TreeViewModel::rowsInserted, this, TreeViewModel::on_rows_inserted);
+}
+
+void TreeViewModel::on_rows_inserted(const QModelIndex& parent, int first, int last) {}
+
+void TreeViewModel::initiate_rename(mailer::MailerUIState::TreeNode* node) {
+    qDebug("requested renaming node by node id");
+
+    // We can create QModelIndex on our own by having a node.
+    // This can be done because we know our parent.
+    const int row_index = node->child_index();
+    if (row_index < 0) {
+        qDebug("could not find row index for node: %p", node);
+        // TODO: so what to do next?
+        return;
+    }
+
+    auto index = createIndex(row_index, 0, node);
+
+    // The node with given index may not exist yet, so we shoudl probably wait first (here or to
+    // make the caller doing this).
+}
+
+QModelIndex TreeViewModel::encode_model_index(mailer::MailerUIState::TreeNode* node) const {
+    const int row_index = node->child_index();
+    if (row_index < 0) {
+        qWarning("could not find row index for node: %p", node);
+        return QModelIndex{};
+    }
+    return createIndex(row_index, 0, node);
+}
 
 QModelIndex TreeViewModel::index(int row, int column, const QModelIndex& parent) const {
     assert(m_mailer_ui_state);
@@ -93,4 +128,25 @@ QVariant TreeViewModel::data(const QModelIndex& index, int role) const {
     }
 
     return QVariant{};
+}
+
+bool TreeViewModel::setData(const QModelIndex& index,
+                            const QVariant& value,
+                            int role /* = Qt::EditRole*/) {
+    if (!index.isValid()) {
+        qWarning() << "invalid index" << value;
+        return false;
+    }
+    std::string new_value = value.toString().toUtf8().data();
+    auto node = static_cast<mailer::MailerUIState::TreeNode*>(index.internalPointer());
+    node->label = new_value;
+    return true;
+}
+
+Qt::ItemFlags TreeViewModel::flags(const QModelIndex& index) const {
+    if (!index.isValid()) {
+        return Qt::NoItemFlags;
+    }
+
+    return Qt::ItemIsEditable | QAbstractItemModel::flags(index);
 }

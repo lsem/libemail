@@ -41,6 +41,7 @@ MainWindow::MainWindow(QWidget* parent, std::shared_ptr<mailer::MailerPOC> maile
 
     connect(m_tree_view, &TreeView::selected_folder_changed, this,
             &MainWindow::selected_folder_changed);
+    connect(m_tree_view, &TreeView::new_folder, this, &MainWindow::new_folder);
 
     m_list_view_model = new ListViewModel(this);
     m_list_view_model->set_mailer_ui_state(m_mailer_poc->get_ui_model());
@@ -81,6 +82,9 @@ MainWindow::MainWindow(QWidget* parent, std::shared_ptr<mailer::MailerPOC> maile
     connect(m_login_action, &QAction::triggered, this, &MainWindow::login_clicked);
     m_actions_menu = menuBar()->addMenu("&Actions");
     m_actions_menu->addAction(m_login_action);
+
+    m_tree_context_menu = new QMenu(this);
+    m_tree_context_menu->addAction(new QAction("New folder", this));
 }
 
 void MainWindow::login_clicked() {
@@ -98,11 +102,34 @@ void MainWindow::selected_folder_changed(const QModelIndex& curr, const QModelIn
     m_list_view_model->set_active_folder(selected_node);
 }
 
+void MainWindow::new_folder() {
+    log_info("MainWindow new folder");
+    dispatch([this] {
+        m_tree_view_model->begin_reset();
+        auto new_node =
+            m_mailer_poc->make_folder(&m_mailer_poc->get_ui_model()->m_root, "New folder");
+        m_tree_view_model->end_reset();
+        auto index = m_tree_view_model->encode_model_index(new_node);
+        // Note, the index may be pointing to a part of the tree that does not even exist yet.
+        // Lets try to select and hopefully Qt can instantiate the selection which does not event
+        // exists yet.
+        m_tree_view->prompt_rename(index);
+
+        // m_tree_view_model->initiate_rename(new_node);
+
+        // And now I would like to have something unutual, I would like to active editing mode
+        // somehow on this newly created folder. But I don't want to make it through MailerPOC
+        // because this is presentatioal aspect. So we should somehow tell TreeViewModel/TreeView
+        // that newly created id should be changed. But how? Since we keep our model abstract from
+        // presentational layer we don't have direct way for doing so.
+    });
+}
+
 void MainWindow::auth_initiated(std::string uri) {
     dispatch([this, uri] {
         m_stacked_widget->setCurrentIndex(1);
-        // TODO: login page is going to be a static thing that writes instuctioins to how login via
-        // browser.
+        // TODO: login page is going to be a static thing that writes instuctioins to how login
+        // via browser.
         launch_system_browser(uri);
     });
 }

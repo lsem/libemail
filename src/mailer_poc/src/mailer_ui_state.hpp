@@ -20,9 +20,7 @@ class MailerUIState {
     explicit MailerUIState(types::EmailAddress own_address)
         : m_own_address(std::move(own_address)) {}
 
-    void set_own_address(string s) {
-	m_own_address = s;
-    }
+    void set_own_address(string s) { m_own_address = s; }
 
     void process_email(const types::MailboxEmail& email) {
         // When emails are added the only we do is that we create folders or remove folders.
@@ -238,6 +236,21 @@ class MailerUIState {
             delete child;
         }
 
+        // Returns what is an index of current node in parent node.
+        int child_index() const {
+            if (!parent) {
+                // parent itself
+                return 0;
+            } else {
+                for (size_t i = 0; i < parent->children.size(); ++i) {
+                    if (parent->children[i] == this) {
+                        return i;
+                    }
+                }
+                return -1;
+            }
+        }
+
         using ThreadsIterator = vector<ThreadRef>::iterator;
 
         ThreadsIterator find_thread_by_id(const MessageID& id) {
@@ -329,6 +342,14 @@ class MailerUIState {
             return create_path_it(*it, path, component + 1);
         }
     }
+
+    TreeNode* make_folder(TreeNode* parent, string label) {
+        assert(parent);
+        parent->children.emplace_back(new TreeNode{label, parent, {}});
+        return parent->children.back();
+    }
+
+    TreeNode* tree_root() { return &m_root; }
 
    public:
     types::EmailAddress m_own_address;

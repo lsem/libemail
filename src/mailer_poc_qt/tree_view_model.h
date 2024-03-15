@@ -2,6 +2,7 @@
 
 #include <QAbstractItemModel>
 #include <mailer_ui_state.hpp>
+#include <map>
 
 // Here is a simpler tree representation of our mailer_ui_state.
 struct TreeItem {
@@ -16,10 +17,17 @@ class TreeViewModel : public QAbstractItemModel {
    public:
     TreeViewModel(QObject* parent = nullptr);
 
+   private slots:
+    void on_rows_inserted(const QModelIndex& parent, int first, int last);
+
    public:
     // QAbstractItemModel interface
 
     void set_mailer_ui_state(mailer::MailerUIState* s) { m_mailer_ui_state = s; }
+
+    void initiate_rename(mailer::MailerUIState::TreeNode* node);
+
+    QModelIndex encode_model_index(mailer::MailerUIState::TreeNode* node) const;
 
     void begin_reset() {
         qDebug("begin_reset!");
@@ -30,11 +38,13 @@ class TreeViewModel : public QAbstractItemModel {
         endResetModel();
     }
 
-    QModelIndex index(int row, int column, const QModelIndex& parent) const;
-    QModelIndex parent(const QModelIndex& child) const;
-    int rowCount(const QModelIndex& parent) const;
-    int columnCount(const QModelIndex& parent) const;
-    QVariant data(const QModelIndex& index, int role) const;
+    QModelIndex index(int row, int column, const QModelIndex& parent) const override;
+    QModelIndex parent(const QModelIndex& child) const override;
+    int rowCount(const QModelIndex& parent) const override;
+    int columnCount(const QModelIndex& parent) const override;
+    QVariant data(const QModelIndex& index, int role) const override;
+    bool setData(const QModelIndex& index, const QVariant& value, int role = Qt::EditRole) override;
+    Qt::ItemFlags flags(const QModelIndex& index) const override;
 
    private:
     mailer::MailerUIState* m_mailer_ui_state = nullptr;

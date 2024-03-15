@@ -45,6 +45,7 @@ class MainWindow : public QMainWindow, public mailer::MailerPOCCallbacks {
    public slots:
     void login_clicked();
     void selected_folder_changed(const QModelIndex&, const QModelIndex&);
+    void new_folder();
 
    public:  // mailer::MailerPOCCallbacks
     void dispatch(std::function<void()> fn);
@@ -71,6 +72,7 @@ class MainWindow : public QMainWindow, public mailer::MailerPOCCallbacks {
     ListViewModel* m_list_view_model;
     QAction* m_login_action;
     QMenu* m_actions_menu;
+    QMenu* m_tree_context_menu;
 
     QStackedWidget* m_stacked_widget;
 
