@@ -14,6 +14,11 @@ using emailkit::imap_client::types::list_response_entry_t;
 using emailkit::types::EmailAddress;
 using emailkit::types::MessageID;
 
+namespace TreeNodeFlags {
+using storage_type = uint32_t;
+enum { folder_node = 0x01 };
+};  // namespace TreeNodeFlags
+
 // A class responsible for processing emails. When email arrives we execute this function to add it
 // to the UI. After processing of it, the model of the UI may be changed so one can rerender it.
 class MailerUIState {
@@ -209,6 +214,7 @@ class MailerUIState {
         TreeNode* parent = nullptr;
         vector<TreeNode*> children;
         vector<ThreadRef> threads_refs;
+        TreeNodeFlags::storage_type flags = 0;
 
         TreeNode() = delete;
 
@@ -216,8 +222,11 @@ class MailerUIState {
             log_info("created node {}", (void*)this);
         }
 
-        explicit TreeNode(string label, TreeNode* parent, vector<TreeNode*> children)
-            : label(std::move(label)), parent(parent), children(std::move(children)) {
+        explicit TreeNode(string label,
+                          TreeNode* parent,
+                          vector<TreeNode*> children,
+                          TreeNodeFlags::storage_type flags = 0)
+            : label(std::move(label)), parent(parent), children(std::move(children)), flags(flags) {
             log_info("created node {}", (void*)this);
         }
 
@@ -227,6 +236,8 @@ class MailerUIState {
                 delete c;
             }
         }
+
+        bool is_folder_node() const { return flags & TreeNodeFlags::folder_node != 0; }
 
         TreeNode(const TreeNode&) = delete;
         TreeNode& operator=(const TreeNode&) = delete;
@@ -345,7 +356,7 @@ class MailerUIState {
 
     TreeNode* make_folder(TreeNode* parent, string label) {
         assert(parent);
-        parent->children.emplace_back(new TreeNode{label, parent, {}});
+        parent->children.emplace_back(new TreeNode{label, parent, {}, TreeNodeFlags::folder_node});
         return parent->children.back();
     }
 

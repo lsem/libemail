@@ -106,7 +106,7 @@ int TreeViewModel::rowCount(const QModelIndex& parent) const {
     mailer::MailerUIState::TreeNode* parent_node = nullptr;
 
     if (!parent.isValid()) {
-        parent_node = &m_mailer_ui_state->m_root;
+        parent_node = m_mailer_ui_state->tree_root();
         assert(parent_node);
     } else {
         parent_node = decode_model_index(parent);
@@ -221,6 +221,13 @@ bool TreeViewModel::dropMimeData(const QMimeData* data,
     qDebug() << "Drop taget: row: " << row << ", column: " << column << ", parent: " << parent
              << ", label: " << drop_node->label.c_str();
 
+    // TODO: once we make top level folder corresponding to INBOX level we can get rud of this check
+    // for non-root.
+    if (!drop_node->is_folder_node() && drop_node != m_mailer_ui_state->tree_root()) {
+        qDebug() << "dropping into non-folder node is not allowed";
+        return false;
+    }
+
     m_dragged_items.clear();
 
     // Theoretically we should not be doing this but should modify model directly since we are the
@@ -232,7 +239,7 @@ bool TreeViewModel::dropMimeData(const QMimeData* data,
         emit items_move_requested(source_nodes, drop_node, row);
     }
 
-    return false;
+    return true;
 }
 
 QStringList TreeViewModel::mimeTypes() const {
