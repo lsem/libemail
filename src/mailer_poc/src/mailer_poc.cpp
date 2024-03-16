@@ -150,23 +150,47 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
                 cb({});
             }));
     }
+
     void set_callbacks_if(MailerPOCCallbacks* callbacks) override { m_callbacks = callbacks; }
 
-    void initialize_tree_it(MailerUIState::TreeNode* dest_node,
-                            const user_tree::Node& source_node) {
-        auto new_node = make_folder(dest_node, source_node.label);
-        for (auto& c : source_node.children) {
+    void initialize_tree_it(MailerUIState::TreeNode* dest_node, const user_tree::Node& src_node) {
+        auto new_node = make_folder(dest_node, src_node.label);
+        assert(new_node->is_folder_node());
+        for (auto& c : src_node.children) {
             initialize_tree_it(new_node, *c);
         }
     }
 
-    void initialize_tree() {
-        auto* ui = get_ui_model();
+    void save_tree_it(const MailerUIState::TreeNode* src_node, user_tree::Node& dest_node) {
+        assert(src_node);
+        // TODO: what if root is not a folder at all? The caller should guarantee this or otherwise
+        // we will have invalid node (we cna return bool I guess).
+        if (src_node->is_folder_node()) {
+            dest_node.label = src_node->label;
+            dest_node.flags = src_node->flags;
+            if (src_node->contact_groups_opt.has_value()) {
+                dest_node.contact_groups = src_node->contact_groups_opt.value();
+            }
 
-        auto root_or_err = user_tree::load_tree_from_file("./sample_tree.json");
+            for (auto& c : src_node->children) {
+                auto child_dest_node = std::make_unique<user_tree::Node>();
+                save_tree_it(c, *child_dest_node);
+                dest_node.children.emplace_back(std::move(child_dest_node));
+            }
+        }
+    }
+
+    void initialize_tree() {
+        const std::filesystem::path user_tree_file_path = "./sample_tree.json";
+        auto root_or_err = user_tree::load_tree_from_file(user_tree_file_path);
         if (root_or_err) {
+            log_info("loaded initial tree:");
             user_tree::print_tree(*root_or_err);
-            initialize_tree_it(ui->tree_root(), *root_or_err);
+            initialize_tree_it(get_ui_model()->tree_root(), *root_or_err);
+
+            user_tree::Node dest_node;
+            save_tree_it(get_ui_model()->tree_root(), dest_node);
+            user_tree::save_to_file(dest_node, "sample_tree_2.json");
         } else {
             // TODO: revise this decision.
             log_warning("fialed loading tree: {}", root_or_err.error());

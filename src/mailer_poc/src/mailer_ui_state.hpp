@@ -24,7 +24,11 @@ enum { folder_node = 0x01 };
 class MailerUIState {
    public:
     explicit MailerUIState(types::EmailAddress own_address)
-        : m_own_address(std::move(own_address)) {}
+        : m_own_address(std::move(own_address)), m_root{"$root"} {
+        m_root.label = "$root";
+        m_root.parent = nullptr;
+        m_root.flags = TreeNodeFlags::folder_node;
+    }
 
     void set_own_address(string s) { m_own_address = s; }
 
@@ -141,11 +145,20 @@ class MailerUIState {
             return result;
         }();
 
+        // TODO: routing.
+        //	// We somewhere have accosiation (a map) between participants and folders.
+        // It seemse like we need a version of create_path that accepts parent node which we can
+        // look up from the map. The map is going to be: map<vector<EmailAddress>, TreeNode*>.
         string group_folder_name = fmt::format("{}", fmt::join(participants, ", "));
 
-        // We create a node for group folder with a semantics that it may exist if already
-        // created.
-        auto group_folder_node = create_path({group_folder_name});
+        // TODO: lift this map to parent so UI just asks parent: do we have a path for it?
+        TreeNode* group_folder_node = nullptr;
+        if (auto it = m_participants_to_folder_map.find(participants);
+            it != m_participants_to_folder_map.end()) {
+            group_folder_node = create_path(it->second, {group_folder_name});
+        } else {
+            group_folder_node = create_path(tree_root(), {"root", group_folder_name});
+        }
 
         log_debug("created (or alreayd have) a folder with a name {}", group_folder_name);
 
@@ -179,14 +192,13 @@ class MailerUIState {
             }
         } else {
             // this is new thread so we create it as a new thread in a new folder.
-            create_thread_ref(
-                group_folder_node,
-                ThreadRef{
-                    .label = email.subject,
-                    // Use message ID of the the first message we got for this thread as ThreadID.
-                    .thread_id = email.message_id.value(),
-                    .emails_count = 1,
-                    .attachments_count = email.attachments.size()});
+            create_thread_ref(group_folder_node,
+                              ThreadRef{.label = email.subject,
+                                        // Use message ID of the the first message we got for
+                                        // this thread as ThreadID.
+                                        .thread_id = email.message_id.value(),
+                                        .emails_count = 1,
+                                        .attachments_count = email.attachments.size()});
             m_thread_id_to_tree_index[email.message_id.value()] = group_folder_node;
             //            m_message_to_tree_index[email.message_id.value()] = group_folder_node;
         }
@@ -215,6 +227,9 @@ class MailerUIState {
         vector<TreeNode*> children;
         vector<ThreadRef> threads_refs;
         TreeNodeFlags::storage_type flags = 0;
+
+        // QUESTION: is optional the same as unique_ptr in terms of memory footprint?
+        optional<vector<set<string>>> contact_groups_opt;
 
         TreeNode() = delete;
 
@@ -307,8 +322,8 @@ class MailerUIState {
 
         // TODO: consider having some kind of index here. Some folders may be (1k-1k children)
         // we have this loop because we don't know the position in our children array. Effective
-        // index may be not possible or will be non-trivial because in naive index after removing
-        // element entire index will be invalidated.
+        // index may be not possible or will be non-trivial because in naive index after
+        // removing element entire index will be invalidated.
         bool found = false;
         for (auto it = from->threads_refs.begin(); it != from->threads_refs.end(); ++it) {
             auto& c = *it;
@@ -324,7 +339,8 @@ class MailerUIState {
 
         if (!found) {
             log_warning(
-                "thread with ID {} has not been found in source tree node and thus cannot be moved",
+                "thread with ID {} has not been found in source tree node and thus cannot be "
+                "moved",
                 thread_id);
         }
 
@@ -337,6 +353,9 @@ class MailerUIState {
     }
 
     TreeNode* create_path(const vector<string>& path) { return create_path_it(&m_root, path, 0); }
+    TreeNode* create_path(TreeNode* parent, const vector<string>& path) {
+        return create_path_it(parent, path, 0);
+    }
 
     TreeNode* create_path_it(TreeNode* node, const vector<string>& path, size_t component) {
         if (component == path.size()) {
@@ -373,8 +392,8 @@ class MailerUIState {
             if (row.value() < to->children.size()) {
                 to->children.insert(to->children.begin() + row.value(), from);
             } else {
-                // TODO: we can remove this code and make UI do this workaround. Original problem is
-                // that Qt once sent invalid row.
+                // TODO: we can remove this code and make UI do this workaround. Original
+                // problem is that Qt once sent invalid row.
                 log_error("invalid position of row {} while there are only {} children",
                           row.value(), to->children.size());
                 to->children.emplace_back(from);
@@ -399,14 +418,21 @@ class MailerUIState {
         }
     }
 
+    void add_user_sorting_rule(vector<types::EmailAddress> contact_or_group, vector<string> path) {
+        m_participants_to_folder_map2[std::move(contact_or_group)] = std::move(path);
+    }
+
     TreeNode* tree_root() { return &m_root; }
 
    public:
     types::EmailAddress m_own_address;
-    TreeNode m_root{"root"};
+    TreeNode m_root;
     map<MessageID, types::MailboxEmail> m_message_id_to_email_index;
     //    map<MessageID, TreeNode*> m_message_to_tree_index;
     map<MessageID, TreeNode*> m_thread_id_to_tree_index;
+
+    map<vector<types::EmailAddress>, TreeNode*> m_participants_to_folder_map;
+    map<vector<types::EmailAddress>, vector<string>> m_participants_to_folder_map2;
 };
 
 }  // namespace mailer
