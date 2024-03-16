@@ -16,20 +16,17 @@ class TreeViewModel : public QAbstractItemModel {
     Q_OBJECT
    public:
     TreeViewModel(QObject* parent = nullptr);
-
-   private slots:
-    void on_rows_inserted(const QModelIndex& parent, int first, int last);
-
-   public:
-    // QAbstractItemModel interface
-
     void set_mailer_ui_state(mailer::MailerUIState* s) { m_mailer_ui_state = s; }
-
     void initiate_rename(mailer::MailerUIState::TreeNode* node);
-
     QModelIndex encode_model_index(mailer::MailerUIState::TreeNode* node) const;
     mailer::MailerUIState::TreeNode* decode_model_index(const QModelIndex&) const;
 
+   signals:
+    void items_move_requested(std::vector<mailer::MailerUIState::TreeNode*> source_nodes,
+                              mailer::MailerUIState::TreeNode* destination,
+                              std::optional<size_t>);
+
+   public:
     void begin_reset() {
         qDebug("begin_reset!");
         beginResetModel();
@@ -38,6 +35,9 @@ class TreeViewModel : public QAbstractItemModel {
         qDebug("end_reset!");
         endResetModel();
     }
+
+   public:
+    // QAbstractItemModel interface
 
     QModelIndex index(int row, int column, const QModelIndex& parent) const override;
     QModelIndex parent(const QModelIndex& child) const override;

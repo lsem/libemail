@@ -12,11 +12,7 @@ constexpr auto DRAGGED_INDEXES_MIME_TYPE = "application/dragged-indexes.list";
 // https://doc.qt.io/qt-6/qtwidgets-itemviews-editabletreemodel-example.html
 // https://forum.qt.io/topic/87273/how-can-i-select-a-child-node-in-a-qtreeview
 // https://stackoverflow.com/questions/54146553/how-to-get-the-index-from-an-item-in-the-qtreeview
-TreeViewModel::TreeViewModel(QObject* parent) : QAbstractItemModel(parent) {
-    //    connect(this, &TreeViewModel::rowsInserted, this, TreeViewModel::on_rows_inserted);
-}
-
-void TreeViewModel::on_rows_inserted(const QModelIndex& parent, int first, int last) {}
+TreeViewModel::TreeViewModel(QObject* parent) : QAbstractItemModel(parent) {}
 
 void TreeViewModel::initiate_rename(mailer::MailerUIState::TreeNode* node) {
     qDebug("requested renaming node by node id");
@@ -165,16 +161,12 @@ Qt::ItemFlags TreeViewModel::flags(const QModelIndex& index) const {
 }
 
 Qt::DropActions TreeViewModel::supportedDropActions() const {
-    //    return Qt::CopyAction | Qt::MoveAction;
     return Qt::MoveAction;
 }
 
 QMimeData* TreeViewModel::mimeData(const QModelIndexList& indexes) const {
     auto mime_data = new QMimeData();
-    // Two choises: we can either serialize entire index (row, column, pointer, parent)
-    // Or we encode just a node. We can encode the pointer directly or use registry (map) with some
-    // simple keys separated by comma.
-    qDebug() << "mimeData, indexes:";
+    qDebug() << "mimeData, indexes:" << indexes;
 
     std::string indices_list;
     int key = 0;
@@ -199,7 +191,7 @@ bool TreeViewModel::dropMimeData(const QMimeData* data,
                                  int row,
                                  int column,
                                  const QModelIndex& parent) {
-    qDebug("dropMimeData");
+    qDebug() << "dropMimeData: " << data;
 
     if (action != Qt::MoveAction) {
         qDebug() << "unsupported drop action, ignoring";
@@ -211,16 +203,34 @@ bool TreeViewModel::dropMimeData(const QMimeData* data,
         return false;
     }
 
+    std::vector<mailer::MailerUIState::TreeNode*> source_nodes;
+
     const auto byte_array = data->data(DRAGGED_INDEXES_MIME_TYPE);
     const auto keys = QString::fromUtf8(byte_array).split(",", Qt::SkipEmptyParts);
     for (auto& k : keys) {
         if (auto it = m_dragged_items.find(k.toStdString()); it != m_dragged_items.end()) {
             qDebug() << "Dropped index: " << it->second;
+            source_nodes.emplace_back(decode_model_index(it->second));
+        } else {
+            qDebug() << "ERROR: no index in registry for key " << k;
         }
     }
-    qDebug() << "Drop taget: row: " << row << ", column: " << column << ", parent: " << parent;
+
+    // We ignore row and column for now but it makes kind of sense.
+    auto drop_node = decode_model_index(parent);
+    qDebug() << "Drop taget: row: " << row << ", column: " << column << ", parent: " << parent
+             << ", label: " << drop_node->label.c_str();
 
     m_dragged_items.clear();
+
+    // Theoretically we should not be doing this but should modify model directly since we are the
+    // model here and that is why entire drag and drop handling happens in Qt here but not in
+    // QTreeView.
+    if (row == -1) {
+        emit items_move_requested(source_nodes, drop_node, std::nullopt);
+    } else {
+        emit items_move_requested(source_nodes, drop_node, row);
+    }
 
     return false;
 }

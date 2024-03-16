@@ -166,6 +166,19 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
         return m_ui_state.make_folder(parent, folder_name);
     }
 
+    void move_items(std::vector<mailer::MailerUIState::TreeNode*> source_nodes,
+                    mailer::MailerUIState::TreeNode* dest,
+                    optional<size_t> dest_row) override {
+        // TODO: theoretically we should be able to see that we are on the same GUI thread and omit
+        // update through dispatch and call directly. Theoretically this passing nodes does not play
+        // nicely with concrrency since at the moment we handled
+        m_callbacks->tree_about_to_change();
+        log_info("tree before: {}", render_tree(m_ui_state));
+        m_ui_state.move_items(source_nodes, dest, dest_row);
+        log_info("tree after: {}", render_tree(m_ui_state));
+        m_callbacks->tree_model_changed();
+    }
+
     MailerUIState* get_ui_model() { return &m_ui_state; }
 
     void run_background_activities() {

@@ -1,5 +1,7 @@
 #include "tree_view.h"
 
+#include <QDebug>
+
 TreeView::TreeView(QWidget* parent) : QTreeView(parent) {
     setDragDropMode(QAbstractItemView::InternalMove);
     setSelectionMode(QAbstractItemView::ExtendedSelection);
@@ -38,8 +40,8 @@ void TreeView::on_context_menu_requested(const QPoint& pt) {
 void TreeView::prompt_rename(QModelIndex index) {
     selectionModel()->clearSelection();
 
-    // for some reason, without this we have selection and editing work but it works on collapsed
-    // node.
+    // for some reason, without this we have selection and editing work but it works on
+    // collapsed node.
     auto x = index;
     while (x.parent().isValid() && x.parent().parent().isValid()) {
         x = x.parent();

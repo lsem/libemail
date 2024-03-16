@@ -2,6 +2,8 @@
 #include "./ui_mainwindow.h"
 
 #include <QCoreApplication>
+#include <QDebug>
+#include <QThread>
 
 namespace {
 bool launch_system_browser(std::string uri) {
@@ -42,6 +44,8 @@ MainWindow::MainWindow(QWidget* parent, std::shared_ptr<mailer::MailerPOC> maile
     connect(m_tree_view, &TreeView::selected_folder_changed, this,
             &MainWindow::selected_folder_changed);
     connect(m_tree_view, &TreeView::new_folder, this, &MainWindow::new_folder);
+    connect(m_tree_view_model, &TreeViewModel::items_move_requested, this,
+            &MainWindow::items_move_requested);
 
     m_list_view_model = new ListViewModel(this);
     m_list_view_model->set_mailer_ui_state(m_mailer_poc->get_ui_model());
@@ -128,6 +132,13 @@ void MainWindow::new_folder(const QModelIndex& parent_index) {
     });
 }
 
+void MainWindow::items_move_requested(std::vector<mailer::MailerUIState::TreeNode*> source_nodes,
+                                      mailer::MailerUIState::TreeNode* destination,
+                                      std::optional<size_t> row) {
+    qDebug() << "MainWindow::items_move_requested";
+    m_mailer_poc->move_items(source_nodes, destination, row);
+}
+
 void MainWindow::auth_initiated(std::string uri) {
     dispatch([this, uri] {
         m_stacked_widget->setCurrentIndex(1);
@@ -144,6 +155,11 @@ void MainWindow::auth_done(std::error_code ec) {
 }
 
 void MainWindow::dispatch(std::function<void()> fn) {
+    if (QThread::currentThread() == QCoreApplication::instance()->thread()) {
+        log_debug("dispatch requested from GUI thread, running immidiately");
+        return fn();
+    }
+    log_debug("dispatch requested from non-GUI thread, running immidiately");
     DispatchUILambdaEvent::dispatch_to(this, std::move(fn));
 }
 

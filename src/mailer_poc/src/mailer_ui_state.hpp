@@ -1,3 +1,4 @@
+
 #pragma once
 #include <emailkit/emailkit.hpp>
 #include <emailkit/google_auth.hpp>
@@ -230,10 +231,9 @@ class MailerUIState {
         TreeNode(const TreeNode&) = delete;
         TreeNode& operator=(const TreeNode&) = delete;
 
-        void remove_child(TreeNode* child) {
+        TreeNode* remove_child(TreeNode* child) {
             children.erase(std::remove(children.begin(), children.end(), child), children.end());
-            log_debug("deleted node {}", (void*)child);
-            delete child;
+            return child;
         }
 
         // Returns what is an index of current node in parent node.
@@ -319,7 +319,7 @@ class MailerUIState {
 
         if (from->children.empty() && from->threads_refs.empty()) {
             log_debug("removing folder {} as it is now empty", from->label);
-            from->parent->remove_child(from);
+            delete from->parent->remove_child(from);
         }
 
         return result;
@@ -347,6 +347,37 @@ class MailerUIState {
         assert(parent);
         parent->children.emplace_back(new TreeNode{label, parent, {}});
         return parent->children.back();
+    }
+
+    void move_folder(TreeNode* from, TreeNode* to, optional<size_t> row) {
+        assert(from);
+        assert(to);
+        assert(from != tree_root());
+        assert(from->parent);
+
+        log_info("moving {} to {} at pos {}", from->label, to->label, row.value_or(-1));
+        from->parent->remove_child(from);
+
+        if (row.has_value()) {
+            to->children.insert(to->children.begin() + row.value(), from);
+        } else {
+            to->children.emplace_back(from);
+        }
+        from->parent = to;
+    }
+
+    void move_items(std::vector<TreeNode*> source_nodes,
+                    TreeNode* destination,
+                    optional<size_t> dest_row) {
+        size_t idx = 0;
+        for (auto node : source_nodes) {
+            if (dest_row.has_value()) {
+                move_folder(node, destination, dest_row.value() + idx);
+            } else {
+                move_folder(node, destination, std::nullopt);
+            }
+            idx++;
+        }
     }
 
     TreeNode* tree_root() { return &m_root; }
