@@ -94,6 +94,7 @@ MainWindow::MainWindow(QWidget* parent, std::shared_ptr<mailer::MailerPOC> maile
 void MainWindow::login_clicked() {
     // TODO: this should be asked from mailer_poc application itself.
     //    login_requested
+    m_tree_view->expandRecursively(m_tree_view->rootIndex());
 }
 
 void MainWindow::selected_folder_changed(const QModelIndex& curr, const QModelIndex& prev) {
@@ -107,7 +108,7 @@ void MainWindow::selected_folder_changed(const QModelIndex& curr, const QModelIn
 }
 
 void MainWindow::new_folder(const QModelIndex& parent_index) {
-    log_info("MainWindow new folder");
+    log_debug("mainWindow new folder");
     auto* parent_node =
         parent_index.isValid()
             ? static_cast<mailer::MailerUIState::TreeNode*>(parent_index.internalPointer())
@@ -116,19 +117,12 @@ void MainWindow::new_folder(const QModelIndex& parent_index) {
         m_tree_view_model->begin_reset();
         auto new_node = m_mailer_poc->make_folder(parent_node, "New folder");
         m_tree_view_model->end_reset();
+        m_tree_view->expand_entire_tree();
         auto index = m_tree_view_model->encode_model_index(new_node);
         // Note, the index may be pointing to a part of the tree that does not even exist yet.
         // Lets try to select and hopefully Qt can instantiate the selection which does not event
         // exists yet.
         m_tree_view->prompt_rename(index);
-
-        // m_tree_view_model->initiate_rename(new_node);
-
-        // And now I would like to have something unutual, I would like to active editing mode
-        // somehow on this newly created folder. But I don't want to make it through MailerPOC
-        // because this is presentatioal aspect. So we should somehow tell TreeViewModel/TreeView
-        // that newly created id should be changed. But how? Since we keep our model abstract from
-        // presentational layer we don't have direct way for doing so.
     });
 }
 
@@ -175,6 +169,9 @@ void MainWindow::tree_model_changed() {
     dispatch([this] {
         m_tree_view_model->end_reset();
         m_list_view_model->end_reset();
+
+        log_debug("expanding tree recursively after update");
+        m_tree_view->expand_entire_tree();
     });
 }
 

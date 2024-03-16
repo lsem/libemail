@@ -27,14 +27,8 @@ class TreeViewModel : public QAbstractItemModel {
                               std::optional<size_t>);
 
    public:
-    void begin_reset() {
-        qDebug("begin_reset!");
-        beginResetModel();
-    }
-    void end_reset() {
-        qDebug("end_reset!");
-        endResetModel();
-    }
+    void begin_reset() { beginResetModel(); }
+    void end_reset() { endResetModel(); }
 
    public:
     // QAbstractItemModel interface

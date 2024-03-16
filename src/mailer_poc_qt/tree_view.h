@@ -12,6 +12,7 @@ class TreeView : public QTreeView {
     void on_context_menu_requested(const QPoint&);
     void prompt_rename(QModelIndex index);
     void create_folder_action_triggered();
+    void expand_entire_tree() { expandRecursively(rootIndex()); }
 
    signals:
     void selected_folder_changed(QModelIndex curr, QModelIndex prev);

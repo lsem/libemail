@@ -2,6 +2,8 @@
 
 #include <QDebug>
 
+// https://forum.qt.io/topic/77668/qtreeview-hide-controls-for-expanding-and-collapsing-specific-items/3
+// https://stackoverflow.com/questions/16018974/qtreeview-remove-decoration-expand-button-for-all-items
 TreeView::TreeView(QWidget* parent) : QTreeView(parent) {
     setDragDropMode(QAbstractItemView::InternalMove);
     setSelectionMode(QAbstractItemView::ExtendedSelection);
@@ -18,6 +20,11 @@ TreeView::TreeView(QWidget* parent) : QTreeView(parent) {
     m_context_menu->addAction(m_add_folder_action);
 
     connect(m_add_folder_action, SIGNAL(triggered()), this, SLOT(create_folder_action_triggered()));
+
+    // I dislike how Qt does autoexoansion and don't know how to control it so I disable expansion
+    // and expandRecursively after data changes to resotre always-expand-state.
+    setItemsExpandable(false);
+    setStyleSheet("QTreeView::branch {  border-image: url(none.png); }");
 }
 
 void TreeView::create_folder_action_triggered() {
@@ -39,15 +46,6 @@ void TreeView::on_context_menu_requested(const QPoint& pt) {
 
 void TreeView::prompt_rename(QModelIndex index) {
     selectionModel()->clearSelection();
-
-    // for some reason, without this we have selection and editing work but it works on
-    // collapsed node.
-    auto x = index;
-    while (x.parent().isValid() && x.parent().parent().isValid()) {
-        x = x.parent();
-    }
-    expandRecursively(x);
-
     selectionModel()->select(index, QItemSelectionModel::Select | QItemSelectionModel::Rows);
     edit(index);
 }

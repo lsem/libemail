@@ -359,7 +359,15 @@ class MailerUIState {
         from->parent->remove_child(from);
 
         if (row.has_value()) {
-            to->children.insert(to->children.begin() + row.value(), from);
+            if (row.value() < to->children.size()) {
+                to->children.insert(to->children.begin() + row.value(), from);
+            } else {
+                // TODO: we can remove this code and make UI do this workaround. Original problem is
+                // that Qt once sent invalid row.
+                log_error("invalid position of row {} while there are only {} children",
+                          row.value(), to->children.size());
+                to->children.emplace_back(from);
+            }
         } else {
             to->children.emplace_back(from);
         }
