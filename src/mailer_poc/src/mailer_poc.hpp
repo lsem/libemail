@@ -33,8 +33,8 @@ class MailerPOC {
     virtual void selected_folder_changed(MailerUIState::TreeNode* selected_node) = 0;
     virtual MailerUIState::TreeNode* make_folder(MailerUIState::TreeNode* parent,
                                                  string folder_name) = 0;
-    virtual void move_items(std::vector<mailer::MailerUIState::TreeNode*> source_nodes,
-                            mailer::MailerUIState::TreeNode* dest,
+    virtual void move_items(std::vector<MailerUIState::TreeNode*> source_nodes,
+                            MailerUIState::TreeNode* dest,
                             optional<size_t> dest_row) = 0;
     virtual MailerUIState* get_ui_model() = 0;
 };

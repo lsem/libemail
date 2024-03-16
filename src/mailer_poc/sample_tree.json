@@ -1,0 +1,32 @@
+{
+    "label": "root",
+    "flags": 0,
+    "children": [
+        {
+            "label": "Friends",
+            "flags": 0,
+            "children": [
+                {
+                    "label": "Best",
+                    "flags": 0,
+                    "children": []
+                },
+                {
+                    "label": "Worst",
+                    "flags": 0,
+                    "children": []
+                }
+            ]
+        },
+        {
+            "label": "Goverment",
+            "flags": 0,
+            "children": []
+        },
+        {
+            "label": "Business",
+            "flags": 0,
+            "children": []
+        }
+    ]
+}

@@ -12,6 +12,8 @@
 
 #include "mailer_ui_state.hpp"
 
+#include "user_tree.hpp"
+
 namespace mailer {
 using namespace emailkit;
 using emailkit::imap_client::types::list_response_entry_t;
@@ -138,11 +140,38 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
                 log_info("authenticated");
                 assert(this_.m_callbacks);
                 this_.m_callbacks->auth_done({});
+
+                // TODO: Shouldn't we synchronize with UI at this point? To make sure that UI is up
+                // and running so we can use UI-callbacks?
+
+                this_.initialize_tree();
+
                 this_.run_background_activities();
                 cb({});
             }));
     }
     void set_callbacks_if(MailerPOCCallbacks* callbacks) override { m_callbacks = callbacks; }
+
+    void initialize_tree_it(MailerUIState::TreeNode* dest_node,
+                            const user_tree::Node& source_node) {
+        auto new_node = make_folder(dest_node, source_node.label);
+        for (auto& c : source_node.children) {
+            initialize_tree_it(new_node, *c);
+        }
+    }
+
+    void initialize_tree() {
+        auto* ui = get_ui_model();
+
+        auto root_or_err = user_tree::load_tree_from_file("./sample_tree.json");
+        if (root_or_err) {
+            user_tree::print_tree(*root_or_err);
+            initialize_tree_it(ui->tree_root(), *root_or_err);
+        } else {
+            // TODO: revise this decision.
+            log_warning("fialed loading tree: {}", root_or_err.error());
+        }
+    }
 
     void visit_model_locked(std::function<void(const mailer::MailerUIState&)> cb) override {
         // TODO: detect slow visits!
