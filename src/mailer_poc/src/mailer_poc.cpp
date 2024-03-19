@@ -153,11 +153,14 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
 
     void set_callbacks_if(MailerPOCCallbacks* callbacks) override { m_callbacks = callbacks; }
 
-    void initialize_tree_it(MailerUIState::TreeNode* dest_node, const user_tree::Node& src_node) {
+    void user_tree_to_ui_tree_it(const user_tree::Node& src_node,
+                                 MailerUIState::TreeNode* dest_node) {
         auto new_node = make_folder(dest_node, src_node.label);
+        new_node->contact_groups =
+            set<set<string>>(src_node.contact_groups.begin(), src_node.contact_groups.end());
         assert(new_node->is_folder_node());
         for (auto& c : src_node.children) {
-            initialize_tree_it(new_node, *c);
+            user_tree_to_ui_tree_it(*c, new_node);
         }
     }
 
@@ -168,9 +171,8 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
         if (src_node->is_folder_node()) {
             dest_node.label = src_node->label;
             dest_node.flags = src_node->flags;
-            if (src_node->contact_groups_opt.has_value()) {
-                dest_node.contact_groups = src_node->contact_groups_opt.value();
-            }
+            dest_node.contact_groups = vector<set<string>>(src_node->contact_groups.begin(),
+                                                           src_node->contact_groups.end());
 
             for (auto& c : src_node->children) {
                 auto child_dest_node = std::make_unique<user_tree::Node>();
@@ -178,6 +180,22 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
                 dest_node.children.emplace_back(std::move(child_dest_node));
             }
         }
+
+        // TODO: seems like we need to somehow restore cache after we constructed the tree.
+        // Normally, when folders are crated, the cache is updated immidiately after it.
+        // The same with folder move.
+    }
+
+    expected<user_tree::Node> uitree_to_user_tree(const MailerUIState::TreeNode* src_node) {
+        if (!src_node->is_folder_node()) {
+            log_error("attempt to save starting from non-folder root");
+            return unexpected(make_error_code(std::errc::io_error));
+        }
+
+        user_tree::Node root_dest;
+        save_tree_it(src_node, root_dest);
+
+        return root_dest;
     }
 
     void initialize_tree() {
@@ -186,11 +204,14 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
         if (root_or_err) {
             log_info("loaded initial tree:");
             user_tree::print_tree(*root_or_err);
-            initialize_tree_it(get_ui_model()->tree_root(), *root_or_err);
+            user_tree_to_ui_tree_it(*root_or_err, get_ui_model()->tree_root());
+            get_ui_model()->rebuild_caches_after_tree_reconstruction();
 
-            user_tree::Node dest_node;
-            save_tree_it(get_ui_model()->tree_root(), dest_node);
-            user_tree::save_to_file(dest_node, "sample_tree_2.json");
+            auto root_or_err = uitree_to_user_tree(get_ui_model()->tree_root());
+            if (!root_or_err) {
+                log_error("fialed converting uitree to user tree");
+            }
+            user_tree::save_to_file(*root_or_err, "sample_tree_2.json");
         } else {
             // TODO: revise this decision.
             log_warning("fialed loading tree: {}", root_or_err.error());

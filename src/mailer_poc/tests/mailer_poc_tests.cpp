@@ -68,7 +68,7 @@ TEST(mailer_poc_tests, basic) {
 
     ui_state.process_email(make_email({"sli.ukraine@gmail.com"}, {"combdn@gmail.com"}, "Hi", "e1"));
     ASSERT_EQ(
-        R"([root]
+        R"([$root]
     [combdn@gmail.com]
         Hi (emails: 1)
 )",
@@ -77,7 +77,7 @@ TEST(mailer_poc_tests, basic) {
     ui_state.process_email(
         make_email({"combdn@gmail.com"}, {"sli.ukraine@gmail.com"}, "Money", "e2"));
     ASSERT_EQ(
-        R"([root]
+        R"([$root]
     [combdn@gmail.com]
         Hi (emails: 1)
         Money (emails: 1)
@@ -87,7 +87,7 @@ TEST(mailer_poc_tests, basic) {
     ui_state.process_email(
         make_email({"vasia@gmail.com"}, {"sli.ukraine@gmail.com"}, "Ski racing", "e3"));
     ASSERT_EQ(
-        R"([root]
+        R"([$root]
     [combdn@gmail.com]
         Hi (emails: 1)
         Money (emails: 1)
@@ -100,7 +100,7 @@ TEST(mailer_poc_tests, basic) {
         make_email({"combdn@gmail.com"}, {"sli.ukraine@gmail.com"}, "Different topic", "e4"));
 
     ASSERT_EQ(
-        R"([root]
+        R"([$root]
     [combdn@gmail.com]
         Hi (emails: 1)
         Money (emails: 1)
@@ -115,7 +115,7 @@ TEST(mailer_poc_tests, basic) {
                                       "RE: Different topic", "e5", {"e4"}));
 
     ASSERT_EQ(
-        R"([root]
+        R"([$root]
     [combdn@gmail.com]
         Hi (emails: 1)
         Money (emails: 1)
@@ -131,7 +131,7 @@ TEST(mailer_poc_tests, basic) {
                                       "RE: Different topic", "e6", {"e4", "e5"}));
 
     ASSERT_EQ(
-        R"([root]
+        R"([$root]
     [combdn@gmail.com]
         Hi (emails: 1)
         Money (emails: 1)
@@ -149,7 +149,7 @@ TEST(mailer_poc_tests, basic) {
                                       "RE: Different topic", "e7", {"e4", "e5", "e6"}));
 
     ASSERT_EQ(
-        R"([root]
+        R"([$root]
     [combdn@gmail.com]
         Hi (emails: 1)
         Money (emails: 1)
@@ -165,7 +165,7 @@ TEST(mailer_poc_tests, basic) {
         make_email({"vasia@gmail.com"}, {"sli.ukraine@gmail.com"}, "New Topic", "d1", {}));
 
     ASSERT_EQ(
-        R"([root]
+        R"([$root]
     [combdn@gmail.com]
         Hi (emails: 1)
         Money (emails: 1)
@@ -184,7 +184,7 @@ TEST(mailer_poc_tests, basic) {
                                       "RE: New Topic", "d2", {"d1"}));
 
     ASSERT_EQ(
-        R"([root]
+        R"([$root]
     [combdn@gmail.com]
         Hi (emails: 1)
         Money (emails: 1)
@@ -200,7 +200,7 @@ TEST(mailer_poc_tests, basic) {
         make_email({"sli.ukraine@gmail.com"}, {"vasia@gmail.com"}, "Give me the money", "f1", {}));
 
     ASSERT_EQ(
-        R"([root]
+        R"([$root]
     [combdn@gmail.com]
         Hi (emails: 1)
         Money (emails: 1)
@@ -220,7 +220,7 @@ TEST(mailer_poc_tests, conversation_with_self_basic_test) {
                                 {"liubomyr.semkiv.test@gmail.com"}, "Test Email",
                                 "78C7A359-B513-496B-B140-66E5896DE6C4@gmail.com", {}));
     ASSERT_EQ(
-        R"([root]
+        R"([$root]
     [liubomyr.semkiv.test@gmail.com]
         Test Email
 )",
@@ -231,7 +231,7 @@ TEST(mailer_poc_tests, conversation_with_self_basic_test) {
                                 "88C7A359-B513-496B-B140-66E5896DE6C4@gmail.com",
                                 {"78C7A359-B513-496B-B140-66E5896DE6C4@gmail.com"}));
     ASSERT_EQ(
-        R"([root]
+        R"([$root]
     [liubomyr.semkiv.test@gmail.com]
         Test Email
 )",
@@ -241,7 +241,7 @@ TEST(mailer_poc_tests, conversation_with_self_basic_test) {
                                 {"liubomyr.semkiv.test@gmail.com"}, "Email with attachments",
                                 "99C7A359-B513-496B-B140-66E5896DE6C4@gmail.com", {}));
     ASSERT_EQ(
-        R"([root]
+        R"([$root]
     [liubomyr.semkiv.test@gmail.com]
         Test Email
         Email with attachments
@@ -256,7 +256,7 @@ TEST(mailer_poc_tests, conversation_with_self_real_world_issue) {
                    "test email (from self)",
                    "CA+n06nnjA6eQOy5D+HUipuKfU=Psmss_t6wyvUA=z2g38GDvxQ@mail.gmail.com", {}));
     ASSERT_EQ(
-        R"([root]
+        R"([$root]
     [liubomyr.semkiv.test@gmail.com]
         test email (from self) (emails: 1)
 )",
@@ -267,7 +267,7 @@ TEST(mailer_poc_tests, conversation_with_self_real_world_issue) {
                    "лист з вкладеннями",
                    "CA+n06n=V6FqCudRF0iO=-sc8ZFEMiDXGYcTrdTGH-irq=HhjVw@mail.gmail.com", {}));
     ASSERT_EQ(
-        R"([root]
+        R"([$root]
     [liubomyr.semkiv.test@gmail.com]
         test email (from self) (emails: 1)
         лист з вкладеннями (emails: 1)
@@ -281,7 +281,7 @@ TEST(mailer_poc_tests, conversation_with_self_real_world_issue) {
         // in-reply-to: "<CA+n06n=V6FqCudRF0iO=-sc8ZFEMiDXGYcTrdTGH-irq=HhjVw@mail.gmail.com>",
         {"CA+n06n=V6FqCudRF0iO=-sc8ZFEMiDXGYcTrdTGH-irq=HhjVw@mail.gmail.com"}));
     ASSERT_EQ(
-        R"([root]
+        R"([$root]
     [liubomyr.semkiv.test@gmail.com]
         test email (from self) (emails: 1)
         лист з вкладеннями (emails: 2)
@@ -297,7 +297,7 @@ TEST(mailer_poc_tests, conversation_with_self_real_world_issue) {
          // in-reply-to: "<CA+n06nm7ACHhP4tfA+C9za7eUU87J9AdmmF6yUTJ7hXGZpFqVw@mail.gmail.com>",
          "CA+n06nm7ACHhP4tfA+C9za7eUU87J9AdmmF6yUTJ7hXGZpFqVw@mail.gmail.com"}));
     ASSERT_EQ(
-        R"([root]
+        R"([$root]
     [liubomyr.semkiv.test@gmail.com]
         test email (from self) (emails: 1)
         лист з вкладеннями (emails: 3)
@@ -312,7 +312,7 @@ TEST(mailer_poc_tests, conversation_with_self_real_world_issue) {
                    {"CA+n06n=V6FqCudRF0iO=-sc8ZFEMiDXGYcTrdTGH-irq=HhjVw@mail.gmail.com",
                     "CA+n06nm7ACHhP4tfA+C9za7eUU87J9AdmmF6yUTJ7hXGZpFqVw@mail.gmail.com"}));
     ASSERT_EQ(
-        R"([root]
+        R"([$root]
     [liubomyr.semkiv.test@gmail.com]
         test email (from self) (emails: 1)
         лист з вкладеннями (emails: 3)
@@ -327,7 +327,7 @@ TEST(mailer_poc_tests, conversation_with_self_real_world_issue) {
                     "CA+n06nm7ACHhP4tfA+C9za7eUU87J9AdmmF6yUTJ7hXGZpFqVw@mail.gmail.com",
                     "CA+n06nmovTcG3sHyS1yeOmDvy+wbcbQUypKPVRPnNTJJb0UD8A@mail.gmail.com"}));
     ASSERT_EQ(
-        R"([root]
+        R"([$root]
     [liubomyr.semkiv.test@gmail.com]
         test email (from self) (emails: 1)
         лист з вкладеннями (emails: 4)
@@ -338,7 +338,7 @@ TEST(mailer_poc_tests, conversation_with_self_real_world_issue) {
         {"liubomyr.semkiv.test@gmail.com"}, {"liubomyr.semkiv.test@gmail.com"}, "new test email",
         "CA+n06n=gaO4yss4F7H_AP2_iPdTDmGU2E0-41bhx3zxquwYbcw@mail.gmail.com", {}));
     ASSERT_EQ(
-        R"([root]
+        R"([$root]
     [liubomyr.semkiv.test@gmail.com]
         test email (from self) (emails: 1)
         лист з вкладеннями (emails: 4)
@@ -354,7 +354,7 @@ TEST(mailer_poc_tests, conversation_with_self_real_world_issue) {
                    "Re: new test email",
                    "CA+n06nnjWWyY+QS2i5s9cphRwMTBqgiKbbp3epMsgcn0DiQN8w@mail.gmail.com", {}));
     ASSERT_EQ(
-        R"([root]
+        R"([$root]
     [liubomyr.semkiv.test@gmail.com]
         test email (from self)
         лист з вкладеннями
@@ -370,7 +370,7 @@ TEST(mailer_poc_tests, conversation_with_self_real_world_issue) {
         // In-Reply-To: "<CA+n06n=gaO4yss4F7H_AP2_iPdTDmGU2E0-41bhx3zxquwYbcw@mail.gmail.com>"
         {"CA+n06n=gaO4yss4F7H_AP2_iPdTDmGU2E0-41bhx3zxquwYbcw@mail.gmail.com"}));
     ASSERT_EQ(
-        R"([root]
+        R"([$root]
     [liubomyr.semkiv.test@gmail.com]
         test email (from self) (emails: 1)
         лист з вкладеннями (emails: 4)
@@ -389,7 +389,7 @@ TEST(mailer_poc_tests, real_world_multi_contact_group_test) {
                                 "78C7A359-B513-496B-B140-66E5896DE6C4@gmail.com", {}));
 
     ASSERT_EQ(
-        R"([root]
+        R"([$root]
     [combdn@gmail.com]
         Testing multi-contact grouping
 )",
@@ -403,7 +403,7 @@ TEST(mailer_poc_tests, real_world_multi_contact_group_test) {
                    {"78C7A359-B513-496B-B140-66E5896DE6C4@gmail.com"}));
 
     ASSERT_EQ(
-        R"([root]
+        R"([$root]
     [combdn@gmail.com]
         Testing multi-contact grouping
 )",
@@ -417,7 +417,7 @@ TEST(mailer_poc_tests, real_world_multi_contact_group_test) {
          "CA+n06nmoc7=kOVqRs7kBAcapksps28M0Nkjsjbieebw9uK2fBg@mail.gmail.com"}));
 
     ASSERT_EQ(
-        R"([root]
+        R"([$root]
     [combdn@gmail.com, sli.ukraine@gmail.com]
         Testing multi-contact grouping
 )",
@@ -432,7 +432,7 @@ TEST(mailer_poc_tests, removing_people_from_converstation_test) {
                                 "Testing multi-contact grouping",
                                 "78C7A359-B513-496B-B140-66E5896DE6C4@gmail.com", {}));
     ASSERT_EQ(
-        R"([root]
+        R"([$root]
     [combdn@gmail.com]
         Testing multi-contact grouping (emails: 1)
 )",
@@ -446,7 +446,7 @@ TEST(mailer_poc_tests, removing_people_from_converstation_test) {
                    {"78C7A359-B513-496B-B140-66E5896DE6C4@gmail.com"}));
 
     ASSERT_EQ(
-        R"([root]
+        R"([$root]
     [combdn@gmail.com]
         Testing multi-contact grouping (emails: 2)
 )",
@@ -460,7 +460,7 @@ TEST(mailer_poc_tests, removing_people_from_converstation_test) {
          "CA+n06nmoc7=kOVqRs7kBAcapksps28M0Nkjsjbieebw9uK2fBg@mail.gmail.com"}));
 
     ASSERT_EQ(
-        R"([root]
+        R"([$root]
     [combdn@gmail.com, sli.ukraine@gmail.com]
         Testing multi-contact grouping (emails: 3)
 )",
@@ -478,9 +478,165 @@ TEST(mailer_poc_tests, removing_people_from_converstation_test) {
          "E62F4DB8-BF75-47A2-B781-EC7DEE609EFE@gmail.com"}));
 
     ASSERT_EQ(
-        R"([root]
+        R"([$root]
     [combdn@gmail.com, sli.ukraine@gmail.com]
         Testing multi-contact grouping (emails: 4)
+)",
+        render_tree(ui, true));
+}
+
+TEST(mailer_poc_tests, routing_to_folder_test) {
+    mailer::MailerUIState ui{"liubomyr.semkiv.test@gmail.com"};
+
+    log_debug("ingesting first email");
+    ui.process_email(make_email({"combdn@gmail.com"}, {"liubomyr.semkiv.test@gmail.com"},
+                                "Testing multi-contact grouping",
+                                "78C7A359-B513-496B-B140-66E5896DE6C4@gmail.com", {}));
+    ASSERT_EQ(
+        R"([$root]
+    [combdn@gmail.com]
+        Testing multi-contact grouping (emails: 1)
+)",
+        render_tree(ui, true));
+
+    // Lets move into special folder.
+    auto root_children = ui.tree_root()->children;
+    ASSERT_EQ(root_children.size(), 1);
+    auto combdn_folder = root_children[0];
+    ASSERT_FALSE(combdn_folder->is_folder_node());
+    ASSERT_EQ(combdn_folder->label, "combdn@gmail.com");
+
+    // Lets create a folder for combdn messages
+    auto friends_node = ui.make_folder(ui.tree_root(), "Friends");
+    ASSERT_EQ(
+        R"([$root]
+    [combdn@gmail.com]
+        Testing multi-contact grouping (emails: 1)
+    [Friends]
+)",
+        render_tree(ui, true));
+
+    ui.move_items({combdn_folder}, friends_node, std::nullopt);
+
+    ASSERT_EQ(
+        R"([$root]
+    [Friends]
+        [combdn@gmail.com]
+            Testing multi-contact grouping (emails: 1)
+)",
+        render_tree(ui, true));
+
+    // Now lets respond to combdn
+
+    log_debug("ingesting second email");
+    ui.process_email(make_email({"liubomyr.semkiv.test@gmail.com"}, {"combdn@gmail.com"},
+                                "RE: Testing multi-contact grouping",
+                                "11223359-B513-496B-B140-66E5896DE6C4@gmail.com",
+                                {"78C7A359-B513-496B-B140-66E5896DE6C4@gmail.com"}));
+    ASSERT_EQ(
+        R"([$root]
+    [Friends]
+        [combdn@gmail.com]
+            Testing multi-contact grouping (emails: 2)
+)",
+        render_tree(ui, true));
+
+    // And one more reply
+    log_debug("ingesting third email");
+    ui.process_email(make_email({"combdn@gmail.com"}, {"liubomyr.semkiv.test@gmail.com"},
+                                "RE: Testing multi-contact grouping",
+                                "999888-B513-496B-B140-66E5896DE6C4@gmail.com",
+                                {"78C7A359-B513-496B-B140-66E5896DE6C4@gmail.com",
+                                 "11223359-B513-496B-B140-66E5896DE6C4@gmail.com"}));
+    ASSERT_EQ(
+        R"([$root]
+    [Friends]
+        [combdn@gmail.com]
+            Testing multi-contact grouping (emails: 3)
+)",
+        render_tree(ui, true));
+
+    // Now one more email to a group combdn and sli.ukraine
+    log_debug("ingesting fourth email");
+    ui.process_email(make_email({"combdn@gmail.com"},
+                                {"liubomyr.semkiv.test@gmail.com", "sli.ukraine@gmail.com"},
+                                "Separate topic of a group", "1", {}));
+    ASSERT_EQ(
+        R"([$root]
+    [Friends]
+        [combdn@gmail.com]
+            Testing multi-contact grouping (emails: 3)
+    [combdn@gmail.com, sli.ukraine@gmail.com]
+        Separate topic of a group (emails: 1)
+)",
+        render_tree(ui, true));
+
+    auto group_node = ui.tree_root()->children.back();
+
+    // Now lets create new folder.
+    auto buddies_node = ui.make_folder(ui.tree_root(), "Buddies");
+    ASSERT_EQ(
+        R"([$root]
+    [Friends]
+        [combdn@gmail.com]
+            Testing multi-contact grouping (emails: 3)
+    [combdn@gmail.com, sli.ukraine@gmail.com]
+        Separate topic of a group (emails: 1)
+    [Buddies]
+)",
+        render_tree(ui, true));
+
+    // Nows lets move colbdn to Buddies.
+
+    ui.move_items({combdn_folder}, buddies_node, std::nullopt);
+    ASSERT_EQ(
+        R"([$root]
+    [Friends]
+    [combdn@gmail.com, sli.ukraine@gmail.com]
+        Separate topic of a group (emails: 1)
+    [Buddies]
+        [combdn@gmail.com]
+            Testing multi-contact grouping (emails: 3)
+)",
+        render_tree(ui, true));
+
+    // And now move multi-contact conversations into Buddies as well.
+    ui.move_items({group_node}, buddies_node, std::nullopt);
+    ASSERT_EQ(
+        R"([$root]
+    [Friends]
+    [Buddies]
+        [combdn@gmail.com]
+            Testing multi-contact grouping (emails: 3)
+        [combdn@gmail.com, sli.ukraine@gmail.com]
+            Separate topic of a group (emails: 1)
+)",
+        render_tree(ui, true));
+
+    // And now move them again.
+    ui.move_items({combdn_folder}, friends_node, std::nullopt);
+    ui.move_items({group_node}, friends_node, std::nullopt);
+    ASSERT_EQ(
+        R"([$root]
+    [Friends]
+        [combdn@gmail.com]
+            Testing multi-contact grouping (emails: 3)
+        [combdn@gmail.com, sli.ukraine@gmail.com]
+            Separate topic of a group (emails: 1)
+    [Buddies]
+)",
+        render_tree(ui, true));
+
+    // Now lets move entire folder Friends into buddies.
+    ui.move_items({friends_node}, buddies_node, std::nullopt);
+    ASSERT_EQ(
+        R"([$root]
+    [Buddies]
+        [Friends]
+            [combdn@gmail.com]
+                Testing multi-contact grouping (emails: 3)
+            [combdn@gmail.com, sli.ukraine@gmail.com]
+                Separate topic of a group (emails: 1)
 )",
         render_tree(ui, true));
 }

@@ -102,26 +102,26 @@ class MailerUIState {
                 *thread_id_opt, email.message_id.value(), static_cast<void*>(thread_id_node));
         }
 
-        auto participants = [this, &email, &references]() -> vector<types::EmailAddress> {
-            vector<types::EmailAddress> result;
+        auto participants = [this, &email, &references]() -> set<types::EmailAddress> {
+            set<types::EmailAddress> result;
 
             // Note, it is not necessarry that we have all referenced emails in our internal
             // database. I suppose that when we gave been added into conversation later we may
             // still see all the references but don't have corresponding emails.
             // TODO: check it!
             for (auto& to : email.to) {
-                result.emplace_back(to);
+                result.insert(to);
             }
             for (auto& from : email.from) {
-                result.emplace_back(from);
+                result.insert(from);
             }
 
             for (auto& mid : references) {
                 if (auto it = m_message_id_to_email_index.find(mid);
                     it != m_message_id_to_email_index.end()) {
-                    result.emplace_back(it->second.from[0]);
+                    result.insert(it->second.from[0]);
                     for (auto& to : it->second.to) {
-                        result.emplace_back(to);
+                        result.insert(to);
                     }
                 } else {
                     log_warning("referenced email with ID '{}' has not been found in the index",
@@ -131,15 +131,15 @@ class MailerUIState {
 
             // Sort to make the list consistend for further comparison with existing nodes. It is
             // not only done as a prestep for erase algorithm.
-            std::sort(result.begin(), result.end());
-            result.erase(std::unique(result.begin(), result.end()), result.end());
+            // std::sort(result.begin(), result.end());
+            // result.erase(std::unique(result.begin(), result.end()), result.end());
 
             log_debug("removing own address '{}' from the list {}", m_own_address, result);
 
             // We leave self address only if there are not other people.
+
             if (result.size() > 1) {
-                result.erase(std::remove(result.begin(), result.end(), m_own_address),
-                             result.end());
+                result.erase(m_own_address);
             }
 
             return result;
@@ -153,11 +153,21 @@ class MailerUIState {
 
         // TODO: lift this map to parent so UI just asks parent: do we have a path for it?
         TreeNode* group_folder_node = nullptr;
-        if (auto it = m_participants_to_folder_map.find(participants);
-            it != m_participants_to_folder_map.end()) {
+        if (auto it = m_contact_group_to_node_index.find(participants);
+            it != m_contact_group_to_node_index.end()) {
+            log_info("routing: found node for contact group {} in the index: {}", participants,
+                     it->second->label);
             group_folder_node = create_path(it->second, {group_folder_name});
+            assert(!group_folder_node->is_folder_node());
         } else {
-            group_folder_node = create_path(tree_root(), {"root", group_folder_name});
+            log_info(
+                "routing: not found node for contact group in the index, putting into default "
+                "folder");
+            group_folder_node = create_path(tree_root(), {group_folder_name});
+            assert(!group_folder_node->is_folder_node());
+            group_folder_node->contact_groups.insert(participants);
+
+            // TODO: should we put it to the index?
         }
 
         log_debug("created (or alreayd have) a folder with a name {}", group_folder_name);
@@ -229,7 +239,7 @@ class MailerUIState {
         TreeNodeFlags::storage_type flags = 0;
 
         // QUESTION: is optional the same as unique_ptr in terms of memory footprint?
-        optional<vector<set<string>>> contact_groups_opt;
+        set<set<string>> contact_groups;
 
         TreeNode() = delete;
 
@@ -285,6 +295,30 @@ class MailerUIState {
         }
         ThreadsIterator thread_refs_end() { return threads_refs.end(); }
     };
+
+    void visit_preorder(TreeNode& node, const std::function<void(TreeNode&)>& fn) {
+        fn(node);
+        for (auto& c : node.children) {
+            visit_preorder(*c, fn);
+        }
+    }
+
+    void rebuild_caches_after_tree_reconstruction() {
+        visit_preorder(*tree_root(), [this](auto& node) {
+            // Folder node's contact groups vector contains all contact groups that should be routed
+            // to givel folder.
+            if (node.is_folder_node()) {
+                for (const auto& cg : node.contact_groups) {
+                    log_info("adding contact group {} into the index", cg);
+                    add_contact_group_to_index(cg, &node);
+                }
+            }
+        });
+    }
+
+    void add_contact_group_to_index(const set<string>& cg, TreeNode* node) {
+        m_contact_group_to_node_index.emplace(cg, node);
+    }
 
     void walk_tree_preoder_it(const TreeNode* node,
                               std::function<void(const string&)>& enter_folder_cb,
@@ -401,12 +435,29 @@ class MailerUIState {
         } else {
             to->children.emplace_back(from);
         }
+
+        auto old_parent = from->parent;
         from->parent = to;
+
+        // if we moved entire folder, it should be fine and we don't need to update index.
+        // Because node itself is not changed, only parent. But if moved node is non-folder, then
+        // now it is in different folder and the index should be updated.
+        if (!from->is_folder_node()) {
+            assert(from->contact_groups.size() == 1);
+            old_parent->contact_groups.erase(*from->contact_groups.begin());
+            to->contact_groups.insert(*from->contact_groups.begin());
+            m_contact_group_to_node_index[*from->contact_groups.begin()] = to;
+        }
     }
 
     void move_items(std::vector<TreeNode*> source_nodes,
                     TreeNode* destination,
                     optional<size_t> dest_row) {
+        if (!destination->is_folder_node()) {
+            log_error("attempt to move not into folder node");
+            // This must be some UI error but this layer should protect itself from usage mistake.
+            return;
+        }
         size_t idx = 0;
         for (auto node : source_nodes) {
             if (dest_row.has_value()) {
@@ -418,10 +469,6 @@ class MailerUIState {
         }
     }
 
-    void add_user_sorting_rule(vector<types::EmailAddress> contact_or_group, vector<string> path) {
-        m_participants_to_folder_map2[std::move(contact_or_group)] = std::move(path);
-    }
-
     TreeNode* tree_root() { return &m_root; }
 
    public:
@@ -430,9 +477,7 @@ class MailerUIState {
     map<MessageID, types::MailboxEmail> m_message_id_to_email_index;
     //    map<MessageID, TreeNode*> m_message_to_tree_index;
     map<MessageID, TreeNode*> m_thread_id_to_tree_index;
-
-    map<vector<types::EmailAddress>, TreeNode*> m_participants_to_folder_map;
-    map<vector<types::EmailAddress>, vector<string>> m_participants_to_folder_map2;
+    map<set<types::EmailAddress>, TreeNode*> m_contact_group_to_node_index;
 };
 
 }  // namespace mailer
