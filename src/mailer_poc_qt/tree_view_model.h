@@ -17,13 +17,13 @@ class TreeViewModel : public QAbstractItemModel {
    public:
     TreeViewModel(QObject* parent = nullptr);
     void set_mailer_ui_state(mailer::MailerUIState* s) { m_mailer_ui_state = s; }
-    void initiate_rename(mailer::MailerUIState::TreeNode* node);
-    QModelIndex encode_model_index(mailer::MailerUIState::TreeNode* node) const;
-    mailer::MailerUIState::TreeNode* decode_model_index(const QModelIndex&) const;
+    void initiate_rename(mailer::TreeNode* node);
+    QModelIndex encode_model_index(mailer::TreeNode* node) const;
+    mailer::TreeNode* decode_model_index(const QModelIndex&) const;
 
    signals:
-    void items_move_requested(std::vector<mailer::MailerUIState::TreeNode*> source_nodes,
-                              mailer::MailerUIState::TreeNode* destination,
+    void items_move_requested(std::vector<mailer::TreeNode*> source_nodes,
+                              mailer::TreeNode* destination,
                               std::optional<size_t>);
 
    public:

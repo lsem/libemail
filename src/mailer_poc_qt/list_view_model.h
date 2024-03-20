@@ -9,7 +9,7 @@ class ListViewModel : public QAbstractListModel {
     ListViewModel(QObject* parent = nullptr);
 
     void set_mailer_ui_state(mailer::MailerUIState* s) { m_mailer_ui_state = s; }
-    void set_active_folder(mailer::MailerUIState::TreeNode* node) {
+    void set_active_folder(mailer::TreeNode* node) {
         begin_reset();
         log_debug("new active folder");
         m_active_folder = node;
@@ -32,5 +32,5 @@ class ListViewModel : public QAbstractListModel {
 
    private:
     mailer::MailerUIState* m_mailer_ui_state = nullptr;
-    mailer::MailerUIState::TreeNode* m_active_folder = nullptr;
+    mailer::TreeNode* m_active_folder = nullptr;
 };

@@ -153,8 +153,7 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
 
     void set_callbacks_if(MailerPOCCallbacks* callbacks) override { m_callbacks = callbacks; }
 
-    void user_tree_to_ui_tree_it(const user_tree::Node& src_node,
-                                 MailerUIState::TreeNode* dest_node) {
+    void user_tree_to_ui_tree_it(const user_tree::Node& src_node, TreeNode* dest_node) {
         auto new_node = make_folder(dest_node, src_node.label);
         new_node->contact_groups =
             set<set<string>>(src_node.contact_groups.begin(), src_node.contact_groups.end());
@@ -164,7 +163,7 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
         }
     }
 
-    void save_tree_it(const MailerUIState::TreeNode* src_node, user_tree::Node& dest_node) {
+    void save_tree_it(const TreeNode* src_node, user_tree::Node& dest_node) {
         assert(src_node);
         // TODO: what if root is not a folder at all? The caller should guarantee this or otherwise
         // we will have invalid node (we cna return bool I guess).
@@ -186,7 +185,7 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
         // The same with folder move.
     }
 
-    expected<user_tree::Node> uitree_to_user_tree(const MailerUIState::TreeNode* src_node) {
+    expected<user_tree::Node> uitree_to_user_tree(const TreeNode* src_node) {
         if (!src_node->is_folder_node()) {
             log_error("attempt to save starting from non-folder root");
             return unexpected(make_error_code(std::errc::io_error));
@@ -224,7 +223,7 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
         cb(m_ui_state);
     }
 
-    void selected_folder_changed(MailerUIState::TreeNode* selected_node) override {
+    void selected_folder_changed(TreeNode* selected_node) override {
         // if (!selected_node->ref) {
         //     log_debug("selected folder changed, here is a list of threads in given folder");
         //     for (auto& c : selected_node->children) {
@@ -235,13 +234,12 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
         // }
     }
 
-    MailerUIState::TreeNode* make_folder(MailerUIState::TreeNode* parent,
-                                         string folder_name) override {
+    TreeNode* make_folder(TreeNode* parent, string folder_name) override {
         return m_ui_state.make_folder(parent, folder_name);
     }
 
-    void move_items(std::vector<mailer::MailerUIState::TreeNode*> source_nodes,
-                    mailer::MailerUIState::TreeNode* dest,
+    void move_items(std::vector<mailer::TreeNode*> source_nodes,
+                    mailer::TreeNode* dest,
                     optional<size_t> dest_row) override {
         // TODO: theoretically we should be able to see that we are on the same GUI thread and omit
         // update through dispatch and call directly. Theoretically this passing nodes does not play

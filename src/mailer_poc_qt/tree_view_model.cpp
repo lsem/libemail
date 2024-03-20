@@ -14,7 +14,7 @@ constexpr auto DRAGGED_INDEXES_MIME_TYPE = "application/dragged-indexes.list";
 // https://stackoverflow.com/questions/54146553/how-to-get-the-index-from-an-item-in-the-qtreeview
 TreeViewModel::TreeViewModel(QObject* parent) : QAbstractItemModel(parent) {}
 
-void TreeViewModel::initiate_rename(mailer::MailerUIState::TreeNode* node) {
+void TreeViewModel::initiate_rename(mailer::TreeNode* node) {
     qDebug("requested renaming node by node id");
 
     // We can create QModelIndex on our own by having a node.
@@ -32,7 +32,7 @@ void TreeViewModel::initiate_rename(mailer::MailerUIState::TreeNode* node) {
     // make the caller doing this).
 }
 
-QModelIndex TreeViewModel::encode_model_index(mailer::MailerUIState::TreeNode* node) const {
+QModelIndex TreeViewModel::encode_model_index(mailer::TreeNode* node) const {
     const int row_index = node->child_index();
     if (row_index < 0) {
         qWarning("could not find row index for node: %p", node);
@@ -41,15 +41,15 @@ QModelIndex TreeViewModel::encode_model_index(mailer::MailerUIState::TreeNode* n
     return createIndex(row_index, 0, node);
 }
 
-mailer::MailerUIState::TreeNode* TreeViewModel::decode_model_index(const QModelIndex& index) const {
-    return static_cast<mailer::MailerUIState::TreeNode*>(index.internalPointer());
+mailer::TreeNode* TreeViewModel::decode_model_index(const QModelIndex& index) const {
+    return static_cast<mailer::TreeNode*>(index.internalPointer());
 }
 
 QModelIndex TreeViewModel::index(int row, int column, const QModelIndex& parent) const {
     assert(m_mailer_ui_state);
     assert(column == 0);
 
-    mailer::MailerUIState::TreeNode* parent_node = nullptr;
+    mailer::TreeNode* parent_node = nullptr;
 
     if (!parent.isValid()) {
         parent_node = &m_mailer_ui_state->m_root;
@@ -103,7 +103,7 @@ int TreeViewModel::rowCount(const QModelIndex& parent) const {
         return 0;
     }
 
-    mailer::MailerUIState::TreeNode* parent_node = nullptr;
+    mailer::TreeNode* parent_node = nullptr;
 
     if (!parent.isValid()) {
         parent_node = m_mailer_ui_state->tree_root();
@@ -203,7 +203,7 @@ bool TreeViewModel::dropMimeData(const QMimeData* data,
         return false;
     }
 
-    std::vector<mailer::MailerUIState::TreeNode*> source_nodes;
+    std::vector<mailer::TreeNode*> source_nodes;
 
     const auto byte_array = data->data(DRAGGED_INDEXES_MIME_TYPE);
     const auto keys = QString::fromUtf8(byte_array).split(",", Qt::SkipEmptyParts);

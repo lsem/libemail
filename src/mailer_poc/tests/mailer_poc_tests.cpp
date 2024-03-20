@@ -488,10 +488,13 @@ TEST(mailer_poc_tests, removing_people_from_converstation_test) {
 TEST(mailer_poc_tests, routing_to_folder_test) {
     mailer::MailerUIState ui{"liubomyr.semkiv.test@gmail.com"};
 
+    mailer::TreeNode* combdn_folder;
+
     log_debug("ingesting first email");
     ui.process_email(make_email({"combdn@gmail.com"}, {"liubomyr.semkiv.test@gmail.com"},
                                 "Testing multi-contact grouping",
-                                "78C7A359-B513-496B-B140-66E5896DE6C4@gmail.com", {}));
+                                "78C7A359-B513-496B-B140-66E5896DE6C4@gmail.com", {}),
+                     &combdn_folder);
     ASSERT_EQ(
         R"([$root]
     [combdn@gmail.com]
@@ -500,10 +503,6 @@ TEST(mailer_poc_tests, routing_to_folder_test) {
         render_tree(ui, true));
 
     // Lets move into special folder.
-    auto root_children = ui.tree_root()->children;
-    ASSERT_EQ(root_children.size(), 1);
-    auto combdn_folder = root_children[0];
-    ASSERT_FALSE(combdn_folder->is_folder_node());
     ASSERT_EQ(combdn_folder->label, "combdn@gmail.com");
     ASSERT_EQ(combdn_folder->contact_groups.size(), 1);
 
@@ -544,12 +543,8 @@ TEST(mailer_poc_tests, routing_to_folder_test) {
 )",
         render_tree(ui, true));
 
-    auto combdn_thread_node = ui.tree_root()->children.back()->children.back();
-    ASSERT_EQ(combdn_folder, combdn_thread_node);
-    EXPECT_EQ(combdn_thread_node->label, "combdn@gmail.com");
-
     // Lets move combdn thread to to root and back
-    ui.move_items({combdn_thread_node}, ui.tree_root(), std::nullopt);
+    ui.move_items({combdn_folder}, ui.tree_root(), std::nullopt);
     ASSERT_EQ(
         R"([$root]
     [Friends]
@@ -558,7 +553,7 @@ TEST(mailer_poc_tests, routing_to_folder_test) {
 )",
         render_tree(ui, true));
 
-    ui.move_items({combdn_thread_node}, friends_node, std::nullopt);
+    ui.move_items({combdn_folder}, friends_node, std::nullopt);
     ASSERT_EQ(
         R"([$root]
     [Friends]
@@ -680,12 +675,13 @@ TEST(mailer_poc_tests, adding_email_to_precreated_folder) {
 )",
         render_tree(ui, true));
 
-    friends_node->contact_groups.insert(set<string>({"combdn@gmail.com"}));
-    ui.rebuild_caches_after_tree_reconstruction();
+    ui.add_contact_group_to_folder(friends_node, {"combdn@gmail.com"});
 
+    mailer::TreeNode* combdn_folder;
     ui.process_email(make_email({"combdn@gmail.com"}, {"liubomyr.semkiv.test@gmail.com"},
                                 "Testing multi-contact grouping",
-                                "78C7A359-B513-496B-B140-66E5896DE6C4@gmail.com", {}));
+                                "78C7A359-B513-496B-B140-66E5896DE6C4@gmail.com", {}),
+                     &combdn_folder);
     ASSERT_EQ(
         R"([$root]
     [Friends]
@@ -693,9 +689,6 @@ TEST(mailer_poc_tests, adding_email_to_precreated_folder) {
             Testing multi-contact grouping (emails: 1)
 )",
         render_tree(ui, true));
-
-    auto combdn_folder = friends_node->children.back();
-    ASSERT_EQ(combdn_folder->label, "combdn@gmail.com");
 
     ui.move_items({combdn_folder}, ui.tree_root(), std::nullopt);
 

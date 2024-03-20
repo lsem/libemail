@@ -100,7 +100,7 @@ void MainWindow::login_clicked() {
 void MainWindow::selected_folder_changed(const QModelIndex& curr, const QModelIndex& prev) {
     qDebug("selected folder changed: %d", curr.row());
     // TODO: how we are supposed to handle all of this in the corresponding thread?
-    auto* selected_node = static_cast<mailer::MailerUIState::TreeNode*>(curr.internalPointer());
+    auto* selected_node = static_cast<mailer::TreeNode*>(curr.internalPointer());
     assert(selected_node);
     // TODO: what thread it should be?
     m_mailer_poc->selected_folder_changed(selected_node);
@@ -109,10 +109,9 @@ void MainWindow::selected_folder_changed(const QModelIndex& curr, const QModelIn
 
 void MainWindow::new_folder(const QModelIndex& parent_index) {
     log_debug("mainWindow new folder");
-    auto* parent_node =
-        parent_index.isValid()
-            ? static_cast<mailer::MailerUIState::TreeNode*>(parent_index.internalPointer())
-            : m_mailer_poc->get_ui_model()->tree_root();
+    auto* parent_node = parent_index.isValid()
+                            ? static_cast<mailer::TreeNode*>(parent_index.internalPointer())
+                            : m_mailer_poc->get_ui_model()->tree_root();
     dispatch([this, parent_node] {
         m_tree_view_model->begin_reset();
         auto new_node = m_mailer_poc->make_folder(parent_node, "New folder");
@@ -126,8 +125,8 @@ void MainWindow::new_folder(const QModelIndex& parent_index) {
     });
 }
 
-void MainWindow::items_move_requested(std::vector<mailer::MailerUIState::TreeNode*> source_nodes,
-                                      mailer::MailerUIState::TreeNode* destination,
+void MainWindow::items_move_requested(std::vector<mailer::TreeNode*> source_nodes,
+                                      mailer::TreeNode* destination,
                                       std::optional<size_t> row) {
     qDebug() << "MainWindow::items_move_requested";
     m_mailer_poc->move_items(source_nodes, destination, row);
@@ -179,7 +178,7 @@ void MainWindow::update_state(std::function<void()> fn) {
     dispatch([fn = std::move(fn)] {
         log_debug("calling update state fn from UI thead -- begin");
         fn();
-        log_debug("calling update state fn from UI thead -- endx");
+        log_debug("calling update state fn from UI thead -- end");
     });
 }
 

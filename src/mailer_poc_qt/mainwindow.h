@@ -46,8 +46,8 @@ class MainWindow : public QMainWindow, public mailer::MailerPOCCallbacks {
     void login_clicked();
     void selected_folder_changed(const QModelIndex&, const QModelIndex&);
     void new_folder(const QModelIndex& parent_index);
-    void items_move_requested(std::vector<mailer::MailerUIState::TreeNode*> source_nodes,
-                              mailer::MailerUIState::TreeNode* destination,
+    void items_move_requested(std::vector<mailer::TreeNode*> source_nodes,
+                              mailer::TreeNode* destination,
                               std::optional<size_t> row);
 
    public:  // mailer::MailerPOCCallbacks

@@ -19,6 +19,81 @@ using storage_type = uint32_t;
 enum { folder_node = 0x01 };
 };  // namespace TreeNodeFlags
 
+// ThreadRef represents thread in a tree. From it we can render UI for thread. Consists of
+// subject and additional aggregated information.
+struct ThreadRef {
+    string label;
+    types::MessageID thread_id;
+    size_t emails_count = 0;
+    size_t attachments_count = 0;
+};
+
+// TreeNode is either Folder node (has label and children) or Leaf Node (has ref).
+struct TreeNode {
+    string label;
+    TreeNode* parent = nullptr;
+    vector<TreeNode*> children;
+    vector<ThreadRef> threads_refs;
+    TreeNodeFlags::storage_type flags = 0;
+
+    // QUESTION: is optional the same as unique_ptr in terms of memory footprint?
+    set<set<string>> contact_groups;
+
+    TreeNode() = delete;
+
+    explicit TreeNode(string label) : label(std::move(label)) {
+        log_info("created node {}", (void*)this);
+    }
+
+    explicit TreeNode(string label,
+                      TreeNode* parent,
+                      vector<TreeNode*> children,
+                      TreeNodeFlags::storage_type flags = 0)
+        : label(std::move(label)), parent(parent), children(std::move(children)), flags(flags) {
+        log_info("created node {}", (void*)this);
+    }
+
+    ~TreeNode() {
+        log_info("deleting node {}", (void*)this);
+        for (auto c : children) {
+            delete c;
+        }
+    }
+
+    bool is_folder_node() const { return flags & TreeNodeFlags::folder_node != 0; }
+
+    TreeNode(const TreeNode&) = delete;
+    TreeNode& operator=(const TreeNode&) = delete;
+
+    TreeNode* remove_child(TreeNode* child) {
+        children.erase(std::remove(children.begin(), children.end(), child), children.end());
+        return child;
+    }
+
+    // Returns what is an index of current node in parent node.
+    int child_index() const {
+        if (!parent) {
+            // parent itself
+            return 0;
+        } else {
+            for (size_t i = 0; i < parent->children.size(); ++i) {
+                if (parent->children[i] == this) {
+                    return i;
+                }
+            }
+            return -1;
+        }
+    }
+
+    using ThreadsIterator = vector<ThreadRef>::iterator;
+
+    ThreadsIterator find_thread_by_id(const MessageID& id) {
+        return std::find_if(threads_refs.begin(), threads_refs.end(),
+                            [&id](auto& x) { return x.thread_id == id; });
+    }
+    ThreadsIterator thread_refs_end() { return threads_refs.end(); }
+};
+
 // A class responsible for processing emails. When email arrives we execute this function to add it
 // to the UI. After processing of it, the model of the UI may be changed so one can rerender it.
 class MailerUIState {
@@ -32,7 +107,8 @@ class MailerUIState {
 
     void set_own_address(string s) { m_own_address = s; }
 
-    void process_email(const types::MailboxEmail& email) {
+    void process_email(const types::MailboxEmail& email,
+                       TreeNode** thread_parent_folder = nullptr) {
         // When emails are added the only we do is that we create folders or remove folders.
         // That's all.
         if (!email.is_valid) {
@@ -173,6 +249,10 @@ class MailerUIState {
             // TODO: should we put it to the index?
         }
 
+        if (thread_parent_folder) {
+            *thread_parent_folder = group_folder_node;
+        }
+
         log_debug("created (or alreayd have) a folder with a name {}", group_folder_name);
 
         if (thread_id_opt) {
@@ -217,15 +297,6 @@ class MailerUIState {
         }
     }
 
-    // ThreadRef represents thread in a tree. From it we can render UI for thread. Consists of
-    // subject and additional aggregated information.
-    struct ThreadRef {
-        string label;
-        types::MessageID thread_id;
-        size_t emails_count = 0;
-        size_t attachments_count = 0;
-    };
-
     void walk_tree_preoder(std::function<void(const string&)> enter_folder_cb,
                            std::function<void(const string&)> exit_folder_cb,
                            std::function<void(const ThreadRef&)> encounter_ref) const {
@@ -233,72 +304,6 @@ class MailerUIState {
     }
 
    public:
-    // TreeNode is either Folder node (has label and children) or Leaf Node (has ref).
-    struct TreeNode {
-        string label;
-        TreeNode* parent = nullptr;
-        vector<TreeNode*> children;
-        vector<ThreadRef> threads_refs;
-        TreeNodeFlags::storage_type flags = 0;
-
-        // QUESTION: is optional the same as unique_ptr in terms of memory footprint?
-        set<set<string>> contact_groups;
-
-        TreeNode() = delete;
-
-        explicit TreeNode(string label) : label(std::move(label)) {
-            log_info("created node {}", (void*)this);
-        }
-
-        explicit TreeNode(string label,
-                          TreeNode* parent,
-                          vector<TreeNode*> children,
-                          TreeNodeFlags::storage_type flags = 0)
-            : label(std::move(label)), parent(parent), children(std::move(children)), flags(flags) {
-            log_info("created node {}", (void*)this);
-        }
-
-        ~TreeNode() {
-            log_info("deleting node {}", (void*)this);
-            for (auto c : children) {
-                delete c;
-            }
-        }
-
-        bool is_folder_node() const { return flags & TreeNodeFlags::folder_node != 0; }
-
-        TreeNode(const TreeNode&) = delete;
-        TreeNode& operator=(const TreeNode&) = delete;
-
-        TreeNode* remove_child(TreeNode* child) {
-            children.erase(std::remove(children.begin(), children.end(), child), children.end());
-            return child;
-        }
-
-        // Returns what is an index of current node in parent node.
-        int child_index() const {
-            if (!parent) {
-                // parent itself
-                return 0;
-            } else {
-                for (size_t i = 0; i < parent->children.size(); ++i) {
-                    if (parent->children[i] == this) {
-                        return i;
-                    }
-                }
-                return -1;
-            }
-        }
-
-        using ThreadsIterator = vector<ThreadRef>::iterator;
-
-        ThreadsIterator find_thread_by_id(const MessageID& id) {
-            return std::find_if(threads_refs.begin(), threads_refs.end(),
-                                [&id](auto& x) { return x.thread_id == id; });
-        }
-        ThreadsIterator thread_refs_end() { return threads_refs.end(); }
-    };
-
     void visit_preorder(TreeNode& node, const std::function<void(TreeNode&)>& fn) {
         fn(node);
         for (auto& c : node.children) {
@@ -414,6 +419,13 @@ class MailerUIState {
         assert(parent);
         parent->children.emplace_back(new TreeNode{label, parent, {}, TreeNodeFlags::folder_node});
         return parent->children.back();
+    }
+
+    void add_contact_group_to_folder(TreeNode* folder_node, set<string> contact_group) {
+        assert(folder_node);
+        assert(folder_node->is_folder_node());
+        folder_node->contact_groups.insert(contact_group);
+        add_contact_group_to_index(contact_group, folder_node);
     }
 
     void move_folder(TreeNode* from, TreeNode* to, optional<size_t> row) {

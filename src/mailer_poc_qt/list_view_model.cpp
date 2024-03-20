@@ -1,6 +1,6 @@
 #include "list_view_model.h"
 
-vector<string> collect_threads(mailer::MailerUIState::TreeNode* node) {
+vector<string> collect_threads(mailer::TreeNode* node) {
     if (!node) {
         return {};
     }

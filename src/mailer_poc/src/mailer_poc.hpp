@@ -30,11 +30,10 @@ class MailerPOC {
     virtual void async_run(async_callback<void> cb) = 0;
     virtual void set_callbacks_if(MailerPOCCallbacks* callbacks) = 0;
     virtual void visit_model_locked(std::function<void(const mailer::MailerUIState&)> cb) = 0;
-    virtual void selected_folder_changed(MailerUIState::TreeNode* selected_node) = 0;
-    virtual MailerUIState::TreeNode* make_folder(MailerUIState::TreeNode* parent,
-                                                 string folder_name) = 0;
-    virtual void move_items(std::vector<MailerUIState::TreeNode*> source_nodes,
-                            MailerUIState::TreeNode* dest,
+    virtual void selected_folder_changed(TreeNode* selected_node) = 0;
+    virtual TreeNode* make_folder(TreeNode* parent, string folder_name) = 0;
+    virtual void move_items(std::vector<TreeNode*> source_nodes,
+                            TreeNode* dest,
                             optional<size_t> dest_row) = 0;
     virtual MailerUIState* get_ui_model() = 0;
 };
