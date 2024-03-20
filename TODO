@@ -4,5 +4,6 @@
 4) Employ timeouts for all operations on imap client. So any commmand we issue to the server can be timed out. Think about deadlines instead of timeouts. Before any release all operations should be constrained by timeout with descent handling.
 5) Write unit tests for application. Similarly how appcore has unit tests, before going into production, we should have descent unit tests coverege. if we can write 3 unit tests a day, then 10 total days (30 evenings) can be devoted to write 30 main unit tests for the app. This would require controlling time and maybe some framework.
 6) Feature: emails list (inlcuding for parent folders).
-7) Feature: custom folders and drag-and-drop.
+7) Feature: custom folders and drag-and-drop. -- DONE.
+8) Feature: save and restore of user folders.
 8) Pulling data from server.

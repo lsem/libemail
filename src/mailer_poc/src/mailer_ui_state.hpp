@@ -39,8 +39,8 @@ struct TreeNode {
     // QUESTION: is optional the same as unique_ptr in terms of memory footprint?
     set<set<string>> contact_groups;
 
-    TreeNode() = delete;
 
+    explicit TreeNode() {}
     explicit TreeNode(string label) : label(std::move(label)) {
         log_info("created node {}", (void*)this);
     }
@@ -94,6 +94,14 @@ struct TreeNode {
     ThreadsIterator thread_refs_end() { return threads_refs.end(); }
 };
 
+struct MailerUIStateParent {
+   protected:
+    ~MailerUIStateParent() = default;
+
+   public:
+    virtual void on_tree_changed() = 0;
+};
+
 // A class responsible for processing emails. When email arrives we execute this function to add it
 // to the UI. After processing of it, the model of the UI may be changed so one can rerender it.
 class MailerUIState {
@@ -104,6 +112,8 @@ class MailerUIState {
         m_root.parent = nullptr;
         m_root.flags = TreeNodeFlags::folder_node;
     }
+
+    void notify_change() { m_parent->on_tree_changed(); }
 
     void set_own_address(string s) { m_own_address = s; }
 
@@ -418,6 +428,7 @@ class MailerUIState {
     TreeNode* make_folder(TreeNode* parent, string label) {
         assert(parent);
         parent->children.emplace_back(new TreeNode{label, parent, {}, TreeNodeFlags::folder_node});
+        log_info("created folder node with label: {}", label);
         return parent->children.back();
     }
 
@@ -468,7 +479,7 @@ class MailerUIState {
 
     void move_items(std::vector<TreeNode*> source_nodes,
                     TreeNode* destination,
-                    optional<size_t> dest_row) {
+                    optional<size_t> dest_row = {}) {
         if (!destination->is_folder_node()) {
             log_error("attempt to move not into folder node");
             // This must be some UI error but this layer should protect itself from usage mistake.
@@ -487,6 +498,8 @@ class MailerUIState {
 
     TreeNode* tree_root() { return &m_root; }
 
+    void attach_parent(MailerUIStateParent* parent) { m_parent = parent; }
+
    public:
     types::EmailAddress m_own_address;
     TreeNode m_root;
@@ -494,6 +507,7 @@ class MailerUIState {
     //    map<MessageID, TreeNode*> m_message_to_tree_index;
     map<MessageID, TreeNode*> m_thread_id_to_tree_index;
     map<set<types::EmailAddress>, TreeNode*> m_contact_group_to_node_index;
+    MailerUIStateParent* m_parent;
 };
 
 }  // namespace mailer

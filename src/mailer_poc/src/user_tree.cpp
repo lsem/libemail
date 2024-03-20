@@ -174,7 +174,7 @@ void serialize_node_to_json(const Node& node, Writer& writer) {
     writer.EndObject();
 }
 
-expected<void> save_to_file(const Node& root, std::filesystem::path p) {
+expected<void> save_tree_to_file(const Node& root, std::filesystem::path p) {
     rapidjson::StringBuffer s;
     rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(s);
 

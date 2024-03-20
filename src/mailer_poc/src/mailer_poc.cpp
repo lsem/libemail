@@ -27,6 +27,8 @@ using std::string;
 using std::vector;
 
 namespace {
+constexpr auto FOLDERS_PATH = "folders.json";
+
 string render_tree(const mailer::MailerUIState& ui_state) {
     std::stringstream ss;
 
@@ -93,12 +95,20 @@ struct MailIDFilter {
     }
 };
 
-class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
+class MailerPOC_impl : public MailerPOC,
+                       public EnableUseThis<MailerPOC_impl>,
+                       public MailerUIStateParent {
    public:
     explicit MailerPOC_impl(asio::io_context& ctx) : m_ctx(ctx), m_callbacks(nullptr) {}
     ~MailerPOC_impl() { emailkit::finalize(); }
 
+   public:  // MailerUIStateParent
+    void on_tree_changed() override { on_tree_structure_changed(); }
+
+   public:
     bool initialize() {
+        m_ui_state.attach_parent(this);
+
         m_imap_client = emailkit::imap_client::make_imap_client(m_ctx);
         if (!m_imap_client) {
             log_error("failed creating imap client");
@@ -153,13 +163,31 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
 
     void set_callbacks_if(MailerPOCCallbacks* callbacks) override { m_callbacks = callbacks; }
 
+    void on_tree_structure_changed() {
+        auto root_or_err = uitree_to_user_tree(get_ui_model()->tree_root());
+        if (!root_or_err) {
+            // TODO: more error reporting?
+            log_error("failed converting uitree to user tree: {}", root_or_err.error());
+            return;
+        }
+        if (auto void_or_err = user_tree::save_tree_to_file(*root_or_err, FOLDERS_PATH);
+            !void_or_err) {
+            log_error("failed saving folders into a file: {}", void_or_err.error());
+        }
+    }
+
     void user_tree_to_ui_tree_it(const user_tree::Node& src_node, TreeNode* dest_node) {
-        auto new_node = make_folder(dest_node, src_node.label);
-        new_node->contact_groups =
+        // TODO: dest_node myst be precreated so we just need to turn dest_node into src_node
+        dest_node->label = src_node.label;
+        dest_node->flags = src_node.flags;
+        dest_node->contact_groups =
             set<set<string>>(src_node.contact_groups.begin(), src_node.contact_groups.end());
-        assert(new_node->is_folder_node());
+        assert(dest_node->is_folder_node());
         for (auto& c : src_node.children) {
-            user_tree_to_ui_tree_it(*c, new_node);
+            auto child_dest_node = new TreeNode{};
+            child_dest_node->parent = dest_node;
+            dest_node->children.emplace_back(child_dest_node);
+            user_tree_to_ui_tree_it(*c, child_dest_node);
         }
     }
 
@@ -174,9 +202,11 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
                                                            src_node->contact_groups.end());
 
             for (auto& c : src_node->children) {
-                auto child_dest_node = std::make_unique<user_tree::Node>();
-                save_tree_it(c, *child_dest_node);
-                dest_node.children.emplace_back(std::move(child_dest_node));
+                if (c->is_folder_node()) {
+                    auto child_dest_node = std::make_unique<user_tree::Node>();
+                    save_tree_it(c, *child_dest_node);
+                    dest_node.children.emplace_back(std::move(child_dest_node));
+                }
             }
         }
 
@@ -198,23 +228,15 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
     }
 
     void initialize_tree() {
-        const std::filesystem::path user_tree_file_path = "./sample_tree.json";
-        auto root_or_err = user_tree::load_tree_from_file(user_tree_file_path);
-        if (root_or_err) {
-            log_info("loaded initial tree:");
-            user_tree::print_tree(*root_or_err);
-            user_tree_to_ui_tree_it(*root_or_err, get_ui_model()->tree_root());
-            get_ui_model()->rebuild_caches_after_tree_reconstruction();
-
-            auto root_or_err = uitree_to_user_tree(get_ui_model()->tree_root());
-            if (!root_or_err) {
-                log_error("fialed converting uitree to user tree");
-            }
-            user_tree::save_to_file(*root_or_err, "sample_tree_2.json");
-        } else {
-            // TODO: revise this decision.
+        auto root_or_err = user_tree::load_tree_from_file(FOLDERS_PATH);
+        if (!root_or_err) {
             log_warning("fialed loading tree: {}", root_or_err.error());
+            return;
         }
+        log_info("loaded initial tree:");
+        user_tree::print_tree(*root_or_err);
+        user_tree_to_ui_tree_it(*root_or_err, get_ui_model()->tree_root());
+        get_ui_model()->rebuild_caches_after_tree_reconstruction();
     }
 
     void visit_model_locked(std::function<void(const mailer::MailerUIState&)> cb) override {
@@ -234,8 +256,14 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
         // }
     }
 
-    TreeNode* make_folder(TreeNode* parent, string folder_name) override {
+    TreeNode* make_folder__dont_notify(TreeNode* parent, string folder_name) {
         return m_ui_state.make_folder(parent, folder_name);
+    }
+
+    TreeNode* make_folder(TreeNode* parent, string folder_name) override {
+        auto result = make_folder__dont_notify(parent, folder_name);
+        on_tree_structure_changed();
+        return result;
     }
 
     void move_items(std::vector<mailer::TreeNode*> source_nodes,
@@ -249,6 +277,13 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
         m_ui_state.move_items(source_nodes, dest, dest_row);
         log_info("tree after: {}", render_tree(m_ui_state));
         m_callbacks->tree_model_changed();
+
+        on_tree_structure_changed();
+
+        // if (std::any_of(source_nodes.begin(), source_nodes.end(),
+        //                 [](auto& x) { return x->is_folder_node(); })) {
+        //     on_tree_structure_changed();
+        // }
     }
 
     MailerUIState* get_ui_model() { return &m_ui_state; }
@@ -597,7 +632,7 @@ class MailerPOC_impl : public MailerPOC, public EnableUseThis<MailerPOC_impl> {
     std::shared_ptr<emailkit::google_auth_t> m_google_auth;
     std::shared_ptr<emailkit::imap_client::imap_client_t> m_imap_client;
 
-    MailerUIState m_ui_state{"liubomyr.semkiv.test@gmail.com"};  // TODO: we have this during login!
+    MailerUIState m_ui_state{""};
     std::mutex m_ui_state_mutex;
 
     MailIDFilter m_idfilter;

@@ -147,7 +147,9 @@ bool TreeViewModel::setData(const QModelIndex& index,
         return false;
     }
     auto node = decode_model_index(index);
-    node->label = new_value;
+    node->label = std::move(new_value);
+    m_mailer_ui_state->notify_change();
+
     return true;
 }
 

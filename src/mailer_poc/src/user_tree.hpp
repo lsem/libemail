@@ -14,7 +14,7 @@ struct Node {
 };
 
 expected<Node> load_tree_from_file(std::filesystem::path p);
-expected<void> save_to_file(const Node& root, std::filesystem::path p);
+expected<void> save_tree_to_file(const Node& root, std::filesystem::path p);
 void print_tree(const Node&);
 
 }  // namespace mailer::user_tree
