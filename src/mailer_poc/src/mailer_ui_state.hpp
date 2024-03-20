@@ -158,6 +158,9 @@ class MailerUIState {
             log_info("routing: found node for contact group {} in the index: {}", participants,
                      it->second->label);
             group_folder_node = create_path(it->second, {group_folder_name});
+            group_folder_node->contact_groups.insert(participants);
+            log_info("group_folder_node->contact_groups size: {}",
+                     group_folder_node->contact_groups.size());
             assert(!group_folder_node->is_folder_node());
         } else {
             log_info(
@@ -443,6 +446,7 @@ class MailerUIState {
         // Because node itself is not changed, only parent. But if moved node is non-folder, then
         // now it is in different folder and the index should be updated.
         if (!from->is_folder_node()) {
+            log_info("contact groups size: {}", from->contact_groups.size());
             assert(from->contact_groups.size() == 1);
             old_parent->contact_groups.erase(*from->contact_groups.begin());
             to->contact_groups.insert(*from->contact_groups.begin());
