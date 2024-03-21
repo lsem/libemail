@@ -314,7 +314,7 @@ class MailerUIState {
     }
 
    public:
-    void visit_preorder(TreeNode& node, const std::function<void(TreeNode&)>& fn) {
+    static void visit_preorder(TreeNode& node, const std::function<void(TreeNode&)>& fn) {
         fn(node);
         for (auto& c : node.children) {
             visit_preorder(*c, fn);
