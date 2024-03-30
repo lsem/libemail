@@ -19,6 +19,9 @@ TreeView::TreeView(QWidget* parent) : QTreeView(parent) {
     m_add_folder_action = new QAction("Add folder", this);
     m_context_menu->addAction(m_add_folder_action);
 
+    m_folder_item_context_menu = new QMenu(this);
+    m_contact_group_item_context_menu = new QMenu(this);
+
     connect(m_add_folder_action, SIGNAL(triggered()), this, SLOT(create_folder_action_triggered()));
 
     // I dislike how Qt does autoexoansion and don't know how to control it so I disable expansion
@@ -30,6 +33,17 @@ TreeView::TreeView(QWidget* parent) : QTreeView(parent) {
 void TreeView::create_folder_action_triggered() {
     qDebug("Emitting signal");
     emit new_folder(m_clicked_index);
+}
+
+void TreeView::tree_menu_changed(QMenu* menu) {
+    // TODO: delete previous menu?
+    m_tree_menu = menu;
+
+    if (m_move_to_folder_action) {
+        m_context_menu->removeAction(m_move_to_folder_action);
+    }
+
+    m_move_to_folder_action = m_context_menu->addMenu(m_tree_menu);
 }
 
 void TreeView::on_context_menu_requested(const QPoint& pt) {

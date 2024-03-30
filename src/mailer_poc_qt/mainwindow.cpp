@@ -21,6 +21,27 @@ bool launch_system_browser(std::string uri) {
 #endif
 }
 
+QMenu* build_menu_tree(QMenu* dest_menu, mailer::TreeNode& node, bool is_root) {
+    if (node.is_folder_node()) {
+        auto has_subfolders = std::any_of(node.children.begin(), node.children.end(),
+                                          [](auto& x) { return x->is_folder_node(); });
+        if (has_subfolders) {
+            QMenu* this_submenu = dest_menu->addMenu(is_root ? "Move to" : node.label.c_str());
+            for (auto* c : node.children) {
+                build_menu_tree(this_submenu, *c, false);
+            }
+            return this_submenu;
+        } else {
+            // leaf node.
+            auto action = new QAction(node.label.c_str());
+            dest_menu->addAction(action);
+        }
+        return nullptr;
+    } else {
+        return nullptr;
+    }
+}
+
 }  // namespace
 
 void DispatchUILambdaEvent::dispatch_to(QObject* dest, std::function<void()> fn) {
@@ -89,6 +110,14 @@ MainWindow::MainWindow(QWidget* parent, std::shared_ptr<mailer::MailerPOC> maile
 
     m_tree_context_menu = new QMenu(this);
     m_tree_context_menu->addAction(new QAction("New folder", this));
+
+    m_folder_context_menu = new QMenu(this);
+    m_contact_group_menu = new QMenu(this);
+
+    // Folder context menu:
+    //       Remove folder (+undo), content goes to default location.
+    //  Thread context menu:
+    //       Move to -- tree is encoded as context meny,
 }
 
 void MainWindow::login_clicked() {
@@ -164,13 +193,20 @@ void MainWindow::tree_about_to_change() {
 }
 
 void MainWindow::tree_model_changed() {
-    log_debug("tree model changed");
+    log_warning("tree model changed");
     dispatch([this] {
         m_tree_view_model->end_reset();
         m_list_view_model->end_reset();
 
         log_debug("expanding tree recursively after update");
         m_tree_view->expand_entire_tree();
+
+        if (m_move_to_menu) {
+            delete m_move_to_menu;
+        }
+        m_move_to_menu = new QMenu();
+        m_tree_view->tree_menu_changed(
+            build_menu_tree(m_move_to_menu, *m_mailer_poc->get_ui_model()->tree_root(), true));
     });
 }
 

@@ -279,11 +279,6 @@ class MailerPOC_impl : public MailerPOC,
         m_callbacks->tree_model_changed();
 
         on_tree_structure_changed();
-
-        // if (std::any_of(source_nodes.begin(), source_nodes.end(),
-        //                 [](auto& x) { return x->is_folder_node(); })) {
-        //     on_tree_structure_changed();
-        // }
     }
 
     MailerUIState* get_ui_model() override { return &m_ui_state; }
@@ -530,8 +525,6 @@ class MailerPOC_impl : public MailerPOC,
         async_download_emails_for_mailbox_sequential_it(from, to, {}, std::move(cb));
     }
 
-    // |----------|------------|--------------|-----|
-
     // TODO: what if new email is received on the server while we are downloading folder?
     void async_download_emails_for_mailbox_it(int from,
                                               int N,
@@ -646,13 +639,5 @@ std::shared_ptr<MailerPOC> make_mailer_poc(asio::io_context& ctx) {
     }
     return inst;
 }
-
-// TODO NEXT FEATURES:
-// 1. Emails list (thread) representation for UI and API for working with them.
-// 2. Receiving new emails as they arrive and rebuild UI accordingly.
-// 3. Folders for contacts.
-// 4. Sending emails via SMTP and saving custom contact book.
-// 5. Caching, UIDs, invalidating, etc..
-// 6. Custom standards review, capabilities, useful extensions, etc..
 
 }  // namespace mailer

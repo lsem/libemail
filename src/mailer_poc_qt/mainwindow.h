@@ -76,6 +76,9 @@ class MainWindow : public QMainWindow, public mailer::MailerPOCCallbacks {
     QAction* m_login_action;
     QMenu* m_actions_menu;
     QMenu* m_tree_context_menu;
+    QMenu* m_folder_context_menu;
+    QMenu* m_contact_group_menu;
+    QMenu* m_move_to_menu = nullptr;
 
     QStackedWidget* m_stacked_widget;
 

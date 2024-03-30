@@ -5,5 +5,15 @@
 5) Write unit tests for application. Similarly how appcore has unit tests, before going into production, we should have descent unit tests coverege. if we can write 3 unit tests a day, then 10 total days (30 evenings) can be devoted to write 30 main unit tests for the app. This would require controlling time and maybe some framework.
 6) Feature: emails list (inlcuding for parent folders).
 7) Feature: custom folders and drag-and-drop. -- DONE.
-8) Feature: save and restore of user folders.
-8) Pulling data from server.
+8) Feature: save and restore of user folders -- DONE.
+10) Feature: downloading all emails from the server into separate folders:
+     [Friends]
+         [combdn@gmail.com]
+     [Inbox]
+     [Archive]
+     [Sent]
+     [Drafts]
+     
+11) Mainwindow responsible for creating qmenu which encodes tree. It should be listening for
+   changes in a tree and rebuild menu on change. Then, this menu will be set into tree_view.
+9) Pulling data from server.
