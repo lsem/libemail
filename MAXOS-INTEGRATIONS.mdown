@@ -1,0 +1,8 @@
+
+
+# Useful links
+https://brightdigit.com/tutorials/integrating-c-plus-plus-swift/
+https://www.swift.org/documentation/cxx-interop/project-build-setup/#mixing-swift-and-c-using-xcode
+https://deleonlangure.medium.com/include-external-libraries-on-xcode-for-c-515ad5757bd
+https://auberginesolutions.com/blog/creating-private-cocoapods-libraries-mastering-dependency-management/
+https://www.swift.org/documentation/cxx-interop/
