@@ -34,5 +34,5 @@ add_subdirectory(playground)
 add_subdirectory(src/http_srv)
 add_subdirectory(src/mailer_poc)
 add_subdirectory(src/mailer_poc_cli)
-add_subdirectory(src/mailer_poc_qt)
+#add_subdirectory(src/mailer_poc_qt)
 

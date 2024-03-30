@@ -286,7 +286,7 @@ class MailerPOC_impl : public MailerPOC,
         // }
     }
 
-    MailerUIState* get_ui_model() { return &m_ui_state; }
+    MailerUIState* get_ui_model() override { return &m_ui_state; }
 
     void run_background_activities() {
         async_callback<void> cb = [](std::error_code ec) {
