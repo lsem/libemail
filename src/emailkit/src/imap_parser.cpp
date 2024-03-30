@@ -205,10 +205,10 @@ void apg_invoke_parser(uint32_t starting_rule,
         parser = ::vpParserCtor(&apg_exception, vpImapParserApgImplInit);
         log_debug("constructing APG parser object -- done");
 
-        if (std::getenv("MMAP_TRACE")) {
-            vpTrace = vpTraceCtor(parser);
-            vTraceConfigGen(vpTrace, NULL);
-        }
+        // if (std::getenv("MMAP_TRACE")) {
+        //     vpTrace = vpTraceCtor(parser);
+        //     vTraceConfigGen(vpTrace, NULL);
+        // }
 
         ::vParserSetUdtCallback(parser, IMAP_PARSER_APG_IMPL_U_LITERAL_SIZE,
                                 &udt_literal_size_callback);
@@ -424,10 +424,10 @@ std::error_code apg_invoke_parser__ast(
         parser = ::vpParserCtor(&apg_exception, vpImapParserApgImplInit);
         log_debug("constructing APG parser object -- done");
 
-        if (std::getenv("MMAP_TRACE")) {
-            vpTrace = vpTraceCtor(parser);
-            vTraceConfigGen(vpTrace, NULL);
-        }
+        // if (std::getenv("MMAP_TRACE")) {
+        //     vpTrace = vpTraceCtor(parser);
+        //     vTraceConfigGen(vpTrace, NULL);
+        // }
 
         log_debug("constructing APG AST object");
         ast = ::vpAstCtor(parser);

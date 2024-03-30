@@ -17,7 +17,7 @@ namespace emailkit::imap_client {
 
 namespace {
 // This actually is not going to be used at all.
-const emailkit::types::EmailAddress default_mail_addres{.raw_email_address = "user@example.com"};
+const emailkit::types::EmailAddress default_mail_addres{"user@example.com"};
 
 expected<void> capture_headers(imap_parser::rfc822::RFC822ParserStateHandle state,
                                emailkit::types::MailboxEmail& mail) {
@@ -168,7 +168,8 @@ expected<void> capture_attachments_metadata(const imap_parser::wip::Body& body,
         auto& one_part = *std::get<std::unique_ptr<BodyType1Part>>(body);
         if (auto* basic_part = std::get_if<BodyTypeBasic>(&one_part.part_body)) {
             log_warning("this must be rare: the only single part is basic");
-            mail.attachments.emplace_back(basic_part->media_type, basic_part->media_subtype);
+            mail.attachments.emplace_back(emailkit::types::Attachment{
+                basic_part->media_type, basic_part->media_subtype, {}, {}});
             capture_attachment_name(basic_part->body_fields.params, mail.attachments.back().name);
         }
     } else {
@@ -182,10 +183,11 @@ expected<void> capture_attachments_metadata(const imap_parser::wip::Body& body,
                     auto& one_part = *std::get<std::unique_ptr<BodyType1Part>>(subpart);
                     if (auto* text_part = std::get_if<BodyTypeText>(&one_part.part_body)) {
                         // TODO: use a constant.
-                        mail.attachments.emplace_back("TEXT", text_part->media_subtype);
+                        mail.attachments.emplace_back(
+                            emailkit::types::Attachment{"TEXT", text_part->media_subtype, "", {}});
                     } else if (auto* basic_part = std::get_if<BodyTypeBasic>(&one_part.part_body)) {
-                        mail.attachments.emplace_back(basic_part->media_type,
-                                                      basic_part->media_subtype);
+                        mail.attachments.emplace_back(emailkit::types::Attachment{
+                            basic_part->media_type, basic_part->media_subtype, {}, {}});
                         capture_attachment_name(basic_part->body_fields.params,
                                                 mail.attachments.back().name);
                         mail.attachments.back().octets = basic_part->body_fields.octets;

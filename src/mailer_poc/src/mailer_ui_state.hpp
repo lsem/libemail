@@ -39,7 +39,6 @@ struct TreeNode {
     // QUESTION: is optional the same as unique_ptr in terms of memory footprint?
     set<set<string>> contact_groups;
 
-
     explicit TreeNode() {}
     explicit TreeNode(string label) : label(std::move(label)) {
         log_info("created node {}", (void*)this);
@@ -60,7 +59,7 @@ struct TreeNode {
         }
     }
 
-    bool is_folder_node() const { return flags & TreeNodeFlags::folder_node != 0; }
+    bool is_folder_node() const { return (flags & TreeNodeFlags::folder_node) != 0; }
 
     TreeNode(const TreeNode&) = delete;
     TreeNode& operator=(const TreeNode&) = delete;
