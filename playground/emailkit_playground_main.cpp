@@ -1,6 +1,6 @@
 #include <emailkit/global.hpp>
 #include <fmt/ranges.h>
-#include <emailapp-core/emailapp_core.hpp>
+// #include <emailapp-core/emailapp_core.hpp>
 #include <emailkit/emailkit.hpp>
 #include <emailkit/google_auth.hpp>
 #include <emailkit/http_srv.hpp>
@@ -145,12 +145,12 @@ void install_handlers() {}
 #endif
 
 
-class ConsoleContoller : public emailapp::core::EmailAppCoreCallbacks {
-   public:
-    virtual void async_provide_credentials(async_callback<std::vector<emailapp::core::Account>> cb) {
-        // ..
-    }
-};
+// class ConsoleContoller : public emailapp::core::EmailAppCoreCallbacks {
+//    public:
+//     virtual void async_provide_credentials(async_callback<std::vector<emailapp::core::Account>> cb) {
+//         // ..
+//     }
+// };
 
 int main() {
     install_handlers();
@@ -158,22 +158,22 @@ int main() {
 
     asio::io_context ctx;
 
-    ConsoleContoller controller;
+    // ConsoleContoller controller;
 
-    auto app = emailapp::core::make_emailapp_core(ctx, controller);
-    if (!app) {
-        log_error("failed creating app");
-        return -1;
-    }
-    log_info("test");
-    app->async_run([](std::error_code ec) {
-        if (ec) {
-            log_error("failed running app: {}", ec);
-            return;
-        }
+    // auto app = emailapp::core::make_emailapp_core(ctx, controller);
+    // if (!app) {
+    //     log_error("failed creating app");
+    //     return -1;
+    // }
+    // log_info("test");
+    // app->async_run([](std::error_code ec) {
+    //     if (ec) {
+    //         log_error("failed running app: {}", ec);
+    //         return;
+    //     }
 
-        log_info("application is running");
-    });
+    //     log_info("application is running");
+    // });
 
     ctx.run();
 

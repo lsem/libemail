@@ -7,13 +7,14 @@ cmake_minimum_required(VERSION 3.16)
 # https://gitlab.kitware.com/cmake/cmake/-/issues/15052
 # https://cmake.org/pipermail/cmake/2015-February/059891.html
 # https://cmake.org/cmake/help/latest/module/BundleUtilities.html
+# See this: https://discourse.cmake.org/t/how-to-install-an-external-project/888/4
 
 include(ExternalProject)
 include(GNUInstallDirs)
 
 
 set(compilers_override CC=${CMAKE_C_COMPILER} CXX=${CMAKE_CXX_COMPILER})
-set(superbuild_prefix ${CMAKE_BINARY_DIR}/install_prefix)
+set(superbuild_prefix ${CMAKE_INSTALL_PREFIX})
 set(libdir lib)
 set(libdir_abs_path ${superbuild_prefix}/${libdir})
 set(pkg_config_path ${libdir_abs_path}/pkgconfig)

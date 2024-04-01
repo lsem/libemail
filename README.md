@@ -7,7 +7,11 @@ https://doc.qt.io/qt-6.2/macos.html
 
  Ubuntu
 
-`cmake -B bld-debug -GNinja -DCMAKE_BUILD_TYPE=Debug`
+`
+cmake -B bld-debug -DCMAKE_PREFIX_PATH=~/ -GNinja -DCMAKE_BUILD_TYPE=Debug
+cmake --build bld-debug
+cmake --install bld-debug
+`
 
 ```
 git submodule init --recursive --update

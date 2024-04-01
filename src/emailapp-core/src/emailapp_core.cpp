@@ -111,7 +111,7 @@ class EmailAppCoreImpl : public EmailAppCore, public EnableUseThis<EmailAppCoreI
                 ASYNC_RETURN_ON_ERROR(ec, cb, "async list mailboxes failed");
                 log_info("executed list_mailboxes:\n{}",
                          fmt::join(result.raw_response.inbox_list, "\n"));
-
+		
                 // TODO: here we do select of hardcoded name which means 'default on this serverfor
                 // this user' but we should probably dig more into this.
                 this_.m_imap_client->async_select_mailbox(
