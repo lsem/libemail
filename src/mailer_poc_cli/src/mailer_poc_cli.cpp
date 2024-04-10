@@ -1,11 +1,11 @@
 #include <iostream>
+#include <asio/io_context.hpp>
+#include <asio/signal_set.hpp>
 
 #include <mailer_poc.hpp>
 
 int main() {
-    asio::io_context ctx;
-
-    auto mailer_poc = mailer::make_mailer_poc(ctx);
+    auto mailer_poc = mailer::make_mailer_poc();
     if (!mailer_poc) {
         log_error("failed creating mailer poc");
         return 1;
@@ -21,6 +21,14 @@ int main() {
     });
 
     log_info("starting mailer poc event loop");
-    ctx.run();
-    log_info("mailer poc event loop has finished");
+    mailer_poc->start_working_thread();
+
+    // TODO: now we need to wait somehow...
+    asio::io_context ctx;
+    asio::signal_set sset{ctx, SIGINT, SIGTERM};
+    sset.async_wait([&](std::error_code ec, int signal) {
+        // Now this could be be synchronized with MailerPOC's internal context by employing methold
+        // like run_in_event_loop().
+        mailer_poc->stop_working_thread();
+    });
 }

@@ -9,6 +9,9 @@
 #include <mutex>
 #include <set>
 #include <sstream>
+#include <thread>
+
+#include <asio/io_context.hpp>
 
 #include "mailer_ui_state.hpp"
 
@@ -99,7 +102,7 @@ class MailerPOC_impl : public MailerPOC,
                        public EnableUseThis<MailerPOC_impl>,
                        public MailerUIStateParent {
    public:
-    explicit MailerPOC_impl(asio::io_context& ctx) : m_ctx(ctx), m_callbacks(nullptr) {}
+    explicit MailerPOC_impl() : m_callbacks(nullptr) {}
     ~MailerPOC_impl() { emailkit::finalize(); }
 
    public:  // MailerUIStateParent
@@ -135,6 +138,22 @@ class MailerPOC_impl : public MailerPOC,
     }
 
    public:
+    void start_working_thread() override {
+        m_thread = std ::make_unique<std::thread>([this] {
+            log_info("starting working thread");
+            m_ctx.run();
+            log_info("working thread has stopped");
+        });
+    }
+
+    void stop_working_thread() override {
+        if (m_thread->joinable()) {
+            log_info("thread is running, stopping eventloop");
+            m_ctx.stop();
+            m_thread->join();
+        }
+    }
+
     void async_run(async_callback<void> cb) override {
         log_info("authenticating");
         async_authenticate(
@@ -619,7 +638,8 @@ class MailerPOC_impl : public MailerPOC,
     }
 
    private:
-    asio::io_context& m_ctx;
+    std::unique_ptr<std::thread> m_thread;
+    asio::io_context m_ctx;
 
     MailerPOCCallbacks* m_callbacks;
     std::shared_ptr<emailkit::google_auth_t> m_google_auth;
@@ -631,8 +651,8 @@ class MailerPOC_impl : public MailerPOC,
     MailIDFilter m_idfilter;
 };
 
-std::shared_ptr<MailerPOC> make_mailer_poc(asio::io_context& ctx) {
-    auto inst = std::make_shared<MailerPOC_impl>(ctx);
+std::shared_ptr<MailerPOC> make_mailer_poc() {
+    auto inst = std::make_shared<MailerPOC_impl>();
     if (!inst->initialize()) {
         log_error("failed creating instance of the app");
         return nullptr;

@@ -12,6 +12,21 @@ cmake_minimum_required(VERSION 3.16)
 include(ExternalProject)
 include(GNUInstallDirs)
 
+# NOTE: only libffi now supports respecting target architecture. meson requires generating special file on the fly.
+# if (APPLE)
+#   set(clang_archs "")
+#   foreach(arch ${CMAKE_OSX_ARCHITECTURES})
+#     string(APPEND clang_archs " -arch ${arch}")
+#   endforeach()
+#   # TODO: miltiple architectures are not supported for --host yet. I haven't found a way to achieve this.
+#   set(autoconf_host_str "--host=aarch64-apple-darwin")
+# endif()
+
+# set(REAL_CC ${CMAKE_C_COMPILER})
+# set(REAL_CXX ${CMAKE_CXX_COMPILER})
+# string(APPEND REAL_CC ${clang_archs})
+# string(APPEND REAL_CXX ${clang_archs})
+# set(compilers_override CC=${REAL_CC} CXX=${REAL_CXX})
 
 set(compilers_override CC=${CMAKE_C_COMPILER} CXX=${CMAKE_CXX_COMPILER})
 set(superbuild_prefix ${CMAKE_INSTALL_PREFIX})
@@ -22,13 +37,15 @@ set(pkg_config_path ${libdir_abs_path}/pkgconfig)
 find_program(make_cmd NAMES gmake make mingw32-make REQUIRED)
 
 ########################################################################
+# TODO: ./configure CC="clang -arch arm64" --host=aarch64-apple-darwin
+
 # libFFI
 ExternalProject_Add(libffi_external
     URL     https://github.com/libffi/libffi/releases/download/v3.4.4/libffi-3.4.4.tar.gz
     UPDATE_DISCONNECTED true
     # autoconf-based projects require libdir to be absolute
     CONFIGURE_COMMAND
-        ${CMAKE_COMMAND} -E env PKG_CONFIG_PATH=${superbuild_prefix}/lib/pkgconfig  <SOURCE_DIR>/configure --prefix=${superbuild_prefix} --libdir=${libdir_abs_path} ${compiler} ${rpath_ldflags} ${compilers_override}
+        ${CMAKE_COMMAND} -E env PKG_CONFIG_PATH=${superbuild_prefix}/lib/pkgconfig  <SOURCE_DIR>/configure --prefix=${superbuild_prefix} --libdir=${libdir_abs_path} ${rpath_ldflags} ${compilers_override} ${autoconf_host_str}
     BUILD_COMMAND
         ${make_cmd} -j4
     INSTALL_COMMAND ${make_cmd} -j4 install
@@ -132,7 +149,7 @@ add_library(gmime::gmime ALIAS gmime)
 # set (libraries_list "gobject-2.0.0;gio-2.0.0;gmodule-2.0.0;gthread-2.0.0")
 # foreach(lib ${libraries_list})
 #    set (lib_fname "${CMAKE_SHARED_LIBRARY_PREFIX}${lib}${CMAKE_SHARED_LIBRARY_SUFFIX}")
-#    set (lib_abs_path "${superbuild_prefix}/lib/${lib_fname}")
+#    set (lib_abs_path "${superbuild_prefix}/${libdir}/${lib_fname}")
 #    set (lib_rel_path "@rpath/${lib_fname}")
 #    set (patched_lib_path )
 #    # we change full path to relpath in library patched_lib_abs_path
@@ -147,3 +164,4 @@ add_library(gmime::gmime ALIAS gmime)
 # /opt/local/lib/libintl.8.dylib (compatibility version 10.0.0, current version 10.5.0)
 # /opt/local/lib/libz.1.dylib (compatibility version 1.0.0, current version 1.2.11)
 # /opt/local/lib/libiconv.2.dylib (compatibility version 9.0.0, current version 9.1.0)
+

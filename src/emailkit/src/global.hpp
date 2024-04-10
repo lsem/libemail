@@ -1,6 +1,5 @@
 #pragma once
 
-#include <asio/io_context.hpp>
 #include <async_kit/async_callback.hpp>
 #include <chrono>
 #include <emailkit/log.hpp>

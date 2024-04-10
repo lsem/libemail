@@ -1,0 +1,9 @@
+libffi
+libgio
+libglib
+libgmime
+libgmodule
+libgobject
+libgthread
+libintl
+libmailer_poc

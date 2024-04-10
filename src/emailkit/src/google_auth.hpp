@@ -1,5 +1,6 @@
 #pragma once
 #include <emailkit/global.hpp>
+#include <asio/io_context.hpp>
 
 namespace emailkit {
 

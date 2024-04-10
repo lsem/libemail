@@ -12,4 +12,4 @@ add_library(emailkit::http_srv ALIAS emailkit_http_srv)
 
 target_include_directories(emailkit_http_srv PUBLIC include/)
 
-target_link_libraries(emailkit_http_srv PUBLIC emailkit::global emailkit::log asio::asio OpenSSL::SSL)
+target_link_libraries(emailkit_http_srv PUBLIC emailkit emailkit::log asio::asio OpenSSL::SSL)

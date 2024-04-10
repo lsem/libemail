@@ -1,6 +1,4 @@
 #pragma once
-#include <emailkit/global.hpp>
-#include <asio/io_context.hpp>
 
 #include "mailer_ui_state.hpp"
 
@@ -27,6 +25,8 @@ struct MailerPOCCallbacks {
 class MailerPOC {
    public:
     virtual ~MailerPOC() = default;
+    virtual void start_working_thread() = 0;
+    virtual void stop_working_thread() = 0;
     virtual void async_run(async_callback<void> cb) = 0;
     virtual void set_callbacks_if(MailerPOCCallbacks* callbacks) = 0;
     virtual void visit_model_locked(std::function<void(const mailer::MailerUIState&)> cb) = 0;
@@ -38,5 +38,5 @@ class MailerPOC {
     virtual MailerUIState* get_ui_model() = 0;
 };
 
-std::shared_ptr<MailerPOC> make_mailer_poc(asio::io_context& ctx);
+std::shared_ptr<MailerPOC> make_mailer_poc();
 }  // namespace mailer

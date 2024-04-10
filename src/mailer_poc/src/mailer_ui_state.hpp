@@ -5,7 +5,6 @@
 #include <emailkit/imap_client.hpp>
 #include <emailkit/utils.hpp>
 
-#include <fmt/ranges.h>
 #include <set>
 
 namespace mailer {

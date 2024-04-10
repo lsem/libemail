@@ -6,3 +6,31 @@ https://www.swift.org/documentation/cxx-interop/project-build-setup/#mixing-swif
 https://deleonlangure.medium.com/include-external-libraries-on-xcode-for-c-515ad5757bd
 https://auberginesolutions.com/blog/creating-private-cocoapods-libraries-mastering-dependency-management/
 https://www.swift.org/documentation/cxx-interop/
+https://stackoverflow.com/questions/7470637/dynamic-library-in-application-bundle-mac-os-x
+https://github.com/conan-io/conan/issues/3476
+https://kakyoism.github.io/2019/10/17/Build-a-GNU-Autotools-based-project-for-iOS-Part-1/
+https://gist.github.com/andrewgrant/477c7037b1fc0dd7275109d3f2254ea9
+https://medium.com/@donblas/fun-with-rpath-otool-and-install-name-tool-e3e41ae86172
+
+# Embed and Sign makes rpath trick!
+https://medium.com/@fdchiu/how-to-add-3rd-party-framework-or-library-to-your-xcode-project-466ffa75b2e5
+
+# About using lipotool
+https://www.gnu.org/software/autoconf/manual/autoconf-2.68/html_node/Multiple-Architectures.html
+
+# Next Steps
+1. Process all libraries with intall_name_tool so cross library deperndencies can be bundled.
+2. Learn how to build any build type (x86, arm, universal). Give Valerii three for test (Debug and Release builds).
+3. Create a script that builds our library with all architectures, installs into folders and patches everything with install_name_tool. So we can create releases of library which works for all supported platforms and architectures. Debug and Release builds. This way we can put everything on rebuild and have multiple variants in single big archive.
+
+
+    arm64:Darwin:*:*)
+        GUESS=aarch64-apple-darwin$UNAME_RELEASE
+		
+      elif test "$UNAME_PROCESSOR" = i386 ; then
+            # uname -m returns i386 or x86_64
+            UNAME_PROCESSOR=$UNAME_MACHINE
+        fi
+        GUESS=$UNAME_PROCESSOR-apple-darwin$UNAME_RELEASE		
+
+https://developer.apple.com/documentation/apple-silicon/building-a-universal-macos-binary

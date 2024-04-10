@@ -11,11 +11,25 @@ add_library(emailkit::emailkit ALIAS emailkit)
 
 target_include_directories(emailkit PUBLIC include/)
 
+# Lets try to iterate filess in include directory
+file(GLOB PUBLIC_HPP_FILES CONFIGURE_DEPENDS "include/emailkit/*.hpp")
+set(PUBLIC_HPP_FILES_IN_SRC "")
+message("PUBLIC_HPP_FILES: ${PUBLIC_HPP_FILES}")
+foreach(file_path ${PUBLIC_HPP_FILES})
+  cmake_path(GET file_path FILENAME file_name)
+  set(header_path_in_src src/${file_name})
+  message("file: " ${file_name} -> ${header_path_in_src})
+  list(APPEND PUBLIC_HPP_FILES_IN_SRC ${header_path_in_src})
+endforeach()
+message("Resulting list: ${PUBLIC_HPP_FILES_IN_SRC}")
+
+install(FILES ${PUBLIC_HPP_FILES_IN_SRC} DESTINATION include/emailkit)
+
 add_compile_definitions(APG_DEBUG APG_TRACE)
 
 target_link_libraries(emailkit 
-    PUBLIC
-        emailkit::global
+  PUBLIC
+        async_kit
         emailkit::log
         emailkit::http_srv
         folly::uri
@@ -40,7 +54,7 @@ file(GLOB_RECURSE TESTS_HPP_FILES  CONFIGURE_DEPENDS "tests/*.hpp")
 file(GLOB_RECURSE TESTS_CPP_FILES  CONFIGURE_DEPENDS "tests/*.cpp")
 add_executable(emailkit-tests ${TESTS_HPP_FILES} ${TESTS_CPP_FILES})
 target_link_libraries(emailkit-tests
-    PRIVATE
+  PRIVATE        
         emailkit::emailkit
         GTest::gtest
         GTest::gmock)

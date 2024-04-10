@@ -24,7 +24,7 @@ add_subdirectory(vendor/utf-7)
 add_subdirectory(vendor/expected)
 include(gmime-superbuild.cmake)
 
-add_subdirectory(src/global)
+#add_subdirectory(src/global)
 add_subdirectory(src/log)
 add_subdirectory(src/emailkit)
 add_subdirectory(src/tools/bin2cpplit)

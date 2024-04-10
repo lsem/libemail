@@ -6,3 +6,5 @@ add_library(emailkit::log ALIAS emailkit_log)
 
 target_include_directories(emailkit_log PUBLIC include/)
 target_link_libraries(emailkit_log PUBLIC fmt::fmt)
+
+install(FILES src/log.hpp DESTINATION include/emailkit)
