@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 export SDKROOT=$(xcrun --sdk macosx --show-sdk-path)
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
@@ -21,3 +23,6 @@ cmake --install $RELEASE_BUILD_DIR
 python3 patch_installed_libs.py $RELEASE_INSTALL_DIR/lib/libmailer_poc.dylib $RELEASE_INSTALL_DIR/
 
 mkdir -p $BUILD_DIR_BASE/embedded_libs
+
+# TODO: run debug or release depending on selected one.
+./select_embedded_libs_debug.sh
