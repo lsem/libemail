@@ -1,4 +1,7 @@
-bld/
-bld-debug/
-bld-release/
-build/
+_build/
+
+.DS_Store
+.DS_Store?
+
+*.xcuserstate
+
