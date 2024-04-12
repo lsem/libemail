@@ -38,7 +38,6 @@
 
 /* Begin PBXFileReference section */
 		0D45A8CA2BC72014000AD32D /* Mailer-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Mailer-Bridging-Header.h"; sourceTree = "<group>"; };
-		0D45A8CB2BC72401000AD32D /* libmailer_poc.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libmailer_poc.dylib; path = ../../../../_emailkit_build/lib/libmailer_poc.dylib; sourceTree = "<group>"; };
 		0D783CC72BB8935D00F358A1 /* Mailer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Mailer.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0D783CCA2BB8935D00F358A1 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		0D783CCC2BB8935D00F358A1 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
@@ -46,17 +45,9 @@
 		0D783CD12BB8935F00F358A1 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		0D783CD32BB8935F00F358A1 /* Mailer.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Mailer.entitlements; sourceTree = "<group>"; };
 		0D783CE12BB8983100F358A1 /* MailerWrapper.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = MailerWrapper.mm; sourceTree = "<group>"; };
-		0DAC01652BC9BC410097FBE6 /* libffi.8.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libffi.8.dylib; path = ../../../../_emailkit_build/lib/libffi.8.dylib; sourceTree = "<group>"; };
-		0DAC01682BC9BC770097FBE6 /* libintl.8.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libintl.8.dylib; path = ../../../../_emailkit_build/lib/libintl.8.dylib; sourceTree = "<group>"; };
 		0DAC016B2BC9DF3C0097FBE6 /* libmailer_poc.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libmailer_poc.dylib; path = ../../_build/embedded_libs/libmailer_poc.dylib; sourceTree = "<group>"; };
 		0DAC016F2BC9E0810097FBE6 /* libffi.8.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libffi.8.dylib; path = ../../_build/embedded_libs/libffi.8.dylib; sourceTree = "<group>"; };
 		0DAC01722BC9E0BA0097FBE6 /* libgmime-3.0.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libgmime-3.0.0.dylib"; path = "../../_build/embedded_libs/libgmime-3.0.0.dylib"; sourceTree = "<group>"; };
-		0DE911DB2BC83C7A0033DA7A /* libglib-2.0.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libglib-2.0.0.dylib"; path = "../../../../_emailkit_build/lib/libglib-2.0.0.dylib"; sourceTree = "<group>"; };
-		0DE911DC2BC83C7B0033DA7A /* libgmodule-2.0.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libgmodule-2.0.0.dylib"; path = "../../../../_emailkit_build/lib/libgmodule-2.0.0.dylib"; sourceTree = "<group>"; };
-		0DE911DD2BC83C7B0033DA7A /* libgio-2.0.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libgio-2.0.0.dylib"; path = "../../../../_emailkit_build/lib/libgio-2.0.0.dylib"; sourceTree = "<group>"; };
-		0DE911DE2BC83C7B0033DA7A /* libgobject-2.0.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libgobject-2.0.0.dylib"; path = "../../../../_emailkit_build/lib/libgobject-2.0.0.dylib"; sourceTree = "<group>"; };
-		0DE911DF2BC83C7C0033DA7A /* libgmime-3.0.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libgmime-3.0.0.dylib"; path = "../../../../_emailkit_build/lib/libgmime-3.0.0.dylib"; sourceTree = "<group>"; };
-		0DE911E02BC83C7C0033DA7A /* libgthread-2.0.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libgthread-2.0.0.dylib"; path = "../../../../_emailkit_build/lib/libgthread-2.0.0.dylib"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -110,15 +101,6 @@
 				0DAC01722BC9E0BA0097FBE6 /* libgmime-3.0.0.dylib */,
 				0DAC016F2BC9E0810097FBE6 /* libffi.8.dylib */,
 				0DAC016B2BC9DF3C0097FBE6 /* libmailer_poc.dylib */,
-				0DAC01682BC9BC770097FBE6 /* libintl.8.dylib */,
-				0DAC01652BC9BC410097FBE6 /* libffi.8.dylib */,
-				0DE911DD2BC83C7B0033DA7A /* libgio-2.0.0.dylib */,
-				0DE911DB2BC83C7A0033DA7A /* libglib-2.0.0.dylib */,
-				0DE911DF2BC83C7C0033DA7A /* libgmime-3.0.0.dylib */,
-				0DE911DC2BC83C7B0033DA7A /* libgmodule-2.0.0.dylib */,
-				0DE911DE2BC83C7B0033DA7A /* libgobject-2.0.0.dylib */,
-				0DE911E02BC83C7C0033DA7A /* libgthread-2.0.0.dylib */,
-				0D45A8CB2BC72401000AD32D /* libmailer_poc.dylib */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
