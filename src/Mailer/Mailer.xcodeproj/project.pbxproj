@@ -7,16 +7,25 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0D5F23942BCB160800DFB747 /* MailerAppCore.mm in Sources */ = {isa = PBXBuildFile; fileRef = 0DA516562BCA88A800177589 /* MailerAppCore.mm */; };
 		0D783CCB2BB8935D00F358A1 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D783CCA2BB8935D00F358A1 /* AppDelegate.swift */; };
 		0D783CCD2BB8935D00F358A1 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D783CCC2BB8935D00F358A1 /* ViewController.swift */; };
 		0D783CCF2BB8935F00F358A1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0D783CCE2BB8935F00F358A1 /* Assets.xcassets */; };
 		0D783CD22BB8935F00F358A1 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 0D783CD02BB8935F00F358A1 /* Main.storyboard */; };
-		0D783CE22BB8983100F358A1 /* MailerWrapper.mm in Sources */ = {isa = PBXBuildFile; fileRef = 0D783CE12BB8983100F358A1 /* MailerWrapper.mm */; };
+		0D9F2F622BCC62E4003BC181 /* libgthread-2.0.0.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 0D9F2F562BCC62E1003BC181 /* libgthread-2.0.0.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		0D9F2F642BCC62E4003BC181 /* libiconv.2.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 0D9F2F572BCC62E1003BC181 /* libiconv.2.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		0D9F2F662BCC62E5003BC181 /* libglib-2.0.0.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 0D9F2F582BCC62E2003BC181 /* libglib-2.0.0.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		0D9F2F682BCC62E5003BC181 /* libcrypto.1.1.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 0D9F2F592BCC62E2003BC181 /* libcrypto.1.1.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		0D9F2F6A2BCC62E5003BC181 /* libssl.1.1.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 0D9F2F5A2BCC62E2003BC181 /* libssl.1.1.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		0D9F2F6C2BCC62E5003BC181 /* libpcre2-8.0.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 0D9F2F5B2BCC62E2003BC181 /* libpcre2-8.0.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		0D9F2F6E2BCC62E6003BC181 /* libgio-2.0.0.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 0D9F2F5C2BCC62E3003BC181 /* libgio-2.0.0.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		0D9F2F702BCC62E6003BC181 /* libgobject-2.0.0.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 0D9F2F5D2BCC62E3003BC181 /* libgobject-2.0.0.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		0D9F2F722BCC62E7003BC181 /* libintl.8.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 0D9F2F5E2BCC62E3003BC181 /* libintl.8.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		0D9F2F742BCC62E7003BC181 /* libz.1.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 0D9F2F5F2BCC62E4003BC181 /* libz.1.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		0D9F2F762BCC62E7003BC181 /* libgmodule-2.0.0.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 0D9F2F602BCC62E4003BC181 /* libgmodule-2.0.0.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		0DAC016C2BC9DF3C0097FBE6 /* libmailer_poc.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 0DAC016B2BC9DF3C0097FBE6 /* libmailer_poc.dylib */; };
 		0DAC016D2BC9DF3C0097FBE6 /* libmailer_poc.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 0DAC016B2BC9DF3C0097FBE6 /* libmailer_poc.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
-		0DAC01702BC9E0810097FBE6 /* libffi.8.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 0DAC016F2BC9E0810097FBE6 /* libffi.8.dylib */; };
 		0DAC01712BC9E0810097FBE6 /* libffi.8.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 0DAC016F2BC9E0810097FBE6 /* libffi.8.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
-		0DAC01732BC9E0BB0097FBE6 /* libgmime-3.0.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 0DAC01722BC9E0BA0097FBE6 /* libgmime-3.0.0.dylib */; };
 		0DAC01742BC9E0BB0097FBE6 /* libgmime-3.0.0.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 0DAC01722BC9E0BA0097FBE6 /* libgmime-3.0.0.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 /* End PBXBuildFile section */
 
@@ -28,8 +37,19 @@
 			dstSubfolderSpec = 10;
 			files = (
 				0DAC01712BC9E0810097FBE6 /* libffi.8.dylib in Embed Libraries */,
+				0D9F2F702BCC62E6003BC181 /* libgobject-2.0.0.dylib in Embed Libraries */,
+				0D9F2F6A2BCC62E5003BC181 /* libssl.1.1.dylib in Embed Libraries */,
+				0D9F2F6C2BCC62E5003BC181 /* libpcre2-8.0.dylib in Embed Libraries */,
+				0D9F2F742BCC62E7003BC181 /* libz.1.dylib in Embed Libraries */,
+				0D9F2F6E2BCC62E6003BC181 /* libgio-2.0.0.dylib in Embed Libraries */,
+				0D9F2F622BCC62E4003BC181 /* libgthread-2.0.0.dylib in Embed Libraries */,
+				0D9F2F682BCC62E5003BC181 /* libcrypto.1.1.dylib in Embed Libraries */,
+				0D9F2F642BCC62E4003BC181 /* libiconv.2.dylib in Embed Libraries */,
+				0D9F2F762BCC62E7003BC181 /* libgmodule-2.0.0.dylib in Embed Libraries */,
 				0DAC016D2BC9DF3C0097FBE6 /* libmailer_poc.dylib in Embed Libraries */,
+				0D9F2F722BCC62E7003BC181 /* libintl.8.dylib in Embed Libraries */,
 				0DAC01742BC9E0BB0097FBE6 /* libgmime-3.0.0.dylib in Embed Libraries */,
+				0D9F2F662BCC62E5003BC181 /* libglib-2.0.0.dylib in Embed Libraries */,
 			);
 			name = "Embed Libraries";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -44,7 +64,19 @@
 		0D783CCE2BB8935F00F358A1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		0D783CD12BB8935F00F358A1 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		0D783CD32BB8935F00F358A1 /* Mailer.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Mailer.entitlements; sourceTree = "<group>"; };
-		0D783CE12BB8983100F358A1 /* MailerWrapper.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = MailerWrapper.mm; sourceTree = "<group>"; };
+		0D9F2F562BCC62E1003BC181 /* libgthread-2.0.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libgthread-2.0.0.dylib"; path = "../../_build/embedded_libs/libgthread-2.0.0.dylib"; sourceTree = "<group>"; };
+		0D9F2F572BCC62E1003BC181 /* libiconv.2.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libiconv.2.dylib; path = ../../_build/embedded_libs/libiconv.2.dylib; sourceTree = "<group>"; };
+		0D9F2F582BCC62E2003BC181 /* libglib-2.0.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libglib-2.0.0.dylib"; path = "../../_build/embedded_libs/libglib-2.0.0.dylib"; sourceTree = "<group>"; };
+		0D9F2F592BCC62E2003BC181 /* libcrypto.1.1.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcrypto.1.1.dylib; path = ../../_build/embedded_libs/libcrypto.1.1.dylib; sourceTree = "<group>"; };
+		0D9F2F5A2BCC62E2003BC181 /* libssl.1.1.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libssl.1.1.dylib; path = ../../_build/embedded_libs/libssl.1.1.dylib; sourceTree = "<group>"; };
+		0D9F2F5B2BCC62E2003BC181 /* libpcre2-8.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libpcre2-8.0.dylib"; path = "../../_build/embedded_libs/libpcre2-8.0.dylib"; sourceTree = "<group>"; };
+		0D9F2F5C2BCC62E3003BC181 /* libgio-2.0.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libgio-2.0.0.dylib"; path = "../../_build/embedded_libs/libgio-2.0.0.dylib"; sourceTree = "<group>"; };
+		0D9F2F5D2BCC62E3003BC181 /* libgobject-2.0.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libgobject-2.0.0.dylib"; path = "../../_build/embedded_libs/libgobject-2.0.0.dylib"; sourceTree = "<group>"; };
+		0D9F2F5E2BCC62E3003BC181 /* libintl.8.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libintl.8.dylib; path = ../../_build/embedded_libs/libintl.8.dylib; sourceTree = "<group>"; };
+		0D9F2F5F2BCC62E4003BC181 /* libz.1.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.1.dylib; path = ../../_build/embedded_libs/libz.1.dylib; sourceTree = "<group>"; };
+		0D9F2F602BCC62E4003BC181 /* libgmodule-2.0.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libgmodule-2.0.0.dylib"; path = "../../_build/embedded_libs/libgmodule-2.0.0.dylib"; sourceTree = "<group>"; };
+		0DA516562BCA88A800177589 /* MailerAppCore.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = MailerAppCore.mm; sourceTree = "<group>"; };
+		0DA516572BCA892A00177589 /* MailerAppCore.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MailerAppCore.h; sourceTree = "<group>"; };
 		0DAC016B2BC9DF3C0097FBE6 /* libmailer_poc.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libmailer_poc.dylib; path = ../../_build/embedded_libs/libmailer_poc.dylib; sourceTree = "<group>"; };
 		0DAC016F2BC9E0810097FBE6 /* libffi.8.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libffi.8.dylib; path = ../../_build/embedded_libs/libffi.8.dylib; sourceTree = "<group>"; };
 		0DAC01722BC9E0BA0097FBE6 /* libgmime-3.0.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libgmime-3.0.0.dylib"; path = "../../_build/embedded_libs/libgmime-3.0.0.dylib"; sourceTree = "<group>"; };
@@ -55,9 +87,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				0DAC01702BC9E0810097FBE6 /* libffi.8.dylib in Frameworks */,
 				0DAC016C2BC9DF3C0097FBE6 /* libmailer_poc.dylib in Frameworks */,
-				0DAC01732BC9E0BB0097FBE6 /* libgmime-3.0.0.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -67,8 +97,9 @@
 		0D783CBE2BB8935D00F358A1 = {
 			isa = PBXGroup;
 			children = (
+				0DA516572BCA892A00177589 /* MailerAppCore.h */,
+				0DA516562BCA88A800177589 /* MailerAppCore.mm */,
 				0D45A8CA2BC72014000AD32D /* Mailer-Bridging-Header.h */,
-				0D783CE12BB8983100F358A1 /* MailerWrapper.mm */,
 				0D783CC92BB8935D00F358A1 /* Mailer */,
 				0D783CC82BB8935D00F358A1 /* Products */,
 				0D783CD92BB8969800F358A1 /* Frameworks */,
@@ -98,6 +129,17 @@
 		0D783CD92BB8969800F358A1 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				0D9F2F592BCC62E2003BC181 /* libcrypto.1.1.dylib */,
+				0D9F2F5C2BCC62E3003BC181 /* libgio-2.0.0.dylib */,
+				0D9F2F582BCC62E2003BC181 /* libglib-2.0.0.dylib */,
+				0D9F2F602BCC62E4003BC181 /* libgmodule-2.0.0.dylib */,
+				0D9F2F5D2BCC62E3003BC181 /* libgobject-2.0.0.dylib */,
+				0D9F2F562BCC62E1003BC181 /* libgthread-2.0.0.dylib */,
+				0D9F2F572BCC62E1003BC181 /* libiconv.2.dylib */,
+				0D9F2F5E2BCC62E3003BC181 /* libintl.8.dylib */,
+				0D9F2F5B2BCC62E2003BC181 /* libpcre2-8.0.dylib */,
+				0D9F2F5A2BCC62E2003BC181 /* libssl.1.1.dylib */,
+				0D9F2F5F2BCC62E4003BC181 /* libz.1.dylib */,
 				0DAC01722BC9E0BA0097FBE6 /* libgmime-3.0.0.dylib */,
 				0DAC016F2BC9E0810097FBE6 /* libffi.8.dylib */,
 				0DAC016B2BC9DF3C0097FBE6 /* libmailer_poc.dylib */,
@@ -178,7 +220,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				0D783CCD2BB8935D00F358A1 /* ViewController.swift in Sources */,
-				0D783CE22BB8983100F358A1 /* MailerWrapper.mm in Sources */,
+				0D5F23942BCB160800DFB747 /* MailerAppCore.mm in Sources */,
 				0D783CCB2BB8935D00F358A1 /* AppDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -317,6 +359,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Mailer/Mailer.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
@@ -349,6 +392,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Mailer/Mailer.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;

@@ -88,7 +88,7 @@ void log_impl(log_level_t level, int line, std::string_view file_name, Fmt fmt, 
         return;
     }
 
-    const auto at_tty = isatty(STDOUT_FILENO);
+    const auto at_tty = isatty(STDOUT_FILENO) && false;
     const auto style = ([level, at_tty] {
         if (!at_tty) {
             return fmt::text_style{};

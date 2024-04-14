@@ -13,6 +13,8 @@ sudo apt install python3-distutils
 # MacOS
 ```
 export SDKROOT=(xcrun --sdk macosx --show-sdk-path)
+
+xcodebuild  -project src/Mailer/Mailer.xcodeproj -scheme Mailer build
 ```
 
 For Gcc 13 one need:

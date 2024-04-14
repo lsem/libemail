@@ -18,6 +18,12 @@ https://medium.com/@fdchiu/how-to-add-3rd-party-framework-or-library-to-your-xco
 # About using lipotool
 https://www.gnu.org/software/autoconf/manual/autoconf-2.68/html_node/Multiple-Architectures.html
 
+# Patching libssl to embeddeble state
+https://miscandrandom.wordpress.com/2021/09/13/build-openssl-universal-binaries-and-embed-in-a-macos-app-bundle/
+
+# Building OpenSSL
+https://indiespark.top/programming/compile-open-ssl-apple-silicon/
+
 # Next Steps
 1. Process all libraries with intall_name_tool so cross library deperndencies can be bundled.
 2. Learn how to build any build type (x86, arm, universal). Give Valerii three for test (Debug and Release builds).

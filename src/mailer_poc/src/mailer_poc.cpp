@@ -141,6 +141,7 @@ class MailerPOC_impl : public MailerPOC,
     void start_working_thread() override {
         m_thread = std ::make_unique<std::thread>([this] {
             log_info("starting working thread");
+	    auto work = asio::make_work_guard(m_ctx);
             m_ctx.run();
             log_info("working thread has stopped");
         });

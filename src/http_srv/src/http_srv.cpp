@@ -37,7 +37,7 @@ class http_srv_impl_t : public http_srv_t, public std::enable_shared_from_this<h
 
         m_acceptor.bind(endpoint, ec);
         if (ec) {
-            log_error("bind failed: {}", ec);
+            log_error("bind failed on {}:{}: {}", m_host, m_port, ec);
             return ec;
         }
 

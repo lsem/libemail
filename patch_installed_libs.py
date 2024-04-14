@@ -1,13 +1,12 @@
-import os, sys, subprocess
+import os, sys, subprocess, shutil
 
-def get_otool_entries(libpath, build_dir):
+def get_all_otool_entries(libpath):
     proc = subprocess.Popen(["/usr/bin/otool", "-L", libpath], stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-    stdout, stderr = proc.communicate(timeout=1)
+    stdout, stderr = proc.communicate(timeout=5)
     lines = [x.strip('\t') for x in stdout.decode('utf-8').split('\n')]
-    # get only those entries that have absolute path of our build_directory
-    return [x.split(' (compatibility')[0] for x in lines[1:] if os.path.isabs(x) and os.path.commonprefix([x, build_dir]) == build_dir]
+    return [x.split(' (compatibility')[0] for x in lines[1:]]    
 
-def patch_lib(abspath, build_dir):
+def patch_lib(abspath, build_dir, outdir):
     processed_set = set()
     ext = os.path.splitext(abspath)[1]
     if ext != ".dylib":
@@ -21,19 +20,33 @@ def patch_lib(abspath, build_dir):
             print(f"warning: {item} is not an absolute path, skipping")
             continue
         print(f"> processing: {item}")
-        # on the Internet someone sauid id can be left as is but lets patch it as well.
-        subprocess.run(["install_name_tool", "-id", f"@rpath/{os.path.basename(item)}", item])
-        for x in get_otool_entries(item, build_dir):
-            subprocess.run(["install_name_tool", "-change", x, f"@rpath/{os.path.basename(x)}", item])
+        # we should first copy item to a local directory so we have access and can patch it.
+        shutil.copy(item, outdir)
+        # once we copied it we should be able to patch it..
+        copy_fname = os.path.join(outdir, os.path.basename(item))
+        print(f"> Copied file to {copy_fname}")
+        
+        subprocess.run(["install_name_tool", "-id", f"@rpath/{os.path.basename(item)}", copy_fname])
+
+        def prefix_one_of(x):
+            for bdir in ["/opt/local/lib/", build_dir]:                
+                if os.path.commonprefix([x, bdir]) == bdir:
+                    return True
+            return False
+        
+        for x in [x for x in get_all_otool_entries(item) if os.path.abspath(x) and prefix_one_of(x)]:
+            print(f"our passanger: {x}")
+            subprocess.run(["install_name_tool", "-change", x, f"@rpath/{os.path.basename(x)}", copy_fname])
             if x not in processed_set:
                 parse_queue.append(x)
             processed_set.add(x)
-        print(f"< done: {item}")
-
+    print(f"< done: {item} ({copy_fname})")
+                
 if __name__ == "__main__":
     print("\n> Patching installed libraries with install_name_tool..")
-    if len(sys.argv) != 3:
-        print("missing args")
+    if len(sys.argv) != 4:
+        print(f"missing args. Usage: {sys.argv[0]} <roo_lib_path> <build_dir> <patched_out_dir>")
         sys.exit(0)
-    patch_lib(sys.argv[1], sys.argv[2])
-    
+    os.makedirs(sys.argv[3], exist_ok=True)
+    patch_lib(sys.argv[1], sys.argv[2], sys.argv[3])
+
