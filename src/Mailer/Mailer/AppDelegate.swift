@@ -20,7 +20,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if let core = self.core {
 
             core.authInitiatedBlock = { uri in
-                print("Core requested authentication, there URI is: \(uri)")
+                print("Core requested authentication, there URI is: \(uri!)")
+                NSWorkspace.shared.open(URL(string: uri!)!)
             }
             
             core.startEventLoop()
