@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0D548BCD2BCE78DF00F57B0F /* libclang_rt.asan_osx_dynamic.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 0D548BCB2BCE78DF00F57B0F /* libclang_rt.asan_osx_dynamic.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		0D5F23942BCB160800DFB747 /* MailerAppCore.mm in Sources */ = {isa = PBXBuildFile; fileRef = 0DA516562BCA88A800177589 /* MailerAppCore.mm */; };
 		0D783CCB2BB8935D00F358A1 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D783CCA2BB8935D00F358A1 /* AppDelegate.swift */; };
 		0D783CCD2BB8935D00F358A1 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D783CCC2BB8935D00F358A1 /* ViewController.swift */; };
@@ -49,6 +50,7 @@
 				0DAC016D2BC9DF3C0097FBE6 /* libmailer_poc.dylib in Embed Libraries */,
 				0D9F2F722BCC62E7003BC181 /* libintl.8.dylib in Embed Libraries */,
 				0DAC01742BC9E0BB0097FBE6 /* libgmime-3.0.0.dylib in Embed Libraries */,
+				0D548BCD2BCE78DF00F57B0F /* libclang_rt.asan_osx_dynamic.dylib in Embed Libraries */,
 				0D9F2F662BCC62E5003BC181 /* libglib-2.0.0.dylib in Embed Libraries */,
 			);
 			name = "Embed Libraries";
@@ -58,6 +60,7 @@
 
 /* Begin PBXFileReference section */
 		0D45A8CA2BC72014000AD32D /* Mailer-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Mailer-Bridging-Header.h"; sourceTree = "<group>"; };
+		0D548BCB2BCE78DF00F57B0F /* libclang_rt.asan_osx_dynamic.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libclang_rt.asan_osx_dynamic.dylib; path = ../../../../../../Library/Developer/CommandLineTools/usr/lib/clang/14.0.0/lib/darwin/libclang_rt.asan_osx_dynamic.dylib; sourceTree = "<group>"; };
 		0D783CC72BB8935D00F358A1 /* Mailer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Mailer.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0D783CCA2BB8935D00F358A1 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		0D783CCC2BB8935D00F358A1 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
@@ -129,6 +132,7 @@
 		0D783CD92BB8969800F358A1 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				0D548BCB2BCE78DF00F57B0F /* libclang_rt.asan_osx_dynamic.dylib */,
 				0D9F2F592BCC62E2003BC181 /* libcrypto.1.1.dylib */,
 				0D9F2F5C2BCC62E3003BC181 /* libgio-2.0.0.dylib */,
 				0D9F2F582BCC62E2003BC181 /* libglib-2.0.0.dylib */,

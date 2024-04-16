@@ -177,6 +177,7 @@ class MailerPOC_impl : public MailerPOC,
                 this_.initialize_tree();
 
                 this_.run_background_activities();
+
                 cb({});
             }));
     }

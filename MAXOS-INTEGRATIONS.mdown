@@ -40,3 +40,26 @@ https://indiespark.top/programming/compile-open-ssl-apple-silicon/
         GUESS=$UNAME_PROCESSOR-apple-darwin$UNAME_RELEASE		
 
 https://developer.apple.com/documentation/apple-silicon/building-a-universal-macos-binary
+
+# Transitioning between view controllers in the same window, with Swift – Mac
+https://theiconmaster.com/2015/03/transitioning-between-view-controllers-in-the-same-window-with-swift-mac/
+
+# Custom OSX Segue
+https://github.com/phimage/CustomSegue
+
+# Cocoa Programming L67 - Presenting View Controllers
+https://www.youtube.com/watch?v=5HQTpPV7KZY
+
+# Chinese guy teaches OSX Stroyboards
+https://medium.com/macos-app-development/episode-1-storyboards-6742032012c3
+https://www.youtube.com/watch?v=Z8jHyjhZvwk
+## Ep 2: Autolayout
+https://medium.com/macos-app-development/episode-2-auto-layout-4595120ce27c
+
+# Core Animation Programmong Guide:
+https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/CoreAnimation_guide/Introduction/Introduction.html#//apple_ref/doc/uid/TP40004514-CH1-SW1
+
+# Stack overflow response on how to change view controllers in OSX
+https://stackoverflow.com/questions/28454291/transitioning-between-view-controller-os-x
+Lee Brimelow Using Storyboards for OS X: https://www.youtube.com/watch?v=Q5bLEwewO7M
+Apple Programming Channel on Storyboards: https://www.youtube.com/watch?v=HY5uiTfjs8M
