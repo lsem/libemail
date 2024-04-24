@@ -54,12 +54,24 @@ https://www.youtube.com/watch?v=5HQTpPV7KZY
 https://medium.com/macos-app-development/episode-1-storyboards-6742032012c3
 https://www.youtube.com/watch?v=Z8jHyjhZvwk
 ## Ep 2: Autolayout
-https://medium.com/macos-app-development/episode-2-auto-layout-4595120ce27c
+https://medium.com/macos-app-development/Episodeh,-2-auto-layout-4595120ce27c
 
-# Core Animation Programmong Guide:
+#  Animation Programmong Guide:
 https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/CoreAnimation_guide/Introduction/Introduction.html#//apple_ref/doc/uid/TP40004514-CH1-SW1
 
 # Stack overflow response on how to change view controllers in OSX
 https://stackoverflow.com/questions/28454291/transitioning-between-view-controller-os-x
 Lee Brimelow Using Storyboards for OS X: https://www.youtube.com/watch?v=Q5bLEwewO7M
 Apple Programming Channel on Storyboards: https://www.youtube.com/watch?v=HY5uiTfjs8M
+
+# Present view controller in new window
+ Animation Programmong Guide:
+https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/CoreAnimation_guide/Introduction/Introduction.html#//apple_ref/doc/uid/TP40004514-CH1-SW1
+
+# Stack overflow response on how to change view controllers in OSX
+https://stackoverflow.com/questions/28454291/transitioning-between-view-controller-os-x
+Lee Brimelow Using Storyboards for OS X: https://www.youtube.com/watch?v=Q5bLEwewO7M
+Apple Programming Channel on Storyboards: https://www.youtube.com/watch?v=HY5uiTfjs8M
+
+# Present view controller in new window
+https://stackoverflow.com/questions/36263990/cocoa-present-nsviewcontroller-programmatically

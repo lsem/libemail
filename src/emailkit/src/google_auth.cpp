@@ -107,7 +107,7 @@ std::string mask_http_control_characters(std::string s) {
 }
 
 // simplest possible https client without redirecations support for google authentication.
-class https_client_t : public std::enable_shared_from_this<https_client_t> {
+class https_client_t : public EnableUseThis<https_client_t> {
    public:
     explicit https_client_t(asio::io_context& ctx)
         : m_ctx(ctx), m_ssl_ctx(asio::ssl::context::sslv23), m_socket(m_ctx, m_ssl_ctx) {}
@@ -537,15 +537,11 @@ const std::string auth_success_page = R"(
 class google_auth_t_impl : public google_auth_t,
                            public std::enable_shared_from_this<google_auth_t_impl> {
    public:
-    google_auth_t_impl(asio::io_context& ctx,
-                       std::string host,
-                       std::string port,
-                       LaunchBrowserFn launch_browser_fn)
+    google_auth_t_impl(asio::io_context& ctx, std::string host, std::string port)
         : m_ctx(ctx),
           m_host(host),
           m_port(port),
-          m_https_client(std::make_shared<https_client_t>(m_ctx)),
-          m_launch_browser_fn(std::move(launch_browser_fn)) {}
+          m_https_client(std::make_shared<https_client_t>(m_ctx)) {}
 
     bool initialize() {
         m_srv = http_srv::make_http_srv(m_ctx, m_host, m_port);
@@ -570,28 +566,29 @@ class google_auth_t_impl : public google_auth_t,
             fmt::arg("scope", scopes_encoded), fmt::arg("redirect_uri", redirect_uri));
     }
 
-    virtual void async_handle_auth(google_auth_app_creds_t app_creds,
-                                   std::vector<std::string> scopes,
-                                   async_callback<auth_data_t> cb) override {
+    void async_initiate_web_based_auth(google_auth_app_creds_t app_creds,
+                                       std::vector<std::string> scopes,
+                                       async_callback<auth_data_t> auth_done_cb,
+                                       async_callback<std::string> cb) override {
+        if (m_auth_initiated) {
+            log_error("auth already running");
+            cb(make_error_code(std::errc::io_error), {});
+            return;
+        }
+
+        auth_done_cb = [auth_done_cb = std::move(auth_done_cb), this_weak = weak_from_this()](
+                           std::error_code ec, auth_data_t auth_data) mutable {
+            if (auto this_ = this_weak.lock()) {
+                log_error("stopping http server");
+                this_->m_srv->stop();
+                auth_done_cb(ec, std::move(auth_data));
+            }
+        };
+
+        // TODO: check also its own state to prevent invalid usage.
         const auto scopes_encoded = fmt::format("{}", fmt::join(scopes, " "));
 
-        // wrap callback so that before returning we close the server. Regardless of result we
-        // should close it.
-        m_callback = [cb = std::move(cb), this_weak = weak_from_this()](std::error_code ec,
-                                                                        auth_data_t d) mutable {
-            auto this_ = this_weak.lock();
-            if (!this_) {
-                cb(make_error_code(std::errc::owner_dead), {});
-                return;
-            }
-            auto stop_ec = this_->m_srv->stop();
-            if (stop_ec) {
-                log_warning("failed stopping http server: {}", ec.message());
-                // TODO: do we really want to ignore error here?
-            }
-
-            cb(ec, std::move(d));
-        };
+        assert(m_srv);
 
         m_srv->register_handler(
             "get", "/",
@@ -610,8 +607,9 @@ class google_auth_t_impl : public google_auth_t,
             });
         m_srv->register_handler(
             "get", "/done",
-            [this_weak = weak_from_this(), app_creds, scopes_encoded](
-                const http_srv::request& req, async_callback<http_srv::reply> cb) mutable {
+            [this_weak = weak_from_this(), app_creds, scopes_encoded,
+             auth_done_cb = std::move(auth_done_cb)](const http_srv::request& req,
+                                                     async_callback<http_srv::reply> cb) mutable {
                 auto this_ptr = this_weak.lock();
                 if (!this_ptr) {
                     cb(make_error_code(std::errc::owner_dead), {});
@@ -625,6 +623,7 @@ class google_auth_t_impl : public google_auth_t,
                 if (!uri_or_err) {
                     log_error("failed parsing uri '{}': {}", complete_uri, uri_or_err.error());
                     cb({}, http_srv::reply::stock_reply(http_srv::reply::internal_server_error));
+                    auth_done_cb(make_error_code(std::errc::io_error), {});
                     return;
                 }
                 auto& uri = *uri_or_err;
@@ -638,25 +637,21 @@ class google_auth_t_impl : public google_auth_t,
                     }
                 }
                 if (code.empty()) {
-                    // something went wrong
+                    // something wentt wrong
                     log_error("unexpected response, code not found in URL from google: {}",
                               complete_uri);
                     cb({}, http_srv::reply::stock_reply(http_srv::reply::internal_server_error));
+                    auth_done_cb(make_error_code(std::errc::io_error), {});
                     return;
                 }
 
                 async_request_token(
                     *this_.m_https_client, app_creds, code, scopes_encoded,
                     this_.local_site_uri("/done"),
-                    [this_weak = this_.weak_from_this(), cb = std::move(cb)](
-                        std::error_code ec, auth_data_t auth_data) mutable {
-                        if (ec) {
-                            log_error("async_request_token failed: {}", ec);
-                            cb(ec, http_srv::reply::stock_reply(
-                                       http_srv::reply::internal_server_error));
-                            return;
-                        }
+                    [this_weak = this_.weak_from_this(), cb = std::move(cb),
+                     auth_done_cb = std::move(auth_done_cb)](
 
+                        std::error_code ec, auth_data_t auth_data) mutable {
                         auto this_ptr = this_weak.lock();
                         if (!this_ptr) {
                             cb(make_error_code(std::errc::owner_dead), {});
@@ -664,13 +659,19 @@ class google_auth_t_impl : public google_auth_t,
                         }
                         auto& this_ = *this_ptr;
 
+                        if (ec) {
+                            log_error("async_request_token failed: {}", ec);
+                            cb(ec, http_srv::reply::stock_reply(
+                                       http_srv::reply::internal_server_error));
+                            auth_done_cb(make_error_code(std::errc::io_error), {});
+                            return;
+                        }
+
                         if (auth_data.access_token.empty()) {
                             log_error("didn't get token");
                             cb(ec, http_srv::reply::stock_reply(
                                        http_srv::reply::internal_server_error));
-                            // TODO: m_callback is not resolved. we should probably not have it as
-                            // member but have it locally in the scope ensuring that if this page
-                            // handling finished strong callback is called!
+                            auth_done_cb(make_error_code(std::errc::io_error), {});
                             return;
                         }
 
@@ -684,17 +685,9 @@ class google_auth_t_impl : public google_auth_t,
 
                         async_request_userinfo(
                             this_.m_ctx, auth_data,
-                            [auth_data, this_weak = this_.weak_from_this(), cb = std::move(cb)](
+                            [auth_data, this_weak = this_.weak_from_this(), cb = std::move(cb),
+                             auth_done_cb = std::move(auth_done_cb)](
                                 std::error_code ec, std::string user_email) mutable {
-                                if (ec) {
-                                    log_error("async_request_userinfo failed: {}", ec);
-                                    cb(ec, http_srv::reply::stock_reply(
-                                               http_srv::reply::internal_server_error));
-                                    return;
-                                }
-
-                                auth_data.user_email = user_email;
-
                                 auto this_ptr = this_weak.lock();
                                 if (!this_ptr) {
                                     cb(make_error_code(std::errc::owner_dead), {});
@@ -702,15 +695,23 @@ class google_auth_t_impl : public google_auth_t,
                                 }
                                 auto& this_ = *this_ptr;
 
-                                asio::post(this_.m_ctx, [this_weak = this_.weak_from_this(),
-                                                         auth_data = std::move(auth_data)] {
-                                    auto this_ptr = this_weak.lock();
-                                    if (!this_ptr) {
-                                        return;
-                                    }
-                                    auto& this_ = *this_ptr;
-                                    this_.m_callback({}, std::move(auth_data));
-                                });
+                                if (ec) {
+                                    log_error("async_request_userinfo failed: {}", ec);
+                                    cb(ec, http_srv::reply::stock_reply(
+                                               http_srv::reply::internal_server_error));
+                                    auth_done_cb(make_error_code(std::errc::io_error), {});
+                                    return;
+                                }
+
+                                auth_data.user_email = user_email;
+
+                                asio::post(this_.m_ctx,
+                                           [auth_data = std::move(auth_data),
+                                            shared_auth_done =
+                                                std::make_shared<async_callback<auth_data_t>>(
+                                                    std::move(auth_done_cb))] {
+                                               (*shared_auth_done)({}, std::move(auth_data));
+                                           });
                             });
                     });
             });
@@ -727,16 +728,13 @@ class google_auth_t_impl : public google_auth_t,
             return;
         }
 
-        // TODO: make sure we can really connect to immidiately after start() returned.
+        log_info("GMAIL auth HTTP server started at: {}", local_site_uri("/"));
 
-        if (m_launch_browser_fn) {
-            m_launch_browser_fn(local_site_uri("/"));
-        } else {
-            if (!launch_system_browser(local_site_uri("/"))) {
-                log_error("failed launching system browser for google authentication");
-                m_callback(make_error_code(std::errc::io_error), {});
-            }
-        }
+        m_auth_initiated = true;
+
+        // TODO: make sure we can really connect to immidiately after start() returned. What can be
+
+        cb({}, local_site_uri("/"));
     }
 
     std::string local_site_uri(std::string resource) {
@@ -750,15 +748,14 @@ class google_auth_t_impl : public google_auth_t,
     shared_ptr<http_srv::http_srv_t> m_srv;
     std::shared_ptr<https_client_t> m_https_client;
     async_callback<auth_data_t> m_callback;
-    LaunchBrowserFn m_launch_browser_fn;
+    bool m_auth_initiated = false;
 };
 }  // namespace
 
 shared_ptr<google_auth_t> make_google_auth(asio::io_context& ctx,
                                            std::string host,
-                                           std::string port,
-                                           LaunchBrowserFn launch_browser_fn) {
-    auto inst = std::make_shared<google_auth_t_impl>(ctx, host, port, launch_browser_fn);
+                                           std::string port) {
+    auto inst = std::make_shared<google_auth_t_impl>(ctx, host, port);
     if (!inst->initialize()) {
         return nullptr;
     }

@@ -1,0 +1,11 @@
+# IOS-like transitions inside a window between different views/viewcontrollers
+https://www.extelligentcocoa.org/macos-storyboard-segues/
+
+# To Read
+
+1. Event Handling Guide: https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/EventOverview/Introduction/Introduction.html
+2. View Programming Guide: https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/CocoaViewsGuide/Introduction/Introduction.html#//apple_ref/doc/uid/TP40002978
+3. Drag And Drop: https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/DragandDrop/DragandDrop.html#//apple_ref/doc/uid/10000069i
+4. Cocoa Drawing Guide: https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/CocoaDrawingGuide/Introduction/Introduction.html#//apple_ref/doc/uid/TP40003290
+5. High Resolution Guide: https://developer.apple.com/library/archive/documentation/GraphicsAnimation/Conceptual/HighResolutionOSX/Introduction/Introduction.html#//apple_ref/doc/uid/TP40012302
+

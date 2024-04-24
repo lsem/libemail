@@ -79,19 +79,17 @@ class google_auth_t {
    public:
     virtual ~google_auth_t() = default;
 
-    // opens system browser with page inviting to handle auth, brings up http server
-    // to finally receive tokem from goole.
-    virtual void async_handle_auth(google_auth_app_creds_t app_creds,
-                                   std::vector<std::string> scopes,
-                                   async_callback<auth_data_t> cb) = 0;
+    virtual void async_initiate_web_based_auth(google_auth_app_creds_t app_creds,
+                                               std::vector<std::string> scopes,
+                                               async_callback<auth_data_t> auth_done_cb,
+                                               async_callback<std::string> cb) = 0;
 };
 
 // host and port denote where local web server used for serving site and accepting auth data will be
 // brought up.
 shared_ptr<google_auth_t> make_google_auth(asio::io_context& ctx,
                                            std::string host,
-                                           std::string port,
-                                           LaunchBrowserFn = nullptr);
+                                           std::string port);
 
 }  // namespace emailkit
 

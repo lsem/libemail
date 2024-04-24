@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0D192B072BD05FE500AFF179 /* LoginViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D192B052BD05FE500AFF179 /* LoginViewController.swift */; };
 		0D548BCD2BCE78DF00F57B0F /* libclang_rt.asan_osx_dynamic.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 0D548BCB2BCE78DF00F57B0F /* libclang_rt.asan_osx_dynamic.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		0D5F23942BCB160800DFB747 /* MailerAppCore.mm in Sources */ = {isa = PBXBuildFile; fileRef = 0DA516562BCA88A800177589 /* MailerAppCore.mm */; };
 		0D783CCB2BB8935D00F358A1 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D783CCA2BB8935D00F358A1 /* AppDelegate.swift */; };
@@ -59,6 +60,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		0D192B052BD05FE500AFF179 /* LoginViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginViewController.swift; sourceTree = "<group>"; };
 		0D45A8CA2BC72014000AD32D /* Mailer-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Mailer-Bridging-Header.h"; sourceTree = "<group>"; };
 		0D548BCB2BCE78DF00F57B0F /* libclang_rt.asan_osx_dynamic.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libclang_rt.asan_osx_dynamic.dylib; path = ../../../../../../Library/Developer/CommandLineTools/usr/lib/clang/14.0.0/lib/darwin/libclang_rt.asan_osx_dynamic.dylib; sourceTree = "<group>"; };
 		0D783CC72BB8935D00F358A1 /* Mailer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Mailer.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -124,6 +126,7 @@
 				0D783CCC2BB8935D00F358A1 /* ViewController.swift */,
 				0D783CCE2BB8935F00F358A1 /* Assets.xcassets */,
 				0D783CD02BB8935F00F358A1 /* Main.storyboard */,
+				0D192B052BD05FE500AFF179 /* LoginViewController.swift */,
 				0D783CD32BB8935F00F358A1 /* Mailer.entitlements */,
 			);
 			path = Mailer;
@@ -223,6 +226,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0D192B072BD05FE500AFF179 /* LoginViewController.swift in Sources */,
 				0D783CCD2BB8935D00F358A1 /* ViewController.swift in Sources */,
 				0D5F23942BCB160800DFB747 /* MailerAppCore.mm in Sources */,
 				0D783CCB2BB8935D00F358A1 /* AppDelegate.swift in Sources */,

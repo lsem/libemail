@@ -4,9 +4,10 @@
 #include <emailkit/imap_client.hpp>
 #include <emailkit/utils.hpp>
 
-#include <fmt/ranges.h>
+#include <asio/steady_timer.hpp>
 #include <fstream>
 #include <mutex>
+#include <ostream>
 #include <set>
 #include <sstream>
 #include <thread>
@@ -102,7 +103,7 @@ class MailerPOC_impl : public MailerPOC,
                        public EnableUseThis<MailerPOC_impl>,
                        public MailerUIStateParent {
    public:
-    explicit MailerPOC_impl() : m_callbacks(nullptr) {}
+    explicit MailerPOC_impl() : m_callbacks(nullptr), m_autoconnect_timer(m_ctx) {}
     ~MailerPOC_impl() { emailkit::finalize(); }
 
    public:  // MailerUIStateParent
@@ -119,12 +120,7 @@ class MailerPOC_impl : public MailerPOC,
         }
 
         // TODO: fix this usage.
-        m_google_auth =
-            emailkit::make_google_auth(m_ctx, "127.0.0.1", "8089", [this](std::string uri) {
-                log_info("calling callbacks");
-                assert(m_callbacks);
-                m_callbacks->auth_initiated(uri);
-            });
+        m_google_auth = emailkit::make_google_auth(m_ctx, "127.0.0.1", "8089");
         if (!m_google_auth) {
             log_error("failed creating google auth");
             return false;
@@ -141,7 +137,7 @@ class MailerPOC_impl : public MailerPOC,
     void start_working_thread() override {
         m_thread = std ::make_unique<std::thread>([this] {
             log_info("starting working thread");
-	    auto work = asio::make_work_guard(m_ctx);
+            auto work = asio::make_work_guard(m_ctx);
             m_ctx.run();
             log_info("working thread has stopped");
         });
@@ -157,29 +153,36 @@ class MailerPOC_impl : public MailerPOC,
 
     void async_run(async_callback<void> cb) override {
         log_info("authenticating");
-        async_authenticate(
-            use_this(std::move(cb), [](auto& this_, std::error_code ec, auto cb) mutable {
-                if (ec) {
-                    log_error("async_authenticate failed: {}", ec);
-                    assert(this_.m_callbacks);
-                    this_.m_callbacks->auth_done(ec);
-                    cb(ec);
-                    return;
-                }
 
-                log_info("authenticated");
-                assert(this_.m_callbacks);
-                this_.m_callbacks->auth_done({});
+        // TODO: In real app we will have a check if we have credentials and if so then we will load
+        // them and transition into corresponding state. For now we always start in log_required
+        // sate.
+        change_state(ApplicationState::login_required);
+        cb({});
+        // async_authenticate(
+        //     use_this(std::move(cb), [](auto& this_, std::error_code ec, auto cb) mutable {
+        //         if (ec) {
+        //             log_error("async_authenticate failed: {}", ec);
+        //             assert(this_.m_callbacks);
+        //             this_.m_callbacks->auth_done(ec);
+        //             cb(ec);
+        //             return;
+        //         }
 
-                // TODO: Shouldn't we synchronize with UI at this point? To make sure that UI is up
-                // and running so we can use UI-callbacks?
+        //         log_info("authenticated");
+        //         assert(this_.m_callbacks);
+        //         this_.m_callbacks->auth_done({});
 
-                this_.initialize_tree();
+        //         // TODO: Shouldn't we synchronize with UI at this point? To make sure that UI is
+        //         up
+        //         // and running so we can use UI-callbacks?
 
-                this_.run_background_activities();
+        //         this_.initialize_tree();
 
-                cb({});
-            }));
+        //         this_.run_background_activities();
+
+        //         cb({});
+        //     }));
     }
 
     void set_callbacks_if(MailerPOCCallbacks* callbacks) override { m_callbacks = callbacks; }
@@ -314,75 +317,80 @@ class MailerPOC_impl : public MailerPOC,
     }
 
     void async_authenticate(async_callback<void> cb) {
-        // This should be hard-coded. Or loaded indirectly via special mode but still
-        // hard-coded..= Because this is basically is part of our application.
-        const auto app_creds = emailkit::google_auth_app_creds_t{
-            .client_id = "303173870696-bsun94hmoseeumiat4iaa6dr752ta805.apps.googleusercontent.com",
-            .client_secret = "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"};
+        // // This should be hard-coded. Or loaded indirectly via special mode but still
+        // // hard-coded..= Because this is basically is part of our application.
+        // const auto app_creds = emailkit::google_auth_app_creds_t{
+        //     .client_id =
+        //     "303173870696-bsun94hmoseeumiat4iaa6dr752ta805.apps.googleusercontent.com",
+        //     .client_secret = "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"};
 
-        // https://developers.google.com/gmail/api/auth/scopes
-        // We request control over mailbox and email address.
-        const std::vector<std::string> scopes = {"https://mail.google.com",
-                                                 "https://www.googleapis.com/auth/userinfo.email"};
+        // // https://developers.google.com/gmail/api/auth/scopes
+        // // We request control over mailbox and email address.
+        // const std::vector<std::string> scopes = {"https://mail.google.com",
+        //                                          "https://www.googleapis.com/auth/userinfo.email"};
 
-        log_info("authentication in Google");
+        // log_info("authentication in Google");
 
-        m_google_auth->async_handle_auth(
-            app_creds, scopes,
-            use_this(std::move(cb), [](auto& this_, std::error_code ec,
-                                       emailkit::auth_data_t auth_data, auto cb) mutable {
-                if (ec) {
-                    log_error("async_handle_auth failed: {}", ec);
-                    return;
-                }
-                log_info("authenticated in Google");
+        // // Starts local web server and waits for a user entering credentials. When the process of
+        // // entering credentials, giving consent, etc.. finished the callback gets resolved.
+        // m_google_auth->async_handle_auth(
+        //     app_creds, scopes,
+        //     use_this(std::move(cb), [](auto& this_, std::error_code ec,
+        //                                emailkit::auth_data_t auth_data, auto cb) mutable {
+        //         if (ec) {
+        //             log_error("async_handle_auth failed: {}", ec);
+        //             return;
+        //         }
+        //         log_info("authenticated in Google");
 
-                this_.m_ui_state.set_own_address(auth_data.user_email);
+        //         this_.m_ui_state.set_own_address(auth_data.user_email);
 
-                // now we can shutdown google auth server.
+        //         // now we can shutdown google auth server.
 
-                // This means that user permitted all scopes we requested so we can proceed.
-                // With permissions, google gave us all infromatiom we requested so the next
-                // step would be to authenticate on google IMAP server.
+        //         // This means that user permitted all scopes we requested so we can proceed.
+        //         // With permissions, google gave us all infromatiom we requested so the next
+        //         // step would be to authenticate on google IMAP server.
 
-                this_.m_imap_client->async_connect(
-                    "imap.gmail.com", "993",
-                    this_.use_this(std::move(cb), [auth_data](auto& this_, std::error_code ec,
-                                                              auto cb) mutable {
-                        if (ec) {
-                            log_error("failed connecting Gmail IMAP: {}", ec);
-                            return;
-                        }
+        //         this_.m_imap_client->async_connect(
+        //             "imap.gmail.com", "993",
+        //             this_.use_this(std::move(cb), [auth_data](auto& this_, std::error_code ec,
+        //                                                       auto cb) mutable {
+        //                 if (ec) {
+        //                     log_error("failed connecting Gmail IMAP: {}", ec);
+        //                     return;
+        //                 }
 
-                        // now we need to authenticate on imap server
-                        this_.m_imap_client->async_authenticate(
-                            {.user_email = auth_data.user_email,
-                             .oauth_token = auth_data.access_token},
-                            this_.use_this(
-                                std::move(cb),
-                                [](auto& this_, std::error_code ec,
-                                   emailkit::imap_client::auth_error_details_t err_details,
-                                   auto cb) mutable {
-                                    if (ec) {
-                                        log_error("imap auth failed: {}", ec);
-                                        // TODO: how we are supposed to handle this error?
-                                        // I gues we shoud raise special error for this case and
-                                        // depdening on why auth failed either retry with same creds
-                                        // (if there is no Internet), or go to authentication. Or,
-                                        // we should somehow allow user to start over.
-                                        cb(ec);
-                                        return;
-                                    }
+        //                 // now we need to authenticate on imap server
+        //                 this_.m_imap_client->async_authenticate(
+        //                     {.user_email = auth_data.user_email,
+        //                      .oauth_token = auth_data.access_token},
+        //                     this_.use_this(
+        //                         std::move(cb),
+        //                         [](auto& this_, std::error_code ec,
+        //                            emailkit::imap_client::auth_error_details_t err_details,
+        //                            auto cb) mutable {
+        //                             if (ec) {
+        //                                 log_error("imap auth failed: {}", ec);
+        //                                 // TODO: how we are supposed to handle this error?
+        //                                 // I gues we shoud raise special error for this case and
+        //                                 // depdening on why auth failed either retry with same
+        //                                 creds
+        //                                 // (if there is no Internet), or go to authentication.
+        //                                 Or,
+        //                                 // we should somehow allow user to start over.
+        //                                 cb(ec);
+        //                                 return;
+        //                             }
 
-                                    log_info("authenticated on IMAP server");
-                                    // TODO: consider having some kind of connection info state
-                                    // which would indicate information about all current
-                                    // connections.
+        //                             log_info("authenticated on IMAP server");
+        //                             // TODO: consider having some kind of connection info state
+        //                             // which would indicate information about all current
+        //                             // connections.
 
-                                    cb({});
-                                }));
-                    }));
-            }));
+        //                             cb({});
+        //                         }));
+        //             }));
+        //     }));
     }
 
     struct Email {
@@ -639,6 +647,182 @@ class MailerPOC_impl : public MailerPOC,
         });
     }
 
+    void async_request_gmail_auth(async_callback<AuthStartDetails> cb) override {
+        // This should be hard-coded. Or loaded indirectly via special mode but still
+        // hard-coded..= Because this is basically is part of our application.
+        const auto app_creds = emailkit::google_auth_app_creds_t{
+            .client_id = "303173870696-bsun94hmoseeumiat4iaa6dr752ta805.apps.googleusercontent.com",
+            .client_secret = "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"};
+
+        // https://developers.google.com/gmail/api/auth/scopes
+        // We request control over mailbox and email address.
+        const std::vector<std::string> scopes = {"https://mail.google.com",
+                                                 "https://www.googleapis.com/auth/userinfo.email"};
+
+        log_info("authentication in Google");
+
+        m_have_last_auth_done_result = false;
+        m_google_auth->async_initiate_web_based_auth(
+            app_creds, scopes,
+            [this_weak = weak_from_this()](std::error_code ec, auth_data_t auth_data) {
+                // Auth done
+                if (auto this_ = this_weak.lock()) {
+                    // TODO: we should save auth data and proceed with IMAP.
+                    // We should create an object of credentials and pass it. Ideally, I would like
+                    // to have credentials to be value type.
+                    IMAPConnectionCreds creds;
+                    creds.host = "imap.gmail.com";
+                    creds.port = 993;
+                    creds.email_address = auth_data.user_email;
+                    creds.access_token = auth_data.access_token;
+                    // TODO: rest of fields..
+                    if (this_->m_wait_auth_done_cb) {
+                        log_debug("have a callback waiting for auth done, calling it");
+                        this_->m_wait_auth_done_cb(ec, std::move(creds));
+                    } else {
+                        // TODO: we can try to save creds and error code herer and resolve the
+                        // callback effectively solving this race condition. But it seems like we
+                        // should also change a state.
+                        log_warning("no callback while auth done");
+                        this_->m_last_auth_done_unconsumed_creds = std::move(creds);
+                        this_->m_last_auth_done_errc = ec;
+                        this_->m_have_last_auth_done_result = true;
+                    }
+                }
+            },
+            use_this(std::move(cb),
+                     [](auto& this_, std::error_code ec, std::string uri, auto cb) mutable {
+                         // Auth process (web page) ready
+                         this_.change_state(ApplicationState::waiting_auth);
+                         cb({}, AuthStartDetails{.uri = uri});
+                     }));
+    }
+
+    void async_wait_auth_done(async_callback<IMAPConnectionCreds> cb) override {
+        if (m_state != ApplicationState::waiting_auth) {
+            cb(make_error_code(std::errc::io_error), {});
+            return;
+        }
+        if (std::exchange(m_have_last_auth_done_result, false)) {
+            cb(m_last_auth_done_errc, std::move(m_last_auth_done_unconsumed_creds));
+            return;
+        }
+        m_wait_auth_done_cb = std::move(cb);
+    }
+
+    void async_accept_creds(IMAPConnectionCreds creds, async_callback<void> cb) override {
+        // If previous call was test connection then current state must be connected and we don't
+        // need to reconnect again. If not connected yet, then initiate connection. This seems to be
+        // more complicated then needed but it is reasonable.
+
+        if (m_state == ApplicationState::connected_to_test) {
+            m_ui_state.set_own_address(creds.email_address);
+            change_state(ApplicationState::imap_established);
+            // QUESTION: how the app should internally react  to this?
+            // WE should somehow initiate business logic: downloading data and do stuff.
+        } else {
+            m_ui_state.set_own_address(creds.email_address);
+            change_state(ApplicationState::ready_to_connect);
+            autoconnect_iteration();
+        }
+
+        // TODO: save credentials in the app (both in ram and on disk) and runautoconnect.
+
+        cb({});
+    }
+
+    void autoconnect_iteration() {
+        m_autoconnect_timer.expires_from_now(30s);
+        m_autoconnect_timer.async_wait([this_weak = weak_from_this()](std::error_code ec) {
+            if (auto this_ = this_weak.lock()) {
+                switch (this_->m_state) {
+                    case ApplicationState::ready_to_connect:
+                        this_->trigger_autoconnect();
+                        break;
+                    default:
+                        log_debug("autconnect not applicable in state: {}",
+                                  fmt::streamed(this_->m_state));
+                }
+
+                this_->autoconnect_iteration();
+            }
+        });
+    }
+
+    // Attempts to connect with specified creds. Creds have all necessarry information inside
+    // effectively encapsulating credentials and server address.
+    void async_test_creds(IMAPConnectionCreds creds, async_callback<void> cb) override {
+        log_info("testing IMAP connection");
+        change_state(ApplicationState::connecting_to_test);
+        async_connect_and_authenticate(
+            std::move(creds), use_this(std::move(cb), [](auto& this_, std::error_code ec, auto cb) {
+                if (ec) {
+                    cb(ec);
+                    return;
+                }
+                this_.change_state(ApplicationState::connected_to_test);
+                cb({});
+            }));
+    }
+
+    ApplicationState get_state() override { return m_state; }
+
+    void trigger_autoconnect() {
+        log_info("triggering autoconnect..");
+        assert(m_state != ApplicationState::imap_established &&
+               m_state != ApplicationState::imap_authenticating);
+
+        auto cb = [](std::error_code ec) {
+            log_debug("Failed connecting to IMAP server: {}", ec);
+            // Don't do any actions, autoconnect timer loop will take care of making more attempts.
+        };
+
+        async_connect_and_authenticate(m_creds, std::move(cb));
+    }
+
+    void async_connect_and_authenticate(IMAPConnectionCreds creds, async_callback<void> cb) {
+        log_info("connecting to IMAP server: {}", fmt::streamed(creds));
+        m_imap_client->async_connect(
+            creds.host, std::to_string(creds.port),
+            use_this(std::move(cb), [creds](auto& this_, std::error_code ec, auto cb) mutable {
+                if (ec) {
+                    log_error("failed connecting Gmail IMAP: {}", ec);
+                    return;
+                }
+
+                // now we need to authenticate on imap server
+                this_.m_imap_client->async_authenticate(
+                    {.user_email = creds.email_address, .oauth_token = creds.access_token},
+                    this_.use_this(std::move(cb),
+                                   [](auto& this_, std::error_code ec,
+                                      emailkit::imap_client::auth_error_details_t err_details,
+                                      auto cb) mutable {
+                                       if (ec) {
+                                           log_error("imap auth failed: {}", ec);
+                                           cb(ec);
+                                           return;
+                                       }
+
+                                       log_info("authenticated on IMAP server");
+                                       // TODO: consider having some kind of connection info state
+                                       // which would indicate information about all current
+                                       // connections.
+
+                                       cb({});
+                                   }));
+            }));
+    }
+
+    void change_state(ApplicationState state) {
+        if (state != m_state) {
+            log_info("----------------------------------");
+            log_info("{} -> {}", to_string(m_state), fmt::streamed(state));
+            log_info("---------------------------------");
+            m_state = state;
+            m_callbacks->state_changed(m_state);
+        }
+    }
+
    private:
     std::unique_ptr<std::thread> m_thread;
     asio::io_context m_ctx;
@@ -646,11 +830,18 @@ class MailerPOC_impl : public MailerPOC,
     MailerPOCCallbacks* m_callbacks;
     std::shared_ptr<emailkit::google_auth_t> m_google_auth;
     std::shared_ptr<emailkit::imap_client::imap_client_t> m_imap_client;
+    asio::steady_timer m_autoconnect_timer;
 
     MailerUIState m_ui_state{""};
     std::mutex m_ui_state_mutex;
 
     MailIDFilter m_idfilter;
+    ApplicationState m_state = ApplicationState::not_ready;
+    IMAPConnectionCreds m_creds;
+    async_callback<IMAPConnectionCreds> m_wait_auth_done_cb;
+    IMAPConnectionCreds m_last_auth_done_unconsumed_creds;
+    std::error_code m_last_auth_done_errc;
+    bool m_have_last_auth_done_result = false;
 };
 
 std::shared_ptr<MailerPOC> make_mailer_poc() {

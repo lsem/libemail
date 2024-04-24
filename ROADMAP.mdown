@@ -10,3 +10,11 @@
 8. Marketing strategy development, discussing with knowledgable people.
 9. Plan for support, moneyback, bug reporting, SLA, etc.. This should become a product.
 10. Release and first sells.
+
+
+# Scope for Production version of the app
+1. All basic functionality.
+2. Gmail/Outlook/basic IMAP support only.
+3. Dropbox/AppleClound seemless integration. I want to have attachments looking like native for email, without weird link in the email itself.
+4. Grammarly integration, basic spellchecker.
+5. Markdown.

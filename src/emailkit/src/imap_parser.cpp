@@ -276,6 +276,11 @@ void apg_invoke_parser(uint32_t starting_rule,
     }
 }
 
+
+
+
+
+
 // FIXME: because of some bug in grammar/parser flags rule is hit twice so we work around this.
 void emplace_unique(std::vector<std::string>& v, std::string_view tok) {
     if (std::find_if(v.begin(), v.end(), [&tok](auto& x) { return x == tok; }) == v.end())
