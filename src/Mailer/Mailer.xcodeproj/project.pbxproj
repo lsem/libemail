@@ -7,13 +7,21 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		0D192B072BD05FE500AFF179 /* LoginViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D192B052BD05FE500AFF179 /* LoginViewController.swift */; };
 		0D548BCD2BCE78DF00F57B0F /* libclang_rt.asan_osx_dynamic.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 0D548BCB2BCE78DF00F57B0F /* libclang_rt.asan_osx_dynamic.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		0D5F23942BCB160800DFB747 /* MailerAppCore.mm in Sources */ = {isa = PBXBuildFile; fileRef = 0DA516562BCA88A800177589 /* MailerAppCore.mm */; };
 		0D783CCB2BB8935D00F358A1 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D783CCA2BB8935D00F358A1 /* AppDelegate.swift */; };
-		0D783CCD2BB8935D00F358A1 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D783CCC2BB8935D00F358A1 /* ViewController.swift */; };
 		0D783CCF2BB8935F00F358A1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0D783CCE2BB8935F00F358A1 /* Assets.xcassets */; };
 		0D783CD22BB8935F00F358A1 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 0D783CD02BB8935F00F358A1 /* Main.storyboard */; };
+		0D9E93722BDD19200025A457 /* MainWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D9E93702BDD19200025A457 /* MainWindowController.swift */; };
+		0D9E93732BDD19200025A457 /* MainWindowController.xib in Resources */ = {isa = PBXBuildFile; fileRef = 0D9E93712BDD19200025A457 /* MainWindowController.xib */; };
+		0D9E937A2BDD1FC00025A457 /* MainWindowViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D9E93782BDD1FC00025A457 /* MainWindowViewController.swift */; };
+		0D9E937B2BDD1FC00025A457 /* MainWindowViewController.xib in Resources */ = {isa = PBXBuildFile; fileRef = 0D9E93792BDD1FC00025A457 /* MainWindowViewController.xib */; };
+		0D9E937D2BDD33C80025A457 /* LoginWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D9E937C2BDD33C80025A457 /* LoginWindow.swift */; };
+		0D9E937F2BDD33DC0025A457 /* MainWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D9E937E2BDD33DC0025A457 /* MainWindow.swift */; };
+		0D9E93822BDD49C50025A457 /* LoginWindowViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D9E93802BDD49C50025A457 /* LoginWindowViewController.swift */; };
+		0D9E93832BDD49C50025A457 /* LoginWindowViewController.xib in Resources */ = {isa = PBXBuildFile; fileRef = 0D9E93812BDD49C50025A457 /* LoginWindowViewController.xib */; };
+		0D9E93862BDD4AB10025A457 /* LoginWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D9E93842BDD4AB10025A457 /* LoginWindowController.swift */; };
+		0D9E93872BDD4AB10025A457 /* LoginWindowController.xib in Resources */ = {isa = PBXBuildFile; fileRef = 0D9E93852BDD4AB10025A457 /* LoginWindowController.xib */; };
 		0D9F2F622BCC62E4003BC181 /* libgthread-2.0.0.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 0D9F2F562BCC62E1003BC181 /* libgthread-2.0.0.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		0D9F2F642BCC62E4003BC181 /* libiconv.2.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 0D9F2F572BCC62E1003BC181 /* libiconv.2.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		0D9F2F662BCC62E5003BC181 /* libglib-2.0.0.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 0D9F2F582BCC62E2003BC181 /* libglib-2.0.0.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
@@ -60,15 +68,23 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		0D192B052BD05FE500AFF179 /* LoginViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginViewController.swift; sourceTree = "<group>"; };
 		0D45A8CA2BC72014000AD32D /* Mailer-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Mailer-Bridging-Header.h"; sourceTree = "<group>"; };
 		0D548BCB2BCE78DF00F57B0F /* libclang_rt.asan_osx_dynamic.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libclang_rt.asan_osx_dynamic.dylib; path = ../../../../../../Library/Developer/CommandLineTools/usr/lib/clang/14.0.0/lib/darwin/libclang_rt.asan_osx_dynamic.dylib; sourceTree = "<group>"; };
 		0D783CC72BB8935D00F358A1 /* Mailer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Mailer.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0D783CCA2BB8935D00F358A1 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
-		0D783CCC2BB8935D00F358A1 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
 		0D783CCE2BB8935F00F358A1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		0D783CD12BB8935F00F358A1 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		0D783CD32BB8935F00F358A1 /* Mailer.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Mailer.entitlements; sourceTree = "<group>"; };
+		0D9E93702BDD19200025A457 /* MainWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindowController.swift; sourceTree = "<group>"; };
+		0D9E93712BDD19200025A457 /* MainWindowController.xib */ = {isa = PBXFileReference; lastKnownFileType = file.xib; path = MainWindowController.xib; sourceTree = "<group>"; };
+		0D9E93782BDD1FC00025A457 /* MainWindowViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindowViewController.swift; sourceTree = "<group>"; };
+		0D9E93792BDD1FC00025A457 /* MainWindowViewController.xib */ = {isa = PBXFileReference; lastKnownFileType = file.xib; path = MainWindowViewController.xib; sourceTree = "<group>"; };
+		0D9E937C2BDD33C80025A457 /* LoginWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginWindow.swift; sourceTree = "<group>"; };
+		0D9E937E2BDD33DC0025A457 /* MainWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindow.swift; sourceTree = "<group>"; };
+		0D9E93802BDD49C50025A457 /* LoginWindowViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginWindowViewController.swift; sourceTree = "<group>"; };
+		0D9E93812BDD49C50025A457 /* LoginWindowViewController.xib */ = {isa = PBXFileReference; lastKnownFileType = file.xib; path = LoginWindowViewController.xib; sourceTree = "<group>"; };
+		0D9E93842BDD4AB10025A457 /* LoginWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginWindowController.swift; sourceTree = "<group>"; };
+		0D9E93852BDD4AB10025A457 /* LoginWindowController.xib */ = {isa = PBXFileReference; lastKnownFileType = file.xib; path = LoginWindowController.xib; sourceTree = "<group>"; };
 		0D9F2F562BCC62E1003BC181 /* libgthread-2.0.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libgthread-2.0.0.dylib"; path = "../../_build/embedded_libs/libgthread-2.0.0.dylib"; sourceTree = "<group>"; };
 		0D9F2F572BCC62E1003BC181 /* libiconv.2.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libiconv.2.dylib; path = ../../_build/embedded_libs/libiconv.2.dylib; sourceTree = "<group>"; };
 		0D9F2F582BCC62E2003BC181 /* libglib-2.0.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libglib-2.0.0.dylib"; path = "../../_build/embedded_libs/libglib-2.0.0.dylib"; sourceTree = "<group>"; };
@@ -123,11 +139,19 @@
 			isa = PBXGroup;
 			children = (
 				0D783CCA2BB8935D00F358A1 /* AppDelegate.swift */,
-				0D783CCC2BB8935D00F358A1 /* ViewController.swift */,
 				0D783CCE2BB8935F00F358A1 /* Assets.xcassets */,
 				0D783CD02BB8935F00F358A1 /* Main.storyboard */,
-				0D192B052BD05FE500AFF179 /* LoginViewController.swift */,
+				0D9E93702BDD19200025A457 /* MainWindowController.swift */,
+				0D9E93712BDD19200025A457 /* MainWindowController.xib */,
+				0D9E93782BDD1FC00025A457 /* MainWindowViewController.swift */,
+				0D9E93792BDD1FC00025A457 /* MainWindowViewController.xib */,
 				0D783CD32BB8935F00F358A1 /* Mailer.entitlements */,
+				0D9E937C2BDD33C80025A457 /* LoginWindow.swift */,
+				0D9E937E2BDD33DC0025A457 /* MainWindow.swift */,
+				0D9E93802BDD49C50025A457 /* LoginWindowViewController.swift */,
+				0D9E93812BDD49C50025A457 /* LoginWindowViewController.xib */,
+				0D9E93842BDD4AB10025A457 /* LoginWindowController.swift */,
+				0D9E93852BDD4AB10025A457 /* LoginWindowController.xib */,
 			);
 			path = Mailer;
 			sourceTree = "<group>";
@@ -214,8 +238,12 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0D9E93832BDD49C50025A457 /* LoginWindowViewController.xib in Resources */,
 				0D783CCF2BB8935F00F358A1 /* Assets.xcassets in Resources */,
+				0D9E93732BDD19200025A457 /* MainWindowController.xib in Resources */,
+				0D9E93872BDD4AB10025A457 /* LoginWindowController.xib in Resources */,
 				0D783CD22BB8935F00F358A1 /* Main.storyboard in Resources */,
+				0D9E937B2BDD1FC00025A457 /* MainWindowViewController.xib in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -226,10 +254,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				0D192B072BD05FE500AFF179 /* LoginViewController.swift in Sources */,
-				0D783CCD2BB8935D00F358A1 /* ViewController.swift in Sources */,
+				0D9E937F2BDD33DC0025A457 /* MainWindow.swift in Sources */,
+				0D9E937A2BDD1FC00025A457 /* MainWindowViewController.swift in Sources */,
 				0D5F23942BCB160800DFB747 /* MailerAppCore.mm in Sources */,
+				0D9E93862BDD4AB10025A457 /* LoginWindowController.swift in Sources */,
+				0D9E937D2BDD33C80025A457 /* LoginWindow.swift in Sources */,
 				0D783CCB2BB8935D00F358A1 /* AppDelegate.swift in Sources */,
+				0D9E93722BDD19200025A457 /* MainWindowController.swift in Sources */,
+				0D9E93822BDD49C50025A457 /* LoginWindowViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

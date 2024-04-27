@@ -7,15 +7,23 @@
 
 import Cocoa
 
+// The task for today is to really finalize decision on how state changes are going to be handled by Cocoa part.
+// We want to have nicely placed and functional windows for Main window and for Login window. And whenever app decices that it needs to have login, they should be changed. We want to have a button telling the app to invalidate credentials, remove them and close current connection as if it can happen in the production.
+
+// On UI preservation: https://bignerdranch.com/blog/cocoa-ui-preservation-yall/
+
+
 @main
 class AppDelegate: NSObject, NSApplicationDelegate, LoginViewControllerDelegate {
     var core: MailerAppCore? = nil
-    //    var mainWindow: NSViewController? = nil
-    //    var loginWindow: NSViewController? = nil
-
-    //
-
+    
+    lazy var mainWindowController = MainWindowController()
+    lazy var loginWindowController = LoginWindowController()
+    
     // LoginViewControllerDelegate -- begin
+    func mailerInstance() -> MailerAppCore {
+        return self.core!
+    }
     func loginGmailClicked() {
         print("loginGmailClicked")
     }
@@ -36,6 +44,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, LoginViewControllerDelegate 
 
     func presentInNewMainWindow(viewController: NSViewController) {
         let window = NSWindow(contentViewController: viewController)
+
 
         let c = Credentials()
 
@@ -77,36 +86,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, LoginViewControllerDelegate 
     func coreCallback__stateChanged(_ s: ApplicationState) {
         print("APP/CORE: application state changed to \(s)")
         if s == .valueLoginRequired {
-            if let mainWindow = NSApplication.shared.mainWindow {
-                let loginWindowVC =
-                    (createControllerOrDie(byID: "LoginWindow") as? LoginViewController)!
-                loginWindowVC.delegate = self
-                loginWindowVC.sharedAppCore = self.core
-                mainWindow.contentViewController = loginWindowVC
-            }
         } else if s == .valueIMAPEstablished {
-            if let mainWindow = NSApplication.shared.mainWindow {
-                print("found main window")
-                let mainWindowVC = (createControllerOrDie(byID: "MainWindow") as? ViewController)!
-                mainWindow.contentViewController = mainWindowVC
-            } else {
-                print("NO main window")
-            }
         }
     }
+    
 
     func coreCallback__AuthInitiated(_ uri: String) {
         print("APP/CORE: Core requested authentication, there URI is: \(uri)")
-        let loginWindowVC = createControllerOrDie(byID: "LoginWindow")
-        (loginWindowVC as? LoginViewController)!.uri = uri
     }
 
-    func coreCallback__authDone(_ succeed: Bool, creds: Credentials) {
-        print("APP/CORE: Auth done")
-        let mainWindowVC = createControllerOrDie(byID: "MainWindow")
-        //  closeCurrentMainWindow()
-        // presentInNewMainWindow(viewController: mainWindowVC!)
-    }
     func coreCallback__treeAboutToChange() {
         print("APP/CORE: Tree about to change")
     }
@@ -129,9 +117,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, LoginViewControllerDelegate 
     }
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
-        // Insert code here to initialize your application
-
-        //redirectLogsToFile()
+        // TODO: decide if we need first open MainWindow and only then create and start the app.
+        // Alternatively we can create some sort of SplashWindow for this short period of time but this is not a modern way. More modern way would be to present Main window but have some kind of mode in it which is disabled and greyed-out.
+        self.mainWindowController.showWindow(nil)
+        self.mainWindowController.window?.center()
+        self.loginWindowController.showWindow(nil)
+        self.loginWindowController.window?.center()
+        
 
         self.core = MailerAppCore()
 
@@ -144,7 +136,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, LoginViewControllerDelegate 
                 self.coreCallback__AuthInitiated(uri!)
             }
             core.authDoneBlock = { succeeded, creds in
-                self.coreCallback__authDone(succeeded, creds: creds!)
             }
             core.treeAboutToChangeBlock = {
                 self.coreCallback__treeAboutToChange()

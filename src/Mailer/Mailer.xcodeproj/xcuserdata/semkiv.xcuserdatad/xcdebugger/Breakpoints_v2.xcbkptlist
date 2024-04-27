@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Bucket
+   uuid = "57711AFF-32CD-48B2-84A1-AC592DBC48DD"
+   type = "1"
+   version = "2.0">
+   <Breakpoints>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "8E951715-E175-4AE2-833F-6C5D08C106DF"
+            shouldBeEnabled = "No"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "Mailer/LoginWindowViewController.swift"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "19"
+            endingLineNumber = "19"
+            landmarkName = "LoginWindowViewController"
+            landmarkType = "3">
+            <Locations>
+               <Location
+                  uuid = "8E951715-E175-4AE2-833F-6C5D08C106DF - 91a4d83d194c59a2"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "Mailer.LoginWindowViewController.passwordTextField.getter : Swift.Optional&lt;__C.NSTextField&gt;"
+                  moduleName = "Mailer"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/semkiv/repos/libemail/src/Mailer/Mailer/LoginWindowViewController.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "17"
+                  endingLineNumber = "17"
+                  offsetFromSymbolStart = "85">
+               </Location>
+               <Location
+                  uuid = "8E951715-E175-4AE2-833F-6C5D08C106DF - 565a3358208e6db6"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "Mailer.LoginWindowViewController.passwordTextField.setter : Swift.Optional&lt;__C.NSTextField&gt;"
+                  moduleName = "Mailer"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/semkiv/repos/libemail/src/Mailer/Mailer/LoginWindowViewController.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "17"
+                  endingLineNumber = "17"
+                  offsetFromSymbolStart = "136">
+               </Location>
+               <Location
+                  uuid = "8E951715-E175-4AE2-833F-6C5D08C106DF - eee8ba6bab8b4a7"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "Mailer.LoginWindowViewController.passwordTextField.modify : Swift.Optional&lt;__C.NSTextField&gt;"
+                  moduleName = "Mailer"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/semkiv/repos/libemail/src/Mailer/Mailer/LoginWindowViewController.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "17"
+                  endingLineNumber = "17"
+                  offsetFromSymbolStart = "0">
+               </Location>
+               <Location
+                  uuid = "8E951715-E175-4AE2-833F-6C5D08C106DF - 8460030ce5870a71"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "Mailer.LoginWindowViewController.passwordTextField.modify : Swift.Optional&lt;__C.NSTextField&gt; with unmangled suffix &quot;.resume.0&quot;"
+                  moduleName = "Mailer"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/semkiv/repos/libemail/src/Mailer/Mailer/LoginWindowViewController.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "17"
+                  endingLineNumber = "17"
+                  offsetFromSymbolStart = "26">
+               </Location>
+               <Location
+                  uuid = "8E951715-E175-4AE2-833F-6C5D08C106DF - 1d8ccac5cffc273c"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "Mailer.LoginWindowViewController.init(nibName: Swift.Optional&lt;Swift.String&gt;, bundle: Swift.Optional&lt;__C.NSBundle&gt;) -&gt; Mailer.LoginWindowViewController"
+                  moduleName = "Mailer"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/semkiv/repos/libemail/src/Mailer/Mailer/LoginWindowViewController.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "17"
+                  endingLineNumber = "17"
+                  offsetFromSymbolStart = "236">
+               </Location>
+               <Location
+                  uuid = "8E951715-E175-4AE2-833F-6C5D08C106DF - b64fefbf77e0d452"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "Mailer.LoginWindowViewController.init(coder: __C.NSCoder) -&gt; Swift.Optional&lt;Mailer.LoginWindowViewController&gt;"
+                  moduleName = "Mailer"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/semkiv/repos/libemail/src/Mailer/Mailer/LoginWindowViewController.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "17"
+                  endingLineNumber = "17"
+                  offsetFromSymbolStart = "193">
+               </Location>
+            </Locations>
+         </BreakpointContent>
+      </BreakpointProxy>
+   </Breakpoints>
+</Bucket>

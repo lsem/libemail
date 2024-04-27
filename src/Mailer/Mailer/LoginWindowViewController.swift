@@ -1,37 +1,50 @@
 //
-//  LoginViewController.swift
+//  LoginWindowViewController.swift
 //  Mailer
 //
-//  Created by semkiv on 17.04.2024.
+//  Created by semkiv on 27.04.2024.
 //
 
 import Cocoa
 
-protocol LoginViewControllerDelegate {
+protocol LoginViewControllerDelegate: AnyObject {
     func loginGmailClicked()
+    func mailerInstance() -> MailerAppCore
 }
 
-class LoginViewController: NSViewController {
-    var uri: String = ""
-    var delegate: LoginViewControllerDelegate? = nil
-    var sharedAppCore: MailerAppCore? = nil
-
-    @IBOutlet weak var closeButtonClicked: NSButton!
+class LoginWindowViewController: NSViewController {
+    var sharedAppCore: MailerAppCore?
+    weak var delegate: LoginViewControllerDelegate?
+    @IBOutlet weak var usernameTextField: NSTextField!
+    @IBOutlet weak var passwordTextField: NSTextField!
+    @IBOutlet weak var imapServerHostTextField: NSTextField!
+    @IBOutlet weak var imapServerPortTextField: NSTextField!
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        // Do view setup here.
     }
 
-    @IBAction func closeButtonReallyClicked(_ sender: Any) {
-        print("loginWindow::closeButtonReallyClicked")
-        if let delegate = delegate {
-            delegate.loginGmailClicked()
-        }
-        guard let core = core = self.sharedAppCore else {
-            print("ERROR: no core")
+    @IBAction func googleButtonAction(_ sender: Any) {
+        print("LoginWindowViewController: google action")
+        processGoogleAuthAction()
+    }
+
+    @IBAction func hotmailButtonAction(_ sender: Any) {
+        print("LoginWindowViewController: hotmail action")
+    }
+
+    @IBAction func plainIMAPLoginAction(_ sender: Any) {
+        print("LoginWindowViewController: plain IMAP action")
+    }
+
+    func processGoogleAuthAction() {
+        guard let delegate = self.delegate else {
+            print("LoginWindowViewController: no delegate")
             return
         }
+
+        let core = delegate.mailerInstance()
+        // QUESTION: are these core and delegate going to be magically retained because they are copied into each closure?
 
         print("calling asyncRequestGmailAuth")
         core.asyncRequestGmailAuth { succeded, uri in
@@ -71,4 +84,5 @@ class LoginViewController: NSViewController {
 
         }
     }
+
 }
