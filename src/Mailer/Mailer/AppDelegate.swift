@@ -12,58 +12,33 @@ import Cocoa
 
 // On UI preservation: https://bignerdranch.com/blog/cocoa-ui-preservation-yall/
 
-
 @main
-class AppDelegate: NSObject, NSApplicationDelegate, LoginViewControllerDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, LoginWindowControllerDelegate,
+    LoginViewControllerDelegate
+{
     var core: MailerAppCore? = nil
-    
-    lazy var mainWindowController = MainWindowController()
-    lazy var loginWindowController = LoginWindowController()
-    
-    // LoginViewControllerDelegate -- begin
+
+    lazy var mainWindowController: MainWindowController = {
+        let instance = MainWindowController()
+        return instance
+    }()
+    lazy var loginWindowController: LoginWindowController = {
+        let instance = LoginWindowController()
+        instance.delegate = self
+        return instance
+    }()
+
+    // MARK: LoginViewControllerDelegate
+    func viewControllerCreated(instance: LoginWindowViewController) {
+        instance.delegate = self
+    }
+
+    // MARK: LoginViewControllerDelegate
     func mailerInstance() -> MailerAppCore {
         return self.core!
     }
     func loginGmailClicked() {
         print("loginGmailClicked")
-    }
-    // LoginViewControllerDelegate -- end
-
-    func loginWindowFinished() {
-        //        let mainWindowVC = createControllerOrDie(byID: "MainWindow")
-        //        closeCurrentMainWindow()
-        //        presentInNewMainWindow(viewController: mainWindowVC!)
-    }
-
-    func closeCurrentMainWindow() {
-        if NSApplication.shared.mainWindow == nil {
-            print("No Main Window")
-        }
-        NSApplication.shared.mainWindow?.close()
-    }
-
-    func presentInNewMainWindow(viewController: NSViewController) {
-        let window = NSWindow(contentViewController: viewController)
-
-
-        let c = Credentials()
-
-        window.styleMask = [.closable]
-        window.isMovableByWindowBackground = true
-
-        var rect = window.contentRect(forFrameRect: window.frame)
-        // TODO: calculate perfectly centered window.
-        rect.size = .init(width: 1000, height: 600)
-        var frame = window.frameRect(forContentRect: rect)
-        frame = frame.offsetBy(dx: -300, dy: -300)
-        window.setFrame(frame, display: true, animate: true)
-
-        window.makeKeyAndOrderFront(self)
-        window.becomeMain()
-        window.makeMain()
-        let windowVC = NSWindowController(window: window)
-
-        windowVC.showWindow(self)
     }
 
     func createControllerOrDie(byID: String) -> NSViewController! {
@@ -89,7 +64,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, LoginViewControllerDelegate 
         } else if s == .valueIMAPEstablished {
         }
     }
-    
 
     func coreCallback__AuthInitiated(_ uri: String) {
         print("APP/CORE: Core requested authentication, there URI is: \(uri)")
@@ -102,32 +76,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, LoginViewControllerDelegate 
         print("APP/CORE: Tree Model Changed")
     }
 
-    func redirectLogsToFile() {
-        let documentsPaths = NSSearchPathForDirectoriesInDomains(
-            .documentDirectory, .userDomainMask, true)
-        print("documentsPath: \(documentsPaths)")
-        if documentsPaths.isEmpty {
-            print("ERROR: documents directory not available")
-            return
-        }
-        let path = (documentsPaths[0] as NSString).appendingPathComponent("console.log")
-        print("redirecting to path: \(path)")
-        freopen(path.cString(using: String.Encoding.utf8)!, "a+", stderr)
-        freopen(path.cString(using: String.Encoding.utf8)!, "a+", stdout)
-    }
-
     func applicationDidFinishLaunching(_ aNotification: Notification) {
-        // TODO: decide if we need first open MainWindow and only then create and start the app.
-        // Alternatively we can create some sort of SplashWindow for this short period of time but this is not a modern way. More modern way would be to present Main window but have some kind of mode in it which is disabled and greyed-out.
-        self.mainWindowController.showWindow(nil)
-        self.mainWindowController.window?.center()
-        self.loginWindowController.showWindow(nil)
-        self.loginWindowController.window?.center()
-        
-
         self.core = MailerAppCore()
 
         if let core = self.core {
+            // Core must already exist because view controllers will get a reference to it as part of they loading/initialization.
+
+            // TODO: decide if we need first open MainWindow and only then create and start the app.
+            // Alternatively we can create some sort of SplashWindow for this short period of time but this is not a modern way. More modern way would be to present Main window but have some kind of mode in it which is disabled and greyed-out.
+            self.mainWindowController.showWindow(nil)
+            self.mainWindowController.window?.center()
+            self.loginWindowController.showWindow(nil)
+            self.loginWindowController.window?.center()
 
             core.stateChangedBlock = { state in
                 self.coreCallback__stateChanged(state)

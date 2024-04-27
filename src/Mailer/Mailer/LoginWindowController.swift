@@ -7,7 +7,13 @@
 
 import Cocoa
 
+protocol LoginWindowControllerDelegate: AnyObject {
+    func viewControllerCreated(instance: LoginWindowViewController)
+}
+
 class LoginWindowController: NSWindowController {
+    weak var delegate: LoginWindowControllerDelegate?
+
     convenience init() {
         self.init(windowNibName: "LoginWindowController")
     }
@@ -16,8 +22,8 @@ class LoginWindowController: NSWindowController {
         super.windowDidLoad()
 
         // Implement this method to handle any initialization after your window controller's window has been loaded from its nib file.
-        self.contentViewController = LoginWindowViewController()
-        
+        let viewController = LoginWindowViewController()
+        self.contentViewController = viewController
+        delegate?.viewControllerCreated(instance: viewController)
     }
-    
 }
