@@ -7,13 +7,12 @@
 
 import Cocoa
 
-
 @main
 class AppDelegate: NSObject, NSApplicationDelegate, LoginViewControllerDelegate {
-    var core : MailerAppCore? = nil
-//    var mainWindow: NSViewController? = nil
-//    var loginWindow: NSViewController? = nil
-    
+    var core: MailerAppCore? = nil
+    //    var mainWindow: NSViewController? = nil
+    //    var loginWindow: NSViewController? = nil
+
     //
 
     // LoginViewControllerDelegate -- begin
@@ -21,11 +20,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, LoginViewControllerDelegate 
         print("loginGmailClicked")
     }
     // LoginViewControllerDelegate -- end
-    
+
     func loginWindowFinished() {
-//        let mainWindowVC = createControllerOrDie(byID: "MainWindow")
-//        closeCurrentMainWindow()
-//        presentInNewMainWindow(viewController: mainWindowVC!)
+        //        let mainWindowVC = createControllerOrDie(byID: "MainWindow")
+        //        closeCurrentMainWindow()
+        //        presentInNewMainWindow(viewController: mainWindowVC!)
     }
 
     func closeCurrentMainWindow() {
@@ -34,39 +33,43 @@ class AppDelegate: NSObject, NSApplicationDelegate, LoginViewControllerDelegate 
         }
         NSApplication.shared.mainWindow?.close()
     }
-    
+
     func presentInNewMainWindow(viewController: NSViewController) {
-       let window = NSWindow(contentViewController: viewController)
-        
+        let window = NSWindow(contentViewController: viewController)
+
         let c = Credentials()
-        
+
         window.styleMask = [.closable]
         window.isMovableByWindowBackground = true
 
-       var rect = window.contentRect(forFrameRect: window.frame)
-       // TODO: calculate perfectly centered window.
-       rect.size = .init(width: 1000, height: 600)
+        var rect = window.contentRect(forFrameRect: window.frame)
+        // TODO: calculate perfectly centered window.
+        rect.size = .init(width: 1000, height: 600)
         var frame = window.frameRect(forContentRect: rect)
         frame = frame.offsetBy(dx: -300, dy: -300)
-       window.setFrame(frame, display: true, animate: true)
+        window.setFrame(frame, display: true, animate: true)
 
-       window.makeKeyAndOrderFront(self)
+        window.makeKeyAndOrderFront(self)
         window.becomeMain()
         window.makeMain()
-       let windowVC = NSWindowController(window: window)
-                
-       windowVC.showWindow(self)
-   }
-    
+        let windowVC = NSWindowController(window: window)
+
+        windowVC.showWindow(self)
+    }
+
     func createControllerOrDie(byID: String) -> NSViewController! {
         if let mainStoryboard = NSStoryboard.main {
-            if let windowNS = mainStoryboard.instantiateController(withIdentifier: byID) as? NSViewController {
+            if let windowNS = mainStoryboard.instantiateController(withIdentifier: byID)
+                as? NSViewController
+            {
                 return windowNS
             } else {
-                terminateApplicationCausedByCriticalError(message: "Cannot instantiate controller with name \(byID)")
+                terminateApplicationCausedByCriticalError(
+                    message: "Cannot instantiate controller with name \(byID)")
             }
         } else {
-            terminateApplicationCausedByCriticalError(message: "Cannot access main storyboard of the app")
+            terminateApplicationCausedByCriticalError(
+                message: "Cannot access main storyboard of the app")
         }
         return nil
     }
@@ -75,15 +78,19 @@ class AppDelegate: NSObject, NSApplicationDelegate, LoginViewControllerDelegate 
         print("APP/CORE: application state changed to \(s)")
         if s == .valueLoginRequired {
             if let mainWindow = NSApplication.shared.mainWindow {
-                let loginWindowVC = (createControllerOrDie(byID: "LoginWindow") as? LoginViewController)!
+                let loginWindowVC =
+                    (createControllerOrDie(byID: "LoginWindow") as? LoginViewController)!
                 loginWindowVC.delegate = self
                 loginWindowVC.sharedAppCore = self.core
                 mainWindow.contentViewController = loginWindowVC
             }
         } else if s == .valueIMAPEstablished {
             if let mainWindow = NSApplication.shared.mainWindow {
+                print("found main window")
                 let mainWindowVC = (createControllerOrDie(byID: "MainWindow") as? ViewController)!
                 mainWindow.contentViewController = mainWindowVC
+            } else {
+                print("NO main window")
             }
         }
     }
@@ -93,12 +100,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, LoginViewControllerDelegate 
         let loginWindowVC = createControllerOrDie(byID: "LoginWindow")
         (loginWindowVC as? LoginViewController)!.uri = uri
     }
-    
+
     func coreCallback__authDone(_ succeed: Bool, creds: Credentials) {
         print("APP/CORE: Auth done")
         let mainWindowVC = createControllerOrDie(byID: "MainWindow")
-      //  closeCurrentMainWindow()
-       // presentInNewMainWindow(viewController: mainWindowVC!)
+        //  closeCurrentMainWindow()
+        // presentInNewMainWindow(viewController: mainWindowVC!)
     }
     func coreCallback__treeAboutToChange() {
         print("APP/CORE: Tree about to change")
@@ -106,9 +113,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, LoginViewControllerDelegate 
     func coreCallback__treeModelChanged() {
         print("APP/CORE: Tree Model Changed")
     }
-    
+
     func redirectLogsToFile() {
-        let documentsPaths = NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true)
+        let documentsPaths = NSSearchPathForDirectoriesInDomains(
+            .documentDirectory, .userDomainMask, true)
         print("documentsPath: \(documentsPaths)")
         if documentsPaths.isEmpty {
             print("ERROR: documents directory not available")
@@ -119,16 +127,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, LoginViewControllerDelegate 
         freopen(path.cString(using: String.Encoding.utf8)!, "a+", stderr)
         freopen(path.cString(using: String.Encoding.utf8)!, "a+", stdout)
     }
-    
+
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         // Insert code here to initialize your application
 
         //redirectLogsToFile()
-        
+
         self.core = MailerAppCore()
-        
+
         if let core = self.core {
-           
+
             core.stateChangedBlock = { state in
                 self.coreCallback__stateChanged(state)
             }
@@ -146,21 +154,23 @@ class AppDelegate: NSObject, NSApplicationDelegate, LoginViewControllerDelegate 
             }
 
             // TODO: implement more callbacks, especiall those that update UI.
-            
+
             core.startEventLoop()
             core.asyncRun(completionBlock: { succeded in
-                              if succeded {
-                                  print("core is ruunning");
-                              } else {
-                                  print("failed running mailer core")
-                                  self.terminateApplicationCausedByCriticalError(message: "Failed running Core application")
-                              }
-                          })
+                if succeded {
+                    print("core is ruunning")
+                } else {
+                    print("failed running mailer core")
+                    self.terminateApplicationCausedByCriticalError(
+                        message: "Failed running Core application")
+                }
+            })
         } else {
-            terminateApplicationCausedByCriticalError(message: "Failed creating an instance of application core")
+            terminateApplicationCausedByCriticalError(
+                message: "Failed creating an instance of application core")
         }
     }
-    
+
     func terminateApplicationCausedByCriticalError(message: String) {
         let alert = NSAlert()
         alert.messageText = "\(message).\nThis is fatal error and application will be closed"
@@ -182,5 +192,3 @@ class AppDelegate: NSObject, NSApplicationDelegate, LoginViewControllerDelegate 
         return true
     }
 }
-
-

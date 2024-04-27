@@ -726,10 +726,10 @@
             </objects>
             <point key="canvasLocation" x="74" y="734"/>
         </scene>
-        <!--Login View Controller-->
+        <!--Login Required-->
         <scene sceneID="1NK-p7-gtP">
             <objects>
-                <viewController storyboardIdentifier="LoginWindow" id="uLz-3e-eej" customClass="LoginViewController" customModule="Mailer" customModuleProvider="target" sceneMemberID="viewController">
+                <viewController title="Login Required" storyboardIdentifier="LoginWindow" id="uLz-3e-eej" customClass="LoginViewController" customModule="Mailer" customModuleProvider="target" sceneMemberID="viewController">
                     <view key="view" id="D4e-hs-c8x">
                         <rect key="frame" x="0.0" y="0.0" width="480" height="300"/>
                         <autoresizingMask key="autoresizingMask"/>

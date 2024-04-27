@@ -43,11 +43,9 @@ typedef void (^TreeModelChangedBlock)();
 
 // TODO: consider using NSError instead of bool.
 - (void)asyncRunWithCompletionBlock:(void (^)(BOOL))cb;
-
 - (void)asyncRequestGmailAuth:(void (^)(BOOL, NSString*))cb;
 - (void)asyncWaitAuthDone:(void (^)(BOOL, Credentials*))cb;
 - (void)asyncAcceptCreds:(Credentials*)creds completionCB:(void (^)(BOOL))cb;
-;
 - (void)asyncTestCreds:(Credentials*)creds completionCB:(void (^)(BOOL))cb;
 - (ApplicationState)getState;
 
