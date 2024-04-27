@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		0D548BCD2BCE78DF00F57B0F /* libclang_rt.asan_osx_dynamic.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 0D548BCB2BCE78DF00F57B0F /* libclang_rt.asan_osx_dynamic.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		0D5E922B2BDD8CDD00A32397 /* LoginViewController_Outcome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D5E92292BDD8CDD00A32397 /* LoginViewController_Outcome.swift */; };
+		0D5E922C2BDD8CDD00A32397 /* LoginViewController_Outcome.xib in Resources */ = {isa = PBXBuildFile; fileRef = 0D5E922A2BDD8CDD00A32397 /* LoginViewController_Outcome.xib */; };
 		0D5F23942BCB160800DFB747 /* MailerAppCore.mm in Sources */ = {isa = PBXBuildFile; fileRef = 0DA516562BCA88A800177589 /* MailerAppCore.mm */; };
 		0D783CCB2BB8935D00F358A1 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D783CCA2BB8935D00F358A1 /* AppDelegate.swift */; };
 		0D783CCF2BB8935F00F358A1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0D783CCE2BB8935F00F358A1 /* Assets.xcassets */; };
@@ -70,6 +72,8 @@
 /* Begin PBXFileReference section */
 		0D45A8CA2BC72014000AD32D /* Mailer-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Mailer-Bridging-Header.h"; sourceTree = "<group>"; };
 		0D548BCB2BCE78DF00F57B0F /* libclang_rt.asan_osx_dynamic.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libclang_rt.asan_osx_dynamic.dylib; path = ../../../../../../Library/Developer/CommandLineTools/usr/lib/clang/14.0.0/lib/darwin/libclang_rt.asan_osx_dynamic.dylib; sourceTree = "<group>"; };
+		0D5E92292BDD8CDD00A32397 /* LoginViewController_Outcome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginViewController_Outcome.swift; sourceTree = "<group>"; };
+		0D5E922A2BDD8CDD00A32397 /* LoginViewController_Outcome.xib */ = {isa = PBXFileReference; lastKnownFileType = file.xib; path = LoginViewController_Outcome.xib; sourceTree = "<group>"; };
 		0D783CC72BB8935D00F358A1 /* Mailer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Mailer.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0D783CCA2BB8935D00F358A1 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		0D783CCE2BB8935F00F358A1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -152,6 +156,8 @@
 				0D9E93812BDD49C50025A457 /* LoginWindowViewController.xib */,
 				0D9E93842BDD4AB10025A457 /* LoginWindowController.swift */,
 				0D9E93852BDD4AB10025A457 /* LoginWindowController.xib */,
+				0D5E92292BDD8CDD00A32397 /* LoginViewController_Outcome.swift */,
+				0D5E922A2BDD8CDD00A32397 /* LoginViewController_Outcome.xib */,
 			);
 			path = Mailer;
 			sourceTree = "<group>";
@@ -240,6 +246,7 @@
 			files = (
 				0D9E93832BDD49C50025A457 /* LoginWindowViewController.xib in Resources */,
 				0D783CCF2BB8935F00F358A1 /* Assets.xcassets in Resources */,
+				0D5E922C2BDD8CDD00A32397 /* LoginViewController_Outcome.xib in Resources */,
 				0D9E93732BDD19200025A457 /* MainWindowController.xib in Resources */,
 				0D9E93872BDD4AB10025A457 /* LoginWindowController.xib in Resources */,
 				0D783CD22BB8935F00F358A1 /* Main.storyboard in Resources */,
@@ -259,6 +266,7 @@
 				0D5F23942BCB160800DFB747 /* MailerAppCore.mm in Sources */,
 				0D9E93862BDD4AB10025A457 /* LoginWindowController.swift in Sources */,
 				0D9E937D2BDD33C80025A457 /* LoginWindow.swift in Sources */,
+				0D5E922B2BDD8CDD00A32397 /* LoginViewController_Outcome.swift in Sources */,
 				0D783CCB2BB8935D00F358A1 /* AppDelegate.swift in Sources */,
 				0D9E93722BDD19200025A457 /* MainWindowController.swift in Sources */,
 				0D9E93822BDD49C50025A457 /* LoginWindowViewController.swift in Sources */,

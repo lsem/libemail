@@ -13,8 +13,8 @@ import Cocoa
 // On UI preservation: https://bignerdranch.com/blog/cocoa-ui-preservation-yall/
 
 @main
-class AppDelegate: NSObject, NSApplicationDelegate, LoginWindowControllerDelegate,
-    LoginViewControllerDelegate
+class AppDelegate: NSObject, NSApplicationDelegate, CoreApplicationLoginDelegate,
+    LoginWindowControllerDelegate
 {
     var core: MailerAppCore? = nil
 
@@ -24,24 +24,100 @@ class AppDelegate: NSObject, NSApplicationDelegate, LoginWindowControllerDelegat
     }()
     lazy var loginWindowController: LoginWindowController = {
         let instance = LoginWindowController()
+        instance.coreAppLoginDelegate = self
         instance.delegate = self
         return instance
     }()
 
-    // MARK: LoginViewControllerDelegate
-    func viewControllerCreated(instance: LoginWindowViewController) {
-        instance.delegate = self
+    // MARK: LoginWindowControllerDelegate
+    func authDoneWithResult(_ success: Bool, _ creds: Credentials?) {
+        print("APP: auth done with result: \(success)")
+        if success {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                self.core?.asyncAcceptCreds(
+                    creds!,
+                    completionCB: { res in
+                        if res {
+                            print("APP: creds accepted")
+                            // We expect that the app will take the creds and will switch state accordingly..
+                            // Theoretically, we should now open another, intermediate window telling customer what is going to happen next.
+                            // Question: what if the app will not transition into established state and we will stuck?
+
+                        } else {
+                            print("APP: ERROR: creds are not accepted")
+                            // TODO: do something.
+                        }
+                    })
+            }
+        }
     }
 
-    // MARK: LoginViewControllerDelegate
-    func mailerInstance() -> MailerAppCore {
-        return self.core!
+    func showMainWindow() {
+        self.mainWindowController.showWindow(nil)
+        self.mainWindowController.window?.center()
+    }
+
+    func hideMainWindow() {
+        self.mainWindowController.window?.close()
+        // TODO: how we are supposed to remove it?
+    }
+
+    func showLoginWindow() {
+        self.loginWindowController.showWindow(nil)
+        self.loginWindowController.window?.center()
+    }
+
+    func hideLoginWindow() {
+        self.loginWindowController.window?.close()
+        // TODO: how we are supposed to remove it?
+    }
+
+    // MARK: CoreApplicationLoginDelegate
+    func asyncRequestGmailAuth(_ completionCallback: @escaping (Bool, String?) -> Void) {
+        if let core = self.core {
+            core.asyncRequestGmailAuth { succeded, maybeURI in
+                completionCallback(succeded, maybeURI!)
+            }
+        }
+    }
+    func asyncWaitAuthDone(_ completionCallback: @escaping (Bool, Credentials?) -> Void) {
+        if let core = self.core {
+            core.asyncWaitAuthDone { succeeded, credentials in
+                completionCallback(succeeded, credentials)
+            }
+        }
+    }
+    func asyncTestCreds(_ creds: Credentials, _ completionCallback: @escaping (Bool) -> Void) {
+        if let core = self.core {
+            core.asyncTestCreds(creds) { succeded in
+                completionCallback(succeded)
+            }
+        }
+    }
+    func asyncAcceptCreds(_ creds: Credentials, _ completionCallback: @escaping (Bool) -> Void) {
+        if let core = self.core {
+            core.asyncAcceptCreds(creds) { succeded in
+                completionCallback(succeded)
+            }
+        }
+    }
+
+    // MARK: LoginWindowControllerDelegate
+    func mailerInstance() -> MailerAppCore? {
+        return self.core
     }
 
     func coreCallback__stateChanged(_ s: ApplicationState) {
         print("APP/CORE: application state changed to \(s)")
         if s == .valueLoginRequired {
+            hideMainWindow()
+            showLoginWindow()
         } else if s == .valueIMAPEstablished {
+            showMainWindow()
+            hideLoginWindow()
+        } else {
+            // Other states? What if login accepted but imap is not establishes if there is no internet?
+            // Other problem: what if we cannot auth because of different reasons, including no internet?
         }
     }
 
@@ -64,10 +140,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, LoginWindowControllerDelegat
 
             // TODO: decide if we need first open MainWindow and only then create and start the app.
             // Alternatively we can create some sort of SplashWindow for this short period of time but this is not a modern way. More modern way would be to present Main window but have some kind of mode in it which is disabled and greyed-out.
+
             self.mainWindowController.showWindow(nil)
             self.mainWindowController.window?.center()
-            self.loginWindowController.showWindow(nil)
-            self.loginWindowController.window?.center()
+            //self.loginWindowController.showWindow(nil)
+            //self.loginWindowController.window?.center()
 
             core.stateChangedBlock = { state in
                 self.coreCallback__stateChanged(state)

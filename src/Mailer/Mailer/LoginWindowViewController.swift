@@ -7,13 +7,27 @@
 
 import Cocoa
 
-protocol LoginViewControllerDelegate: AnyObject {
-    func mailerInstance() -> MailerAppCore
+//
+//
+// AppDelegate creates login window.
+// Login window does nothing except controls its views so it just waits until user clock login.
+// Corresponding delegate asks AppDelegate to handle this.
+// We handle this by running different stuff with core instance.
+// During manipulation with log in we use window only for presenting our results (how?).
+// We can ask window to present Success dialog, or show failure. But what about having UI
+// for some process, e.g. we want to test connection and it has progress bug.
+// How it supposed to drain data?
+// Alternatively, we can have app as singleton and allow everyone touch core from everywhere.
+// But this may create problems. E.g. our loops are going to retain links to the app.
+
+protocol LoginWindowViewControllerDelegate: AnyObject {
+    func authDoneWithResult(success: Bool, creds: Credentials?)
 }
 
 class LoginWindowViewController: NSViewController {
-    var sharedAppCore: MailerAppCore?
-    weak var delegate: LoginViewControllerDelegate?
+    weak var delegate: LoginWindowViewControllerDelegate?
+    weak var coreAppDelegate: CoreApplicationLoginDelegate?
+
     @IBOutlet weak var usernameTextField: NSTextField!
     @IBOutlet weak var passwordTextField: NSTextField!
     @IBOutlet weak var imapServerHostTextField: NSTextField!
@@ -37,58 +51,44 @@ class LoginWindowViewController: NSViewController {
     }
 
     func processGoogleAuthAction() {
-        guard let delegate = self.delegate else {
-            print("LoginWindowViewController: no delegate")
-            return
-        }
-
-        let core = delegate.mailerInstance()
-        // QUESTION: are these core and delegate going to be magically retained because they are copied into each closure?
-
         print("calling asyncRequestGmailAuth")
-        core.asyncRequestGmailAuth { succeded, uri in
+        self.coreAppDelegate?.asyncRequestGmailAuth { succeded, uri in
             if !succeded {
                 print("ERROR: asyncRequestGmailAuth failed")
                 // TODO: ...
+                self.delegate?.authDoneWithResult(success: false, creds: nil)
                 return
             }
+
             print("asyncRequestGmailAuth succeeded")
-            // TODO: use completion handler instead of assuming it is always successful,
-            // use (NSWorkspace.shared.open(URL(string: uri!)!, configuration: NSWorkspace.OpenConfiguration) for this.
-            // TODO: we can also possibly track completion of the browser.
+
+            // TODO: use completion handler instead of assuming it is always successful
             NSWorkspace.shared.open(URL(string: uri!)!)
-            core.asyncWaitAuthDone { succeded, creds in
+
+            self.coreAppDelegate?.asyncWaitAuthDone { succeded, creds in
                 if !succeded {
                     print("ERROR: asyncWaitAuthDone failed")
                     // TODO: ...
+                    self.delegate?.authDoneWithResult(success: false, creds: nil)
                     return
                 }
-                print("got creds, lets test them next")
 
                 NSRunningApplication.current.activate(options: [
                     .activateAllWindows, .activateIgnoringOtherApps,
                 ])
 
-                core.asyncTestCreds(creds) { succeded in
+                self.coreAppDelegate?.asyncTestCreds(creds!) { succeded in
                     if !succeded {
                         print("ERROR: asyncTestCreds failed")
-                        // TODO: ...
+                        // TODO: ... Showing page and give a change to try again?
+                        // what if there is not Internet?
+                        self.delegate?.authDoneWithResult(success: false, creds: nil)
                         return
                     }
 
-                    print("creds are OK")
-                    // Accepting creds will change state of the app to connected state which in turn will close login window.
-                    core.asyncAcceptCreds(creds) { succeeded in
-                        if succeded {
-                            print("creds accepted")
-                        } else {
-                            // TODO:
-                            print("creds not accepted")
-                        }
-                    }
+                    self.delegate?.authDoneWithResult(success: true, creds: creds)
                 }
             }
-
         }
     }
 
