@@ -41,23 +41,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, LoginWindowControllerDelegat
         print("loginGmailClicked")
     }
 
-    func createControllerOrDie(byID: String) -> NSViewController! {
-        if let mainStoryboard = NSStoryboard.main {
-            if let windowNS = mainStoryboard.instantiateController(withIdentifier: byID)
-                as? NSViewController
-            {
-                return windowNS
-            } else {
-                terminateApplicationCausedByCriticalError(
-                    message: "Cannot instantiate controller with name \(byID)")
-            }
-        } else {
-            terminateApplicationCausedByCriticalError(
-                message: "Cannot access main storyboard of the app")
-        }
-        return nil
-    }
-
     func coreCallback__stateChanged(_ s: ApplicationState) {
         print("APP/CORE: application state changed to \(s)")
         if s == .valueLoginRequired {
