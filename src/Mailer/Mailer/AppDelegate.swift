@@ -37,9 +37,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, LoginWindowControllerDelegat
     func mailerInstance() -> MailerAppCore {
         return self.core!
     }
-    func loginGmailClicked() {
-        print("loginGmailClicked")
-    }
 
     func coreCallback__stateChanged(_ s: ApplicationState) {
         print("APP/CORE: application state changed to \(s)")

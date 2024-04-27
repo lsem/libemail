@@ -8,7 +8,6 @@
 import Cocoa
 
 protocol LoginViewControllerDelegate: AnyObject {
-    func loginGmailClicked()
     func mailerInstance() -> MailerAppCore
 }
 
