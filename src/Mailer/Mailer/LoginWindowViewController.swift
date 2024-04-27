@@ -53,6 +53,9 @@ class LoginWindowViewController: NSViewController {
                 return
             }
             print("asyncRequestGmailAuth succeeded")
+            // TODO: use completion handler instead of assuming it is always successful,
+            // use (NSWorkspace.shared.open(URL(string: uri!)!, configuration: NSWorkspace.OpenConfiguration) for this.
+            // TODO: we can also possibly track completion of the browser.
             NSWorkspace.shared.open(URL(string: uri!)!)
             core.asyncWaitAuthDone { succeded, creds in
                 if !succeded {
@@ -61,6 +64,11 @@ class LoginWindowViewController: NSViewController {
                     return
                 }
                 print("got creds, lets test them next")
+
+                NSRunningApplication.current.activate(options: [
+                    .activateAllWindows, .activateIgnoringOtherApps,
+                ])
+
                 core.asyncTestCreds(creds) { succeded in
                     if !succeded {
                         print("ERROR: asyncTestCreds failed")

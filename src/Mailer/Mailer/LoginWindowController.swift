@@ -11,7 +11,7 @@ protocol LoginWindowControllerDelegate: AnyObject {
     func viewControllerCreated(instance: LoginWindowViewController)
 }
 
-class LoginWindowController: NSWindowController {
+class LoginWindowController: NSWindowController, NSWindowDelegate {
     weak var delegate: LoginWindowControllerDelegate?
 
     convenience init() {
